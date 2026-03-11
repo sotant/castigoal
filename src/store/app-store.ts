@@ -1,0 +1,403 @@
+import { create } from 'zustand';
+
+import { createAppError } from '@/src/lib/app-error';
+import {
+  AssignedPunishmentDetail,
+  Goal,
+  GoalCalendarDay,
+  GoalDetailSummary,
+  GoalEvaluation,
+  HomeSummary,
+  Punishment,
+  StatsSummary,
+  User,
+  UserSettings,
+} from '@/src/models/types';
+import { GoalInput, loadGoalCalendarMonth, loadGoalEvaluations, loadHomeSummary, loadStatsSummary, resetUserData } from '@/src/repositories/app-repository';
+import { bootstrapAppSession } from '@/src/use-cases/bootstrap-app';
+import {
+  createGoalUseCase,
+  deleteGoalUseCase,
+  loadGoalDetailSummaryUseCase,
+  recordGoalCheckinUseCase,
+  toggleGoalActiveUseCase,
+  updateGoalUseCase,
+} from '@/src/use-cases/goal-actions';
+import {
+  addCustomPunishmentUseCase,
+  completeAssignedPunishmentUseCase,
+  deleteCustomPunishmentUseCase,
+  loadAssignedPunishmentDetailUseCase,
+  loadPunishmentCatalogUseCase,
+  updateCustomPunishmentUseCase,
+} from '@/src/use-cases/punishment-actions';
+import { updateSettingsUseCase } from '@/src/use-cases/settings-actions';
+
+interface AppState {
+  hydrated: boolean;
+  user: User;
+  goals: Goal[];
+  punishments: Punishment[];
+  punishmentsLoaded: boolean;
+  goalEvaluations: Record<string, GoalEvaluation>;
+  goalDetails: Record<string, GoalDetailSummary>;
+  homeSummary: HomeSummary;
+  statsSummary: StatsSummary;
+  statsLoaded: boolean;
+  statsCalendars: Record<string, GoalCalendarDay[]>;
+  assignedPunishmentDetails: Record<string, AssignedPunishmentDetail>;
+  userSettings: UserSettings;
+  initializeApp: () => Promise<void>;
+  clearRemoteState: () => void;
+  completeOnboarding: (name: string) => void;
+  createGoal: (input: GoalInput) => Promise<string>;
+  updateGoal: (goalId: string, input: GoalInput) => Promise<void>;
+  deleteGoal: (goalId: string) => Promise<void>;
+  toggleGoalActive: (goalId: string) => Promise<void>;
+  refreshGoalEvaluations: (referenceDate?: string) => Promise<void>;
+  refreshHomeSummary: () => Promise<void>;
+  refreshStatsSummary: (referenceDate?: string) => Promise<void>;
+  refreshPunishmentCatalog: () => Promise<void>;
+  loadGoalDetail: (goalId: string) => Promise<void>;
+  loadStatsCalendar: (goalId: string, monthStart: string) => Promise<void>;
+  loadAssignedPunishmentDetail: (assignedId: string) => Promise<void>;
+  recordCheckin: (input: {
+    goalId: string;
+    date?: string;
+    status: 'completed' | 'missed';
+    note?: string;
+  }) => Promise<Awaited<ReturnType<typeof recordGoalCheckinUseCase>>>;
+  completeAssignedPunishment: (assignedId: string) => Promise<void>;
+  addCustomPunishment: (input: Omit<Punishment, 'id' | 'scope'>) => Promise<void>;
+  updateCustomPunishment: (punishmentId: string, input: Omit<Punishment, 'id' | 'scope'>) => Promise<void>;
+  deleteCustomPunishment: (punishmentId: string) => Promise<void>;
+  updateSettings: (input: Partial<UserSettings>) => Promise<void>;
+  hydrateUser: (input: Partial<User> & Pick<User, 'id'>) => void;
+  resetApp: () => Promise<void>;
+  setHydrated: (hydrated: boolean) => void;
+}
+
+const defaultUser: User = {
+  id: 'user-main',
+  name: '',
+  onboardingCompleted: false,
+  createdAt: new Date().toISOString(),
+};
+
+const defaultSettings: UserSettings = {
+  remindersEnabled: true,
+  reminderHour: 20,
+  reminderMinute: 0,
+  pendingPunishmentReminderEnabled: true,
+};
+
+const defaultHomeSummary: HomeSummary = {
+  activeGoalsCount: 0,
+  pendingPunishmentsCount: 0,
+  goalSummaries: [],
+};
+
+const defaultStatsSummary: StatsSummary = {
+  averageRate: 0,
+  completionRatio: 0,
+  goalsActiveCount: 0,
+  completedPunishments: 0,
+};
+
+const EMPTY_CALENDAR_DAYS: GoalCalendarDay[] = [];
+
+const initialState = {
+  hydrated: false,
+  user: defaultUser,
+  goals: [] as Goal[],
+  punishments: [] as Punishment[],
+  punishmentsLoaded: false,
+  goalEvaluations: {} as Record<string, GoalEvaluation>,
+  goalDetails: {} as Record<string, GoalDetailSummary>,
+  homeSummary: defaultHomeSummary,
+  statsSummary: defaultStatsSummary,
+  statsLoaded: false,
+  statsCalendars: {} as Record<string, GoalCalendarDay[]>,
+  assignedPunishmentDetails: {} as Record<string, AssignedPunishmentDetail>,
+  userSettings: defaultSettings,
+};
+
+function buildCalendarKey(goalId: string, monthStart: string) {
+  return `${goalId}:${monthStart}`;
+}
+
+export const useAppStore = create<AppState>()((set, get) => ({
+  ...initialState,
+  setHydrated: (hydrated) => set({ hydrated }),
+  clearRemoteState: () =>
+    set({
+      ...initialState,
+      hydrated: true,
+    }),
+  initializeApp: async () => {
+    set({ hydrated: false });
+
+    const snapshot = await bootstrapAppSession();
+
+    if (!snapshot) {
+      get().clearRemoteState();
+      return;
+    }
+
+    set({
+      ...initialState,
+      ...snapshot,
+      hydrated: true,
+    });
+  },
+  completeOnboarding: (name) =>
+    set((state) => ({
+      user: {
+        ...state.user,
+        name: name.trim(),
+        onboardingCompleted: true,
+      },
+    })),
+  createGoal: async (input) => {
+    const result = await createGoalUseCase(input);
+    set((state) => ({
+      goals: [result.goal, ...state.goals],
+      goalEvaluations: result.goalEvaluations,
+      homeSummary: result.homeSummary,
+    }));
+    return result.goal.id;
+  },
+  updateGoal: async (goalId, input) => {
+    const result = await updateGoalUseCase(goalId, input);
+    set((state) => ({
+      goals: state.goals.map((item) => (item.id === goalId ? result.goal : item)),
+      goalEvaluations: result.goalEvaluations,
+      homeSummary: result.homeSummary,
+      goalDetails: state.goalDetails[goalId]
+        ? {
+            ...state.goalDetails,
+            [goalId]: {
+              ...state.goalDetails[goalId],
+              evaluation: result.goalEvaluations[goalId] ?? state.goalDetails[goalId].evaluation,
+            },
+          }
+        : state.goalDetails,
+    }));
+  },
+  deleteGoal: async (goalId) => {
+    const result = await deleteGoalUseCase(goalId);
+
+    set((state) => {
+      const nextCalendars = { ...state.statsCalendars };
+      const nextGoalDetails = { ...state.goalDetails };
+      const nextAssignedDetails = Object.fromEntries(
+        Object.entries(state.assignedPunishmentDetails).filter(([, detail]) => detail.assigned.goalId !== goalId),
+      );
+
+      delete nextGoalDetails[goalId];
+      Object.keys(nextCalendars).forEach((key) => {
+        if (key.startsWith(`${goalId}:`)) {
+          delete nextCalendars[key];
+        }
+      });
+
+      return {
+        goals: state.goals.filter((goal) => goal.id !== result.goalId),
+        goalEvaluations: result.goalEvaluations,
+        goalDetails: nextGoalDetails,
+        assignedPunishmentDetails: nextAssignedDetails,
+        homeSummary: result.homeSummary,
+        statsCalendars: nextCalendars,
+      };
+    });
+  },
+  toggleGoalActive: async (goalId) => {
+    const goal = get().goals.find((item) => item.id === goalId);
+
+    if (!goal) {
+      return;
+    }
+
+    const result = await toggleGoalActiveUseCase(goalId, !goal.active);
+    set((state) => ({
+      goals: state.goals.map((item) => (item.id === goalId ? result.goal : item)),
+      goalEvaluations: result.goalEvaluations,
+      homeSummary: result.homeSummary,
+      goalDetails: state.goalDetails[goalId]
+        ? {
+            ...state.goalDetails,
+            [goalId]: {
+              ...state.goalDetails[goalId],
+              evaluation: result.goalEvaluations[goalId] ?? state.goalDetails[goalId].evaluation,
+            },
+          }
+        : state.goalDetails,
+    }));
+  },
+  refreshGoalEvaluations: async (referenceDate) => {
+    const goalEvaluations = await loadGoalEvaluations(referenceDate);
+    set({ goalEvaluations });
+  },
+  refreshHomeSummary: async () => {
+    const homeSummary = await loadHomeSummary();
+    set({ homeSummary });
+  },
+  refreshStatsSummary: async (referenceDate) => {
+    const statsSummary = await loadStatsSummary(referenceDate);
+    set({ statsSummary, statsLoaded: true });
+  },
+  refreshPunishmentCatalog: async () => {
+    const punishments = await loadPunishmentCatalogUseCase();
+    set({ punishments, punishmentsLoaded: true });
+  },
+  loadGoalDetail: async (goalId) => {
+    const goal = get().goals.find((item) => item.id === goalId);
+
+    if (!goal) {
+      return;
+    }
+
+    const detail = await loadGoalDetailSummaryUseCase(goal, get().goalEvaluations[goalId]);
+    set((state) => ({
+      goalDetails: {
+        ...state.goalDetails,
+        [goalId]: detail,
+      },
+    }));
+  },
+  loadStatsCalendar: async (goalId, monthStart) => {
+    const days = await loadGoalCalendarMonth(goalId, monthStart);
+    set((state) => ({
+      statsCalendars: {
+        ...state.statsCalendars,
+        [buildCalendarKey(goalId, monthStart)]: days,
+      },
+    }));
+  },
+  loadAssignedPunishmentDetail: async (assignedId) => {
+    const detail = await loadAssignedPunishmentDetailUseCase(assignedId);
+    set((state) => {
+      const nextDetails = { ...state.assignedPunishmentDetails };
+
+      if (detail) {
+        nextDetails[assignedId] = detail;
+      } else {
+        delete nextDetails[assignedId];
+      }
+
+      return {
+        assignedPunishmentDetails: nextDetails,
+      };
+    });
+  },
+  recordCheckin: async (input) => {
+    const result = await recordGoalCheckinUseCase(input);
+    const goal = get().goals.find((item) => item.id === input.goalId);
+
+    set((state) => ({
+      goalEvaluations: {
+        ...state.goalEvaluations,
+        [result.evaluation.goalId]: result.evaluation,
+      },
+      homeSummary: result.homeSummary,
+      statsSummary: result.statsSummary,
+      statsLoaded: true,
+      assignedPunishmentDetails:
+        result.assignedPunishment && state.assignedPunishmentDetails[result.assignedPunishment.id]
+          ? {
+              ...state.assignedPunishmentDetails,
+              [result.assignedPunishment.id]: {
+                ...state.assignedPunishmentDetails[result.assignedPunishment.id],
+                assigned: result.assignedPunishment,
+              },
+            }
+          : state.assignedPunishmentDetails,
+    }));
+
+    if (goal && get().goalDetails[input.goalId]) {
+      const detail = await loadGoalDetailSummaryUseCase(goal, result.evaluation);
+      set((state) => ({
+        goalDetails: {
+          ...state.goalDetails,
+          [goal.id]: detail,
+        },
+      }));
+    }
+
+    return result;
+  },
+  completeAssignedPunishment: async (assignedId) => {
+    const result = await completeAssignedPunishmentUseCase(assignedId);
+    set((state) => ({
+      homeSummary: result.homeSummary,
+      statsSummary: result.statsSummary,
+      statsLoaded: true,
+      assignedPunishmentDetails: state.assignedPunishmentDetails[assignedId]
+        ? {
+            ...state.assignedPunishmentDetails,
+            [assignedId]: {
+              ...state.assignedPunishmentDetails[assignedId],
+              assigned: result.assigned,
+            },
+          }
+        : state.assignedPunishmentDetails,
+    }));
+  },
+  addCustomPunishment: async (input) => {
+    const punishments = await addCustomPunishmentUseCase(input);
+    set({ punishments, punishmentsLoaded: true });
+  },
+  updateCustomPunishment: async (punishmentId, input) => {
+    const current = get().punishments.find((item) => item.id === punishmentId);
+
+    if (!current || current.scope !== 'personal') {
+      throw createAppError('Solo se pueden editar castigos personalizados.', 'PUNISHMENT_EDIT_NOT_ALLOWED');
+    }
+
+    const punishments = await updateCustomPunishmentUseCase(punishmentId, input);
+    set({ punishments, punishmentsLoaded: true });
+    await get().refreshHomeSummary();
+  },
+  deleteCustomPunishment: async (punishmentId) => {
+    const current = get().punishments.find((item) => item.id === punishmentId);
+
+    if (!current || current.scope !== 'personal') {
+      throw createAppError('Solo se pueden borrar castigos personalizados.', 'PUNISHMENT_DELETE_NOT_ALLOWED');
+    }
+
+    const punishments = await deleteCustomPunishmentUseCase(punishmentId);
+    set({ punishments, punishmentsLoaded: true });
+    await get().refreshHomeSummary();
+  },
+  updateSettings: async (input) => {
+    const userSettings = await updateSettingsUseCase(get().userSettings, input);
+    set({ userSettings });
+  },
+  hydrateUser: (input) =>
+    set((state) => ({
+      user: {
+        ...state.user,
+        ...input,
+      },
+    })),
+  resetApp: async () => {
+    await resetUserData();
+    await get().initializeApp();
+  },
+}));
+
+export function selectGoal(goalId: string) {
+  return (state: AppState) => state.goals.find((goal) => goal.id === goalId);
+}
+
+export function selectGoalDetail(goalId: string) {
+  return (state: AppState) => state.goalDetails[goalId];
+}
+
+export function selectAssignedPunishmentDetail(assignedId: string) {
+  return (state: AppState) => state.assignedPunishmentDetails[assignedId];
+}
+
+export function selectStatsCalendar(goalId: string, monthStart: string) {
+  return (state: AppState) => state.statsCalendars[buildCalendarKey(goalId, monthStart)] ?? EMPTY_CALENDAR_DAYS;
+}

@@ -1,50 +1,127 @@
-# Welcome to your Expo app 👋
+# Castigoal
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+App movil de disciplina personal construida con React Native, Expo y TypeScript. El MVP permite crear objetivos, registrar check-ins diarios, evaluar cumplimiento sobre una ventana de dias objetivo y asignar castigos aleatorios cuando el usuario cae por debajo del minimo definido.
 
-## Get started
+## Stack
 
-1. Install dependencies
+- Expo Router sobre React Navigation
+- React Native + TypeScript estricto
+- Zustand para estado global
+- AsyncStorage para cache auxiliar local
+- Supabase Auth + Postgres para autenticacion y backend remoto
+- Expo Notifications para recordatorios diarios
+- Expo Secure Store para persistencia segura de sesion
 
-   ```bash
-   npm install
-   ```
+## Arquitectura
 
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```text
+app
+  (tabs)
+  checkin
+  goals
+  punishments
+src
+  components
+  constants
+  features
+  hooks
+  lib
+  models
+  navigation
+  providers
+  screens
+  services
+  store
+  utils
+supabase
+  functions
+  migrations
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### Capas
 
-## Learn more
+- `app/`: rutas y composicion de navegacion con Expo Router.
+- `src/screens/`: pantallas sin logica de persistencia.
+- `src/components/`: piezas UI reutilizables.
+- `src/store/`: estado global y acciones del dominio.
+- `src/lib/`: cliente y tipos de Supabase.
+- `src/providers/`: contexto de autenticacion.
+- `src/utils/`: reglas de negocio y helpers puros.
+- `src/services/`: adaptadores de almacenamiento y notificaciones.
+- `supabase/functions/`: funciones seguras del lado servidor.
 
-To learn more about developing your project with Expo, look at the following resources:
+## Modelos principales
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+- `User`
+- `Goal`
+- `Checkin`
+- `Punishment`
+- `AssignedPunishment`
+- `UserSettings`
 
-## Join the community
+Se definen en [src/models/types.ts](./src/models/types.ts).
 
-Join our community of developers creating universal apps.
+## Flujo del producto
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+1. Onboarding rapido.
+2. Crear objetivo con dias objetivo y minimo requerido.
+3. Hacer check-in diario.
+4. Evaluar cumplimiento sobre la ventana actual.
+5. Si el porcentaje cae por debajo del minimo, asignar castigo aleatorio.
+6. Completar castigo y revisar estadisticas e historial.
+
+## Funciones clave de negocio
+
+Se implementan en [src/utils/goal-evaluation.ts](./src/utils/goal-evaluation.ts):
+
+- `calculateCompletionRate`
+- `getGoalCheckins`
+- `evaluateGoalPeriod`
+- `generateRandomPunishment`
+- `assignPunishment`
+- `completePunishment`
+- `getCurrentStreak`
+- `getBestStreak`
+
+## Ejecutar el proyecto
+
+```bash
+npm install
+npx expo start
+```
+
+Atajos:
+
+- `npm run android`
+- `npm run ios`
+- `npm run web`
+- `npm run build:android:preview`
+- `npm run build:android`
+
+## Notas del MVP
+
+- La evaluacion usa una ventana movil de `targetDays`, respetando la `startDate` del objetivo.
+- La autenticacion por email/password ya esta preparada con Supabase.
+- La base remota de Supabase ya incluye `profiles`, `user_settings`, `goals`, `checkins`, `punishments`, `assigned_punishments` y `goal_period_outcomes` con RLS.
+- El estado de dominio se hidrata desde Supabase y Zustand actua como cache y capa de UI.
+- Las notificaciones se programan al hidratar el store y al cambiar ajustes.
+- La app incluye una ruta publica `/privacy` y un flujo de eliminacion completa de cuenta.
+
+## Publicacion Android
+
+- `app.json` incluye `android.package` y `versionCode`.
+- `eas.json` incluye perfiles `preview` y `production`.
+- Existe una Edge Function `delete-account` para cumplir el borrado de cuenta exigido por Google Play.
+- La politica de privacidad base vive en `docs/privacy-policy.md` y la app expone una ruta `app/privacy.tsx`.
+
+Guia operativa:
+
+- `docs/google-play-release.md`
+
+## Siguientes pasos recomendados
+
+1. Publicar la politica de privacidad en una URL publica real.
+2. Configurar `EXPO_PUBLIC_SUPABASE_URL` y `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` en EAS.
+3. Desplegar la Edge Function `delete-account` en Supabase.
+4. Anadir deep linking para recuperacion de password y verificacion de email si quieres una experiencia movil completa.
+5. Incorporar tests unitarios para `goal-evaluation` y tests de pantalla.

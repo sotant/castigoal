@@ -1,0 +1,86 @@
+export type CheckinStatus = 'completed' | 'missed';
+export type PunishmentCategory =
+  | 'physical'
+  | 'productive'
+  | 'financial'
+  | 'domestic'
+  | 'custom';
+export type PunishmentScope = 'base' | 'personal';
+export type AssignedPunishmentStatus = 'pending' | 'completed';
+
+export interface User {
+  id: string;
+  name: string;
+  onboardingCompleted: boolean;
+  createdAt: string;
+}
+
+export interface Goal {
+  id: string;
+  title: string;
+  description?: string;
+  startDate: string;
+  targetDays: number;
+  minimumSuccessRate: number;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Checkin {
+  id: string;
+  goalId: string;
+  date: string;
+  status: CheckinStatus;
+  note?: string;
+  createdAt: string;
+}
+
+export interface Punishment {
+  id: string;
+  title: string;
+  description: string;
+  category: PunishmentCategory;
+  difficulty: 1 | 2 | 3;
+  scope: PunishmentScope;
+}
+
+export interface AssignedPunishment {
+  id: string;
+  goalId: string;
+  punishmentId: string;
+  assignedAt: string;
+  dueDate: string;
+  status: AssignedPunishmentStatus;
+  completedAt?: string;
+  periodKey: string;
+}
+
+export interface UserSettings {
+  remindersEnabled: boolean;
+  reminderHour: number;
+  reminderMinute: number;
+  pendingPunishmentReminderEnabled: boolean;
+}
+
+export interface GoalEvaluation {
+  goalId: string;
+  periodKey: string;
+  windowStart: string;
+  windowEnd: string;
+  plannedDays: number;
+  completedDays: number;
+  completionRate: number;
+  passed: boolean;
+}
+
+export type {
+  AppBootstrapData,
+  AssignedPunishmentDetail,
+  GoalCalendarDay,
+  GoalDetailSummary,
+  HomeGoalSummary,
+  HomeSummary,
+  PendingPunishmentPreview,
+  StatsSummary,
+} from '@/src/contracts/derived-data';

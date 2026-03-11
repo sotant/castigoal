@@ -1,33 +1,60 @@
+import { Feather } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
-import React from 'react';
-
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
         headerShown: false,
-        tabBarButton: HapticTab,
+        animation: 'shift',
+        tabBarActiveTintColor: '#0F766E',
+        tabBarInactiveTintColor: '#425466',
+        tabBarStyle: {
+          height: 72,
+          paddingTop: 8,
+          paddingBottom: 10,
+          backgroundColor: '#FFFFFF',
+        },
       }}>
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          href: null,
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="home"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          title: 'Hoy',
+          tabBarIcon: ({ color, size }) => <Feather name="target" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="goals"
+        options={{
+          title: 'Objetivos',
+          tabBarIcon: ({ color, size }) => <Feather name="list" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="punishments"
+        options={{
+          title: 'Castigos',
+          tabBarIcon: ({ color, size }) => <Feather name="alert-triangle" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="stats"
+        options={{
+          title: 'Stats',
+          tabBarIcon: ({ color, size }) => <Feather name="bar-chart-2" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: 'Ajustes',
+          tabBarIcon: ({ color, size }) => <Feather name="settings" size={size} color={color} />,
         }}
       />
     </Tabs>
