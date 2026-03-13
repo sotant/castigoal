@@ -29,6 +29,8 @@ export function SettingsScreen() {
   );
   const [openField, setOpenField] = useState<TimeField | null>(null);
   const [accountAction, setAccountAction] = useState<'delete' | 'signout' | null>(null);
+  const [deleteAccountModalVisible, setDeleteAccountModalVisible] = useState(false);
+  const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
 
   const hourOptions = useMemo<ComboOption[]>(
     () =>
@@ -70,31 +72,74 @@ export function SettingsScreen() {
   };
 
   const handleDeleteAccount = () => {
-    Alert.alert(
-      'Borrar cuenta',
-      'Se eliminara tu cuenta, tu perfil y tus datos sincronizados en Supabase. Esta accion no se puede deshacer.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Borrar cuenta',
-          style: 'destructive',
-          onPress: () => {
-            setAccountAction('delete');
-            void deleteAccount()
-              .catch((error) => {
-                Alert.alert('No se pudo borrar la cuenta', getErrorMessage(error));
-              })
-              .finally(() => {
-                setAccountAction(null);
-              });
-          },
-        },
-      ],
-    );
+    setDeleteAccountError(null);
+    setDeleteAccountModalVisible(true);
+  };
+
+  const closeDeleteAccountModal = () => {
+    if (accountAction === 'delete') {
+      return;
+    }
+
+    setDeleteAccountModalVisible(false);
+    setDeleteAccountError(null);
+  };
+
+  const confirmDeleteAccount = async () => {
+    try {
+      setAccountAction('delete');
+      setDeleteAccountError(null);
+      await deleteAccount();
+    } catch (error) {
+      setDeleteAccountError(getErrorMessage(error));
+    } finally {
+      setAccountAction(null);
+    }
   };
 
   return (
     <ScreenContainer title="Ajustes" subtitle="Recordatorios y acciones de mantenimiento.">
+      <Modal
+        animationType="fade"
+        transparent
+        visible={deleteAccountModalVisible}
+        onRequestClose={closeDeleteAccountModal}>
+        <View style={styles.modalOverlay}>
+          <Pressable
+            disabled={accountAction === 'delete'}
+            style={styles.modalBackdrop}
+            onPress={closeDeleteAccountModal}
+          />
+
+          <View style={styles.modalCard}>
+            <Text style={styles.modalEyebrow}>Privacidad y cuenta</Text>
+            <Text style={styles.modalTitle}>Eliminar cuenta</Text>
+            <Text style={styles.modalDescription}>
+              {'Se eliminar\u00e1 tu cuenta, tu perfil y tus datos sincronizados en la base de datos. Esta acci\u00f3n no se puede deshacer.'}
+            </Text>
+            {deleteAccountError ? <Text style={styles.modalError}>{deleteAccountError}</Text> : null}
+            <View style={styles.modalActions}>
+              <Pressable
+                disabled={accountAction === 'delete'}
+                onPress={closeDeleteAccountModal}
+                style={[styles.modalSecondaryButton, accountAction === 'delete' && styles.disabled]}>
+                <Text style={styles.secondaryLabel}>Cancelar</Text>
+              </Pressable>
+              <Pressable
+                disabled={accountAction === 'delete'}
+                onPress={() => {
+                  void confirmDeleteAccount();
+                }}
+                style={[styles.modalDangerButton, accountAction === 'delete' && styles.disabled]}>
+                <Text style={styles.modalDangerLabel}>
+                  {accountAction === 'delete' ? 'Borrando...' : 'Borrar cuenta'}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>Recordatorios</Text>
         <View style={styles.settingRow}>
@@ -273,6 +318,70 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'flex-end',
     backgroundColor: 'rgba(11, 23, 38, 0.45)',
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: spacing.md,
+    backgroundColor: 'rgba(11, 23, 38, 0.45)',
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  modalCard: {
+    padding: spacing.lg,
+    borderRadius: radius.lg,
+    backgroundColor: palette.snow,
+    gap: spacing.sm,
+  },
+  modalEyebrow: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: palette.accent,
+    textTransform: 'uppercase',
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: palette.ink,
+  },
+  modalDescription: {
+    color: palette.slate,
+    lineHeight: 22,
+  },
+  modalError: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.md,
+    backgroundColor: '#FEE2E2',
+    color: '#991B1B',
+    fontWeight: '600',
+    lineHeight: 20,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  modalSecondaryButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: palette.line,
+    backgroundColor: palette.snow,
+  },
+  modalDangerButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    backgroundColor: '#B91C1C',
+  },
+  modalDangerLabel: {
+    color: palette.snow,
+    fontWeight: '800',
   },
   backdrop: {
     flex: 1,

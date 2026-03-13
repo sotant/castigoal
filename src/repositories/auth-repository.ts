@@ -166,8 +166,24 @@ export async function signOut(): Promise<void> {
 }
 
 export async function deleteCurrentAccount(): Promise<void> {
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+
+  if (sessionError || !session?.access_token) {
+    throw normalizeRepositoryError(sessionError ?? new Error('No active session'), {
+      authMessage: 'Necesitas iniciar sesion para borrar tu cuenta.',
+      code: 'AUTH_DELETE_ACCOUNT_FAILED',
+      fallback: 'No se pudo borrar tu cuenta.',
+    });
+  }
+
   const { error } = await supabase.functions.invoke('delete-account', {
     body: {},
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+    },
   });
 
   if (error) {

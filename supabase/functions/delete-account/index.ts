@@ -13,6 +13,22 @@ function jsonResponse(status: number, body: Record<string, unknown>) {
   });
 }
 
+function getBearerToken(req: Request) {
+  const authorization = req.headers.get('Authorization');
+
+  if (!authorization) {
+    throw new Error('Missing Authorization header');
+  }
+
+  const [scheme, token] = authorization.split(' ');
+
+  if (scheme?.toLowerCase() !== 'bearer' || !token) {
+    throw new Error("Authorization header must use the format 'Bearer <token>'");
+  }
+
+  return token;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', {
@@ -26,53 +42,68 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  const authorization = req.headers.get('Authorization');
+  const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+  const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
-  if (!authorization) {
-    return jsonResponse(401, {
-      error: 'Falta la cabecera de autorizacion.',
+  if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceRoleKey) {
+    console.error('delete-account: missing environment variables');
+    return jsonResponse(500, {
+      error: 'La funcion no esta configurada correctamente.',
     });
   }
 
-  const supabaseAuth = createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-    {
-      global: {
-        headers: {
-          Authorization: authorization,
-        },
-      },
-    },
-  );
+  let token: string;
 
-  const supabaseAdmin = createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-  );
-
-  const token = authorization.replace(/^Bearer\s+/i, '');
-  const {
-    data: { user },
-    error: authError,
-  } = await supabaseAuth.auth.getUser(token);
-
-  if (authError || !user) {
+  try {
+    token = getBearerToken(req);
+  } catch (authError) {
     return jsonResponse(401, {
       error: 'No se pudo validar la sesion actual.',
+      details: authError instanceof Error ? authError.message : 'Invalid authorization header',
     });
   }
 
-  const { error: deleteUserError } = await supabaseAdmin.auth.admin.deleteUser(user.id);
+  try {
+    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey);
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey);
 
-  if (deleteUserError) {
+    const {
+      data: { user },
+      error: getUserError,
+    } = await supabaseAuth.auth.getUser(token);
+
+    if (getUserError || !user) {
+      console.error('delete-account: invalid user token', getUserError);
+      return jsonResponse(401, {
+        error: 'No se pudo validar la sesion actual.',
+        details: getUserError?.message ?? 'Invalid JWT',
+      });
+    }
+
+    console.info(`delete-account: deleting user ${user.id}`);
+
+    const { error: deleteUserError } = await supabaseAdmin.auth.admin.deleteUser(user.id);
+
+    if (deleteUserError) {
+      console.error('delete-account: auth.admin.deleteUser failed', deleteUserError);
+      return jsonResponse(500, {
+        error: 'No se pudo borrar la cuenta.',
+        details: deleteUserError.message,
+      });
+    }
+
+    console.info(`delete-account: deleted user ${user.id}`);
+
+    return jsonResponse(200, {
+      success: true,
+      userId: user.id,
+    });
+  } catch (error) {
+    console.error('delete-account: unexpected failure', error);
     return jsonResponse(500, {
-      error: 'No se pudo borrar la cuenta en Supabase.',
-      details: deleteUserError.message,
+      error: 'Ha fallado el borrado de la cuenta.',
+      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
-
-  return jsonResponse(200, {
-    success: true,
-  });
 });

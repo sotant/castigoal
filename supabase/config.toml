@@ -1,5 +1,5 @@
 [functions.delete-account]
-verify_jwt = true
+verify_jwt = false
 
 [functions.request-password-reset]
 verify_jwt = false
