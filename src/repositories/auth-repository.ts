@@ -75,6 +75,84 @@ export async function signUpWithEmail(email: string, password: string, displayNa
   return response;
 }
 
+export async function requestPasswordReset(email: string, redirectTo: string): Promise<void> {
+  const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+    redirectTo,
+  });
+
+  if (error) {
+    throw normalizeRepositoryError(error, {
+      authMessage: 'No se pudo iniciar la recuperacion de contrasena.',
+      code: 'AUTH_PASSWORD_RESET_REQUEST_FAILED',
+      fallback: 'No se pudo iniciar la recuperacion de contrasena.',
+    });
+  }
+}
+
+export async function requestValidatedPasswordReset(email: string, redirectTo: string): Promise<void> {
+  const { error } = await supabase.functions.invoke('request-password-reset', {
+    body: {
+      email: email.trim(),
+      redirectTo,
+    },
+  });
+
+  if (error) {
+    if (error instanceof FunctionsHttpError) {
+      const payload = await error.context.json().catch(() => null);
+      const message =
+        payload && typeof payload === 'object' && 'error' in payload && typeof payload.error === 'string'
+          ? payload.error
+          : error.message;
+
+      throw normalizeRepositoryError(
+        {
+          message,
+          status: error.context.status,
+        },
+        {
+          authMessage: 'No se pudo iniciar la recuperacion de contrasena.',
+          code: 'AUTH_PASSWORD_RESET_REQUEST_FAILED',
+          fallback: 'No se pudo iniciar la recuperacion de contrasena.',
+        },
+      );
+    }
+
+    throw normalizeRepositoryError(error, {
+      authMessage: 'No se pudo iniciar la recuperacion de contrasena.',
+      code: 'AUTH_PASSWORD_RESET_REQUEST_FAILED',
+      fallback: 'No se pudo iniciar la recuperacion de contrasena.',
+    });
+  }
+}
+
+export async function setRecoverySession(accessToken: string, refreshToken: string): Promise<void> {
+  const { error } = await supabase.auth.setSession({
+    access_token: accessToken,
+    refresh_token: refreshToken,
+  });
+
+  if (error) {
+    throw normalizeRepositoryError(error, {
+      authMessage: 'El enlace de recuperacion no es valido o ha caducado.',
+      code: 'AUTH_RECOVERY_SESSION_FAILED',
+      fallback: 'No se pudo validar el enlace de recuperacion.',
+    });
+  }
+}
+
+export async function updatePassword(password: string): Promise<void> {
+  const { error } = await supabase.auth.updateUser({ password });
+
+  if (error) {
+    throw normalizeRepositoryError(error, {
+      authMessage: 'No se pudo actualizar la contrasena.',
+      code: 'AUTH_PASSWORD_UPDATE_FAILED',
+      fallback: 'No se pudo actualizar la contrasena.',
+    });
+  }
+}
+
 export async function signOut(): Promise<void> {
   const { error } = await supabase.auth.signOut();
 

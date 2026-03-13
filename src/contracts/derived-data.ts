@@ -22,6 +22,28 @@ export interface PendingPunishmentPreview {
   punishment: Punishment;
 }
 
+export interface PendingAssignedPunishmentSummary {
+  assignedId: string;
+  goalId: string;
+  goalTitle: string;
+  punishmentId: string;
+  assignedAt: string;
+  dueDate: string;
+  status: AssignedPunishment['status'];
+  punishment: Punishment;
+}
+
+export interface CompletedPunishmentHistoryEntry {
+  id: string;
+  assignedPunishmentId?: string;
+  goalId?: string;
+  goalTitle?: string;
+  punishmentId?: string;
+  punishmentTitle: string;
+  punishmentDescription: string;
+  completedAt: string;
+}
+
 export interface HomeSummary {
   activeGoalsCount: number;
   pendingPunishmentsCount: number;

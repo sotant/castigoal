@@ -5,11 +5,13 @@ import {
   AppBootstrapData,
   AssignedPunishment,
   Checkin,
+  CompletedPunishmentHistoryEntry,
   Goal,
   GoalCalendarDay,
   GoalEvaluation,
   HomeGoalSummary,
   HomeSummary,
+  PendingAssignedPunishmentSummary,
   PendingPunishmentPreview,
   Punishment,
   StatsSummary,
@@ -21,6 +23,7 @@ type CheckinRow = Tables<'checkins'>;
 type AssignedPunishmentRow = Tables<'assigned_punishments'>;
 type PunishmentRow = Tables<'punishments'>;
 type UserSettingsRow = Tables<'user_settings'>;
+type PunishmentCompletionHistoryRow = Tables<'punishment_completion_history'>;
 
 type GoalEvaluationRow = {
   completed_days: number;
@@ -109,6 +112,28 @@ type PunishmentCatalogRow = {
   scope: Punishment['scope'];
 };
 
+type PendingAssignedPunishmentRow = {
+  assigned_id: string;
+  goal_id: string;
+  goal_title: string;
+  punishment_id: string;
+  punishment_title: string;
+  punishment_description: string;
+  punishment_category: Punishment['category'];
+  punishment_difficulty: Punishment['difficulty'];
+  punishment_scope: Punishment['scope'];
+  assigned_at: string;
+  due_date: string;
+  status: AssignedPunishment['status'];
+};
+
+type CompletedPunishmentHistoryRow = Pick<
+  PunishmentCompletionHistoryRow,
+  'id' | 'assigned_punishment_id' | 'goal_id' | 'punishment_id' | 'punishment_title' | 'punishment_description' | 'completed_at'
+> & {
+  goal_title: string | null;
+};
+
 export type GoalInput = Pick<
   Goal,
   'title' | 'description' | 'startDate' | 'targetDays' | 'minimumSuccessRate' | 'active'
@@ -184,6 +209,39 @@ function mapAssignedPunishment(row: AssignedPunishmentRow): AssignedPunishment {
     status: row.status as AssignedPunishment['status'],
     completedAt: row.completed_at ?? undefined,
     periodKey: row.period_key,
+  };
+}
+
+function mapPendingAssignedPunishment(row: PendingAssignedPunishmentRow): PendingAssignedPunishmentSummary {
+  return {
+    assignedId: row.assigned_id,
+    goalId: row.goal_id,
+    goalTitle: row.goal_title,
+    punishmentId: row.punishment_id,
+    assignedAt: row.assigned_at,
+    dueDate: row.due_date,
+    status: row.status,
+    punishment: {
+      id: row.punishment_id,
+      title: row.punishment_title,
+      description: row.punishment_description,
+      category: row.punishment_category,
+      difficulty: row.punishment_difficulty,
+      scope: row.punishment_scope,
+    },
+  };
+}
+
+function mapCompletedPunishmentHistoryEntry(row: CompletedPunishmentHistoryRow): CompletedPunishmentHistoryEntry {
+  return {
+    id: row.id,
+    assignedPunishmentId: row.assigned_punishment_id ?? undefined,
+    goalId: row.goal_id ?? undefined,
+    goalTitle: row.goal_title ?? undefined,
+    punishmentId: row.punishment_id ?? undefined,
+    punishmentTitle: row.punishment_title,
+    punishmentDescription: row.punishment_description,
+    completedAt: row.completed_at,
   };
 }
 
@@ -477,6 +535,36 @@ export async function loadPunishmentCatalog() {
   return ((data ?? []) as PunishmentCatalogRow[]).map(mapPunishmentFromCatalog);
 }
 
+export async function loadPendingPunishments() {
+  const { data, error } = await supabase.rpc('list_pending_punishments');
+
+  if (error) {
+    throw normalizeRepositoryError(error, {
+      authMessage: 'No se pudieron cargar los castigos pendientes.',
+      code: 'PENDING_PUNISHMENTS_LOAD_FAILED',
+      fallback: 'No se pudieron cargar los castigos pendientes.',
+    });
+  }
+
+  return ((data ?? []) as PendingAssignedPunishmentRow[]).map(mapPendingAssignedPunishment);
+}
+
+export async function loadCompletedPunishmentHistory(limit = 50) {
+  const { data, error } = await supabase.rpc('list_punishment_completion_history', {
+    p_limit: limit,
+  });
+
+  if (error) {
+    throw normalizeRepositoryError(error, {
+      authMessage: 'No se pudo cargar el historico de castigos cumplidos.',
+      code: 'PUNISHMENT_HISTORY_LOAD_FAILED',
+      fallback: 'No se pudo cargar el historico de castigos cumplidos.',
+    });
+  }
+
+  return ((data ?? []) as CompletedPunishmentHistoryRow[]).map(mapCompletedPunishmentHistoryEntry);
+}
+
 export async function loadBootstrapData(userId: string): Promise<AppBootstrapData> {
   const [goalsResult, evaluations, homeSummary, settingsRow] = await Promise.all([
     supabase.from('goals').select('*').order('created_at', { ascending: false }),
@@ -658,19 +746,10 @@ export async function recordGoalCheckinRecord(input: CheckinInput & { date: stri
   return mapCheckinRpcRow(data as RecordGoalCheckinRow);
 }
 
-export async function completeAssignedPunishmentRecord(
-  assignedId: string,
-  input: Pick<AssignedPunishment, 'completedAt' | 'status'>,
-) {
-  const { data, error } = await supabase
-    .from('assigned_punishments')
-    .update({
-      status: input.status,
-      completed_at: input.completedAt ?? null,
-    })
-    .eq('id', assignedId)
-    .select('*')
-    .single();
+export async function completeAssignedPunishmentRecord(assignedId: string) {
+  const { data, error } = await supabase.rpc('complete_assigned_punishment', {
+    p_assigned_id: assignedId,
+  });
 
   if (error) {
     throw normalizeRepositoryError(error, {
@@ -779,17 +858,27 @@ export async function updateUserSettingsRecord(input: UserSettings) {
 export async function resetUserData() {
   const userId = await getRequiredUserId();
 
+  const historyDelete = supabase.from('punishment_completion_history').delete().eq('user_id', userId);
   const assignedDelete = supabase.from('assigned_punishments').delete().eq('user_id', userId);
   const checkinsDelete = supabase.from('checkins').delete().eq('user_id', userId);
   const goalsDelete = supabase.from('goals').delete().eq('user_id', userId);
   const customPunishmentsDelete = supabase.from('punishments').delete().eq('owner_id', userId);
 
-  const [assignedResult, checkinsResult, goalsResult, customPunishmentsResult] = await Promise.all([
+  const [historyResult, assignedResult, checkinsResult, goalsResult, customPunishmentsResult] = await Promise.all([
+    historyDelete,
     assignedDelete,
     checkinsDelete,
     goalsDelete,
     customPunishmentsDelete,
   ]);
+
+  if (historyResult.error) {
+    throw normalizeRepositoryError(historyResult.error, {
+      authMessage: 'No se pudo borrar el historico de castigos.',
+      code: 'RESET_PUNISHMENT_HISTORY_FAILED',
+      fallback: 'No se pudo borrar el historico de castigos.',
+    });
+  }
 
   if (assignedResult.error) {
     throw normalizeRepositoryError(assignedResult.error, {

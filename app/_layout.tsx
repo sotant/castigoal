@@ -58,13 +58,15 @@ function AuthRedirector() {
   const pathname = usePathname();
   const { isLoading, profile, session } = useAuth();
   const isPrivacyRoute = pathname === appRoutes.privacy;
+  const isResetPasswordRoute = pathname === appRoutes.resetPassword;
+  const isPublicRoute = pathname === appRoutes.auth || isPrivacyRoute || isResetPasswordRoute;
 
   useEffect(() => {
     if (isLoading) {
       return;
     }
 
-    if (!session && pathname !== appRoutes.auth && !isPrivacyRoute) {
+    if (!session && !isPublicRoute) {
       router.replace(appRoutes.auth);
       return;
     }
@@ -81,7 +83,7 @@ function AuthRedirector() {
     ) {
       router.replace(appRoutes.home);
     }
-  }, [isLoading, isPrivacyRoute, pathname, profile?.onboarding_completed, session]);
+  }, [isLoading, isPrivacyRoute, isPublicRoute, pathname, profile?.onboarding_completed, session]);
 
   return null;
 }
@@ -95,6 +97,7 @@ function RootNavigator() {
       <Stack screenOptions={rootStackScreenOptions}>
         <Stack.Screen name="index" />
         <Stack.Screen name="auth" />
+        <Stack.Screen name="reset-password" />
         <Stack.Screen name="privacy" />
         <Stack.Screen name="onboarding" />
         <Stack.Screen name="(tabs)" />

@@ -77,10 +77,12 @@ export interface GoalEvaluation {
 export type {
   AppBootstrapData,
   AssignedPunishmentDetail,
+  CompletedPunishmentHistoryEntry,
   GoalCalendarDay,
   GoalDetailSummary,
   HomeGoalSummary,
   HomeSummary,
+  PendingAssignedPunishmentSummary,
   PendingPunishmentPreview,
   StatsSummary,
 } from '@/src/contracts/derived-data';

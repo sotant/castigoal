@@ -1,5 +1,5 @@
 import { PropsWithChildren, ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Directions, FlingGestureHandler } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Href, router, usePathname } from 'expo-router';
@@ -56,7 +56,7 @@ export function ScreenContainer({
   };
 
   const content = (
-    <View style={styles.body}>
+    <View style={[styles.body, !scroll && styles.bodyFill]}>
       <View style={styles.header}>
         {showBackButton ? (
           <Pressable onPress={handleBack} style={styles.backButton}>
@@ -77,7 +77,21 @@ export function ScreenContainer({
     <FlingGestureHandler direction={Directions.LEFT} onActivated={() => handleTabSwipe('left')}>
       <FlingGestureHandler direction={Directions.RIGHT} onActivated={() => handleTabSwipe('right')}>
         <SafeAreaView edges={['top']} style={styles.safe}>
-          {scroll ? <ScrollView contentContainerStyle={styles.scroll}>{content}</ScrollView> : content}
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? spacing.md : 0}
+            style={styles.keyboardArea}>
+            {scroll ? (
+              <ScrollView
+                contentContainerStyle={styles.scroll}
+                keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+                keyboardShouldPersistTaps="handled">
+                {content}
+              </ScrollView>
+            ) : (
+              content
+            )}
+          </KeyboardAvoidingView>
         </SafeAreaView>
       </FlingGestureHandler>
     </FlingGestureHandler>
@@ -89,13 +103,20 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: palette.cloud,
   },
+  keyboardArea: {
+    flex: 1,
+  },
   scroll: {
+    flexGrow: 1,
     paddingBottom: spacing.xl,
   },
   body: {
     padding: spacing.md,
     paddingTop: spacing.lg,
     gap: spacing.md,
+  },
+  bodyFill: {
+    flex: 1,
   },
   header: {
     gap: spacing.sm,

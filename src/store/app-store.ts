@@ -3,11 +3,13 @@ import { create } from 'zustand';
 import { createAppError } from '@/src/lib/app-error';
 import {
   AssignedPunishmentDetail,
+  CompletedPunishmentHistoryEntry,
   Goal,
   GoalCalendarDay,
   GoalDetailSummary,
   GoalEvaluation,
   HomeSummary,
+  PendingAssignedPunishmentSummary,
   Punishment,
   StatsSummary,
   User,
@@ -29,6 +31,7 @@ import {
   deleteCustomPunishmentUseCase,
   loadAssignedPunishmentDetailUseCase,
   loadPunishmentCatalogUseCase,
+  loadPunishmentHistoryUseCase,
   updateCustomPunishmentUseCase,
 } from '@/src/use-cases/punishment-actions';
 import { updateSettingsUseCase } from '@/src/use-cases/settings-actions';
@@ -39,6 +42,9 @@ interface AppState {
   goals: Goal[];
   punishments: Punishment[];
   punishmentsLoaded: boolean;
+  pendingPunishments: PendingAssignedPunishmentSummary[];
+  completedPunishmentHistory: CompletedPunishmentHistoryEntry[];
+  punishmentHistoryLoaded: boolean;
   goalEvaluations: Record<string, GoalEvaluation>;
   goalDetails: Record<string, GoalDetailSummary>;
   homeSummary: HomeSummary;
@@ -58,6 +64,7 @@ interface AppState {
   refreshHomeSummary: () => Promise<void>;
   refreshStatsSummary: (referenceDate?: string) => Promise<void>;
   refreshPunishmentCatalog: () => Promise<void>;
+  refreshPunishmentHistory: () => Promise<void>;
   loadGoalDetail: (goalId: string) => Promise<void>;
   loadStatsCalendar: (goalId: string, monthStart: string) => Promise<void>;
   loadAssignedPunishmentDetail: (assignedId: string) => Promise<void>;
@@ -112,6 +119,9 @@ const initialState = {
   goals: [] as Goal[],
   punishments: [] as Punishment[],
   punishmentsLoaded: false,
+  pendingPunishments: [] as PendingAssignedPunishmentSummary[],
+  completedPunishmentHistory: [] as CompletedPunishmentHistoryEntry[],
+  punishmentHistoryLoaded: false,
   goalEvaluations: {} as Record<string, GoalEvaluation>,
   goalDetails: {} as Record<string, GoalDetailSummary>,
   homeSummary: defaultHomeSummary,
@@ -250,6 +260,14 @@ export const useAppStore = create<AppState>()((set, get) => ({
     const punishments = await loadPunishmentCatalogUseCase();
     set({ punishments, punishmentsLoaded: true });
   },
+  refreshPunishmentHistory: async () => {
+    const { completedPunishmentHistory, pendingPunishments } = await loadPunishmentHistoryUseCase();
+    set({
+      completedPunishmentHistory,
+      pendingPunishments,
+      punishmentHistoryLoaded: true,
+    });
+  },
   loadGoalDetail: async (goalId) => {
     const goal = get().goals.find((item) => item.id === goalId);
 
@@ -329,7 +347,10 @@ export const useAppStore = create<AppState>()((set, get) => ({
   completeAssignedPunishment: async (assignedId) => {
     const result = await completeAssignedPunishmentUseCase(assignedId);
     set((state) => ({
+      completedPunishmentHistory: result.completedPunishmentHistory,
       homeSummary: result.homeSummary,
+      pendingPunishments: result.pendingPunishments,
+      punishmentHistoryLoaded: true,
       statsSummary: result.statsSummary,
       statsLoaded: true,
       assignedPunishmentDetails: state.assignedPunishmentDetails[assignedId]

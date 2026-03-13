@@ -1,10 +1,19 @@
-import { AssignedPunishment, AssignedPunishmentDetail, Punishment, StatsSummary } from '@/src/models/types';
+import {
+  AssignedPunishment,
+  AssignedPunishmentDetail,
+  CompletedPunishmentHistoryEntry,
+  PendingAssignedPunishmentSummary,
+  Punishment,
+  StatsSummary,
+} from '@/src/models/types';
 import {
   addCustomPunishmentRecord,
   completeAssignedPunishmentRecord,
   deleteCustomPunishmentRecord,
+  loadCompletedPunishmentHistory,
   loadAssignedPunishmentById,
   loadHomeSummary,
+  loadPendingPunishments,
   loadPunishmentById,
   loadPunishmentCatalog,
   loadStatsSummary,
@@ -13,6 +22,21 @@ import {
 
 export async function loadPunishmentCatalogUseCase() {
   return loadPunishmentCatalog();
+}
+
+export async function loadPunishmentHistoryUseCase(): Promise<{
+  completedPunishmentHistory: CompletedPunishmentHistoryEntry[];
+  pendingPunishments: PendingAssignedPunishmentSummary[];
+}> {
+  const [pendingPunishments, completedPunishmentHistory] = await Promise.all([
+    loadPendingPunishments(),
+    loadCompletedPunishmentHistory(),
+  ]);
+
+  return {
+    pendingPunishments,
+    completedPunishmentHistory,
+  };
 }
 
 export async function addCustomPunishmentUseCase(input: Omit<Punishment, 'id' | 'scope'>) {
@@ -51,18 +75,24 @@ export async function loadAssignedPunishmentDetailUseCase(assignedId: string): P
 
 export async function completeAssignedPunishmentUseCase(assignedId: string): Promise<{
   assigned: AssignedPunishment;
+  completedPunishmentHistory: CompletedPunishmentHistoryEntry[];
   homeSummary: Awaited<ReturnType<typeof loadHomeSummary>>;
+  pendingPunishments: PendingAssignedPunishmentSummary[];
   statsSummary: StatsSummary;
 }> {
-  const assigned = await completeAssignedPunishmentRecord(assignedId, {
-    completedAt: new Date().toISOString(),
-    status: 'completed',
-  });
-  const [homeSummary, statsSummary] = await Promise.all([loadHomeSummary(), loadStatsSummary()]);
+  const assigned = await completeAssignedPunishmentRecord(assignedId);
+  const [homeSummary, statsSummary, pendingPunishments, completedPunishmentHistory] = await Promise.all([
+    loadHomeSummary(),
+    loadStatsSummary(),
+    loadPendingPunishments(),
+    loadCompletedPunishmentHistory(),
+  ]);
 
   return {
     assigned,
+    completedPunishmentHistory,
     homeSummary,
+    pendingPunishments,
     statsSummary,
   };
 }

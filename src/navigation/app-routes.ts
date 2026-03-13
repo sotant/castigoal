@@ -1,5 +1,6 @@
 export const appRoutes = {
   auth: '/auth',
+  resetPassword: '/reset-password',
   privacy: '/privacy',
   onboarding: '/onboarding',
   home: '/(tabs)/home',

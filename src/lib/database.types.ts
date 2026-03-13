@@ -132,7 +132,8 @@ export type Database = {
             referencedColumns: ['id', 'user_id'];
           },
         ];
-      };      checkins: {
+      };
+      checkins: {
         Row: {
           checkin_date: string;
           created_at: string;
@@ -243,6 +244,64 @@ export type Database = {
         };
         Relationships: [];
       };
+      punishment_completion_history: {
+        Row: {
+          assigned_punishment_id: string | null;
+          completed_at: string;
+          created_at: string;
+          goal_id: string | null;
+          id: string;
+          punishment_description: string;
+          punishment_id: string | null;
+          punishment_title: string;
+          user_id: string;
+        };
+        Insert: {
+          assigned_punishment_id?: string | null;
+          completed_at?: string;
+          created_at?: string;
+          goal_id?: string | null;
+          id?: string;
+          punishment_description: string;
+          punishment_id?: string | null;
+          punishment_title: string;
+          user_id: string;
+        };
+        Update: {
+          assigned_punishment_id?: string | null;
+          completed_at?: string;
+          created_at?: string;
+          goal_id?: string | null;
+          id?: string;
+          punishment_description?: string;
+          punishment_id?: string | null;
+          punishment_title?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'punishment_completion_history_assigned_punishment_id_fkey';
+            columns: ['assigned_punishment_id'];
+            isOneToOne: false;
+            referencedRelation: 'assigned_punishments';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'punishment_completion_history_goal_id_fkey';
+            columns: ['goal_id'];
+            isOneToOne: false;
+            referencedRelation: 'goals';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'punishment_completion_history_punishment_id_fkey';
+            columns: ['punishment_id'];
+            isOneToOne: false;
+            referencedRelation: 'punishments';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       punishments: {
         Row: {
           category: string;
@@ -311,6 +370,20 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      complete_assigned_punishment: {
+        Args: { p_assigned_id: string };
+        Returns: {
+          assigned_at: string;
+          completed_at: string | null;
+          due_date: string;
+          goal_id: string;
+          id: string;
+          period_key: string;
+          punishment_id: string;
+          status: string;
+          user_id: string;
+        };
+      };
       delete_personal_punishment: {
         Args: { p_punishment_id: string };
         Returns: string;
@@ -378,6 +451,23 @@ export type Database = {
           today_status: string;
         }[];
       };
+      list_pending_punishments: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          assigned_at: string;
+          assigned_id: string;
+          due_date: string;
+          goal_id: string;
+          goal_title: string;
+          punishment_category: string;
+          punishment_description: string;
+          punishment_difficulty: number;
+          punishment_id: string;
+          punishment_scope: string;
+          punishment_title: string;
+          status: string;
+        }[];
+      };
       list_punishment_catalog: {
         Args: Record<PropertyKey, never>;
         Returns: {
@@ -387,6 +477,19 @@ export type Database = {
           id: string;
           scope: string;
           title: string;
+        }[];
+      };
+      list_punishment_completion_history: {
+        Args: { p_limit?: number };
+        Returns: {
+          assigned_punishment_id: string;
+          completed_at: string;
+          goal_id: string;
+          goal_title: string;
+          id: string;
+          punishment_description: string;
+          punishment_id: string;
+          punishment_title: string;
         }[];
       };
       list_goal_evaluations: {

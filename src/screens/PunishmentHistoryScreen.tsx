@@ -1,13 +1,15 @@
 import { Feather } from '@expo/vector-icons';
 import { ReactNode, useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { EmptyState } from '@/src/components/EmptyState';
 import { ScreenContainer } from '@/src/components/ScreenContainer';
 import { palette, radius, spacing } from '@/src/constants/theme';
 import { usePunishmentCatalog } from '@/src/features/punishments/selectors';
 import { getErrorMessage } from '@/src/lib/app-error';
-import { Punishment } from '@/src/models/types';
+import { CompletedPunishmentHistoryEntry, PendingAssignedPunishmentSummary, Punishment } from '@/src/models/types';
+import { useAppStore } from '@/src/store/app-store';
+import { formatLongDate, toISODate } from '@/src/utils/date';
 
 function PunishmentCard({ punishment, actions }: { punishment: Punishment; actions?: ReactNode }) {
   return (
@@ -24,6 +26,42 @@ function PunishmentCard({ punishment, actions }: { punishment: Punishment; actio
         <Text style={styles.metaText}>Dificultad: {punishment.difficulty}/3</Text>
       </View>
       {actions}
+    </View>
+  );
+}
+
+function PendingPunishmentCard({
+  onComplete,
+  pendingPunishment,
+  working,
+}: {
+  onComplete: () => void;
+  pendingPunishment: PendingAssignedPunishmentSummary;
+  working: boolean;
+}) {
+  return (
+    <View style={styles.pendingItem}>
+      <View style={styles.pendingCopy}>
+        <Text style={styles.pendingGoal}>{pendingPunishment.goalTitle}</Text>
+        <Text style={styles.pendingTitle}>{pendingPunishment.punishment.title}</Text>
+        <Text style={styles.pendingDescription}>{pendingPunishment.punishment.description}</Text>
+        <Text style={styles.pendingMeta}>Vence: {formatLongDate(pendingPunishment.dueDate)}</Text>
+      </View>
+
+      <Pressable disabled={working} onPress={onComplete} style={[styles.pendingButton, working && styles.disabled]}>
+        <Text style={styles.pendingButtonLabel}>{working ? 'Guardando...' : 'Cumplido'}</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+function CompletedHistoryCard({ entry }: { entry: CompletedPunishmentHistoryEntry }) {
+  return (
+    <View style={styles.historyCard}>
+      <Text style={styles.historyTitle}>{entry.punishmentTitle}</Text>
+      <Text style={styles.historyDescription}>{entry.punishmentDescription}</Text>
+      <Text style={styles.historyMeta}>Cumplido el {formatLongDate(toISODate(entry.completedAt))}</Text>
+      {entry.goalTitle ? <Text style={styles.historyMeta}>Objetivo relacionado: {entry.goalTitle}</Text> : null}
     </View>
   );
 }
@@ -52,20 +90,37 @@ export function PunishmentHistoryScreen() {
     refreshPunishmentCatalog,
     updateCustomPunishment,
   } = usePunishmentCatalog();
+  const completedPunishmentHistory = useAppStore((state) => state.completedPunishmentHistory);
+  const completeAssignedPunishment = useAppStore((state) => state.completeAssignedPunishment);
+  const pendingPunishments = useAppStore((state) => state.pendingPunishments);
+  const punishmentHistoryLoaded = useAppStore((state) => state.punishmentHistoryLoaded);
+  const refreshPunishmentHistory = useAppStore((state) => state.refreshPunishmentHistory);
   const [customPunishmentTitle, setCustomPunishmentTitle] = useState('');
   const [editingPunishmentId, setEditingPunishmentId] = useState<string | null>(null);
   const [editingPunishmentTitle, setEditingPunishmentTitle] = useState('');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [completingAssignedId, setCompletingAssignedId] = useState<string | null>(null);
+  const [pendingCompletion, setPendingCompletion] = useState<PendingAssignedPunishmentSummary | null>(null);
 
   useEffect(() => {
-    if (punishmentsLoaded) {
-      return;
+    const tasks: Promise<unknown>[] = [];
+
+    if (!punishmentsLoaded) {
+      tasks.push(refreshPunishmentCatalog());
     }
 
-    void refreshPunishmentCatalog();
-  }, [punishmentsLoaded, refreshPunishmentCatalog]);
+    if (!punishmentHistoryLoaded) {
+      tasks.push(refreshPunishmentHistory());
+    }
+
+    if (tasks.length > 0) {
+      void Promise.all(tasks).catch(() => {
+        return;
+      });
+    }
+  }, [punishmentHistoryLoaded, punishmentsLoaded, refreshPunishmentCatalog, refreshPunishmentHistory]);
 
   const startEditing = (punishment: Punishment) => {
     setEditingPunishmentId(punishment.id);
@@ -79,8 +134,104 @@ export function PunishmentHistoryScreen() {
     setEditingPunishmentTitle('');
   };
 
+  const confirmCompletion = (pendingPunishment: PendingAssignedPunishmentSummary) => {
+    setPendingCompletion(pendingPunishment);
+  };
+
+  const handleCompleteConfirmed = async () => {
+    if (!pendingCompletion) {
+      return;
+    }
+
+    const assignedId = pendingCompletion.assignedId;
+    setCompletingAssignedId(assignedId);
+    setFeedback(null);
+
+    try {
+      await completeAssignedPunishment(assignedId);
+      setFeedback('Castigo movido al historico.');
+      setPendingCompletion(null);
+    } catch (error) {
+      setFeedback(getErrorMessage(error, 'No se pudo completar el castigo.'));
+    } finally {
+      setCompletingAssignedId(null);
+    }
+  };
+
   return (
-    <ScreenContainer title="Castigos" subtitle="Catalogo base estable y tus castigos personales para este MVP.">
+    <ScreenContainer title="Castigos">
+      <Modal
+        animationType="fade"
+        transparent
+        visible={pendingCompletion !== null}
+        onRequestClose={() => {
+          if (!completingAssignedId) {
+            setPendingCompletion(null);
+          }
+        }}>
+        <View style={styles.modalOverlay}>
+          <Pressable
+            disabled={Boolean(completingAssignedId)}
+            style={styles.modalBackdrop}
+            onPress={() => {
+              if (!completingAssignedId) {
+                setPendingCompletion(null);
+              }
+            }}
+          />
+
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>¿Has cumplido el castigo?</Text>
+            <View style={styles.modalActions}>
+              <Pressable
+                disabled={Boolean(completingAssignedId)}
+                onPress={() => setPendingCompletion(null)}
+                style={[styles.secondaryButton, completingAssignedId && styles.disabled]}>
+                <Text style={styles.secondaryLabel}>No</Text>
+              </Pressable>
+              <Pressable
+                disabled={Boolean(completingAssignedId)}
+                onPress={() => {
+                  void handleCompleteConfirmed();
+                }}
+                style={[styles.pendingButton, completingAssignedId && styles.disabled]}>
+                <Text style={styles.pendingButtonLabel}>{completingAssignedId ? 'Guardando...' : 'Si'}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {pendingPunishments.length > 0 ? (
+        <View style={styles.pendingSection}>
+          <View style={styles.pendingHeader}>
+            <Text style={styles.pendingSectionTitle}>Castigos pendientes</Text>
+            <Text style={styles.pendingSectionSubtitle}>Tienes {pendingPunishments.length} por cumplir.</Text>
+          </View>
+
+          {pendingPunishments.map((pendingPunishment) => (
+            <PendingPunishmentCard
+              key={pendingPunishment.assignedId}
+              pendingPunishment={pendingPunishment}
+              working={completingAssignedId === pendingPunishment.assignedId}
+              onComplete={() => confirmCompletion(pendingPunishment)}
+            />
+          ))}
+        </View>
+      ) : null}
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Historico de castigos cumplidos</Text>
+        {completedPunishmentHistory.length === 0 ? (
+          <EmptyState
+            title="Sin castigos cumplidos"
+            message="Cuando confirmes un castigo como cumplido, se guardara aqui con su fecha."
+          />
+        ) : (
+          completedPunishmentHistory.map((entry) => <CompletedHistoryCard key={entry.id} entry={entry} />)
+        )}
+      </View>
+
       <View style={styles.formCard}>
         <Text style={styles.sectionTitle}>Guardar castigo personal</Text>
         <TextInput
@@ -249,6 +400,92 @@ export function PunishmentHistoryScreen() {
 }
 
 const styles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: spacing.md,
+    backgroundColor: 'rgba(11, 23, 38, 0.45)',
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  modalCard: {
+    padding: spacing.lg,
+    borderRadius: radius.lg,
+    backgroundColor: palette.snow,
+    gap: spacing.md,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: palette.ink,
+    textAlign: 'center',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  pendingSection: {
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+    gap: spacing.sm,
+  },
+  pendingHeader: {
+    gap: spacing.xs,
+  },
+  pendingSectionTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#92400E',
+  },
+  pendingSectionSubtitle: {
+    color: '#A16207',
+    lineHeight: 20,
+  },
+  pendingItem: {
+    padding: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FCD34D',
+    gap: spacing.sm,
+  },
+  pendingCopy: {
+    gap: spacing.xs,
+  },
+  pendingGoal: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#A16207',
+    textTransform: 'uppercase',
+  },
+  pendingTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: palette.ink,
+  },
+  pendingDescription: {
+    color: palette.slate,
+    lineHeight: 21,
+  },
+  pendingMeta: {
+    color: '#92400E',
+    fontWeight: '700',
+  },
+  pendingButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    backgroundColor: '#CA8A04',
+  },
+  pendingButtonLabel: {
+    color: palette.snow,
+    fontWeight: '800',
+  },
   formCard: {
     padding: spacing.md,
     borderRadius: radius.lg,
@@ -304,6 +541,27 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: palette.line,
     gap: spacing.sm,
+  },
+  historyCard: {
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    backgroundColor: palette.snow,
+    borderWidth: 1,
+    borderColor: palette.line,
+    gap: spacing.xs,
+  },
+  historyTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: palette.ink,
+  },
+  historyDescription: {
+    color: palette.slate,
+    lineHeight: 21,
+  },
+  historyMeta: {
+    color: palette.slate,
+    fontSize: 13,
   },
   cardHeader: {
     flexDirection: 'row',
