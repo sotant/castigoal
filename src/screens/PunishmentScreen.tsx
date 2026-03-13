@@ -33,7 +33,7 @@ export function PunishmentScreen({ assignedId }: Props) {
 
   if (loading) {
     return (
-      <ScreenContainer title="Castigo" showBackButton backFallbackHref="/(tabs)/punishments">
+      <ScreenContainer title="Castigo">
         <EmptyState title="Cargando castigo" message="Estoy recuperando la consecuencia asignada." />
       </ScreenContainer>
     );
@@ -41,7 +41,7 @@ export function PunishmentScreen({ assignedId }: Props) {
 
   if (!detail) {
     return (
-      <ScreenContainer title="Castigo" showBackButton backFallbackHref="/(tabs)/punishments">
+      <ScreenContainer title="Castigo">
         <EmptyState title="Castigo no disponible" message="No he encontrado un castigo asignado con ese identificador." />
       </ScreenContainer>
     );
@@ -50,9 +50,7 @@ export function PunishmentScreen({ assignedId }: Props) {
   return (
     <ScreenContainer
       title="Castigo generado"
-      subtitle="La consecuencia se crea automaticamente al caer por debajo del minimo."
-      showBackButton
-      backFallbackHref="/(tabs)/punishments">
+      subtitle="La consecuencia se crea automaticamente al caer por debajo del minimo.">
       <View style={styles.hero}>
         <Text style={styles.category}>{detail.punishment.category}</Text>
         <Text style={styles.title}>{detail.punishment.title}</Text>

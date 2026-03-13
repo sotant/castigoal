@@ -32,7 +32,7 @@ export function GoalDetailScreen({ goal }: Props) {
 
   if (!goal) {
     return (
-      <ScreenContainer title="Objetivo" subtitle="No he encontrado ese objetivo." showBackButton backFallbackHref={appRoutes.home}>
+      <ScreenContainer title="Objetivo" subtitle="No he encontrado ese objetivo.">
         <EmptyState title="Objetivo no disponible" message="Puede haber sido eliminado o nunca se guardo." />
       </ScreenContainer>
     );
@@ -61,8 +61,6 @@ export function GoalDetailScreen({ goal }: Props) {
 
   return (
     <ScreenContainer
-      showBackButton
-      backFallbackHref={appRoutes.home}
       title={goal.title}
       subtitle={goal.description || 'Objetivo sin descripcion.'}
       action={

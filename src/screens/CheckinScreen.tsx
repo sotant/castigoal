@@ -43,7 +43,7 @@ export function CheckinScreen({ goal }: Props) {
 
   if (!goal) {
     return (
-      <ScreenContainer title="Check-in" showBackButton backFallbackHref={appRoutes.home}>
+      <ScreenContainer title="Check-in">
         <EmptyState title="Objetivo no encontrado" message="No puedo registrar actividad para este objetivo." />
       </ScreenContainer>
     );
@@ -75,9 +75,7 @@ export function CheckinScreen({ goal }: Props) {
   return (
     <ScreenContainer
       title={`Check-in de ${goal.title}`}
-      subtitle={`Ventana actual: ${viewModel?.completionRate ?? 0}% de cumplimiento.`}
-      showBackButton
-      backFallbackHref={appRoutes.goalDetail(goal.id)}>
+      subtitle={`Ventana actual: ${viewModel?.completionRate ?? 0}% de cumplimiento.`}>
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Marca el resultado de hoy</Text>
         <Text style={styles.cardText}>
@@ -104,10 +102,6 @@ export function CheckinScreen({ goal }: Props) {
           placeholder="Que paso hoy, que se interpuso o que salio bien."
         />
       </View>
-
-      <Pressable onPress={() => router.back()} style={styles.cancel}>
-        <Text style={styles.cancelLabel}>Cancelar</Text>
-      </Pressable>
     </ScreenContainer>
   );
 }
@@ -153,13 +147,5 @@ const styles = StyleSheet.create({
   multiline: {
     minHeight: 110,
     textAlignVertical: 'top',
-  },
-  cancel: {
-    alignItems: 'center',
-    paddingVertical: 14,
-  },
-  cancelLabel: {
-    color: palette.slate,
-    fontWeight: '700',
   },
 });

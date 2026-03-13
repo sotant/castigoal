@@ -256,7 +256,7 @@ export function AuthScreen() {
 
                   <Pressable disabled={!!loadingAction} onPress={() => switchMode('access')} style={styles.secondaryLink}>
                     <Text style={[styles.secondaryLinkLabel, !!loadingAction && styles.linkDisabled]}>
-                      Volver a acceso
+                      Ir a acceso
                     </Text>
                   </Pressable>
                 </>

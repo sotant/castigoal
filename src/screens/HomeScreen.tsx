@@ -10,17 +10,20 @@ import { useAppStore } from '@/src/store/app-store';
 
 export function HomeScreen() {
   const homeSummary = useAppStore((state) => state.homeSummary);
+  const hasPendingPunishments = homeSummary.pendingPunishmentsCount > 0;
 
   return (
     <ScreenContainer title="Hoy">
-      <View style={styles.pendingSection}>
-        <View style={styles.pendingHeader}>
-          <Text style={styles.pendingSectionTitle}>Tienes castigos pendientes</Text>
+      {hasPendingPunishments ? (
+        <View style={styles.pendingSection}>
+          <View style={styles.pendingHeader}>
+            <Text style={styles.pendingSectionTitle}>Tienes castigos pendientes</Text>
+          </View>
+          <Pressable onPress={() => router.push(appRoutes.punishments)} style={styles.pendingButton}>
+            <Text style={styles.pendingButtonLabel}>Ver castigos</Text>
+          </Pressable>
         </View>
-        <Pressable onPress={() => router.push(appRoutes.punishments)} style={styles.pendingButton}>
-          <Text style={styles.pendingButtonLabel}>Ver castigos</Text>
-        </Pressable>
-      </View>
+      ) : null}
 
       {homeSummary.goalSummaries.length === 0 ? (
         <EmptyState

@@ -1,8 +1,8 @@
 import { PropsWithChildren, ReactNode } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Directions, FlingGestureHandler } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Href, router, usePathname } from 'expo-router';
+import { router, usePathname } from 'expo-router';
 
 import { palette, spacing } from '@/src/constants/theme';
 import { getAdjacentTabHref, isMainTabPath } from '@/src/navigation/app-routes';
@@ -12,9 +12,6 @@ type Props = PropsWithChildren<{
   subtitle?: string;
   action?: ReactNode;
   scroll?: boolean;
-  showBackButton?: boolean;
-  backFallbackHref?: Href;
-  backLabel?: string;
   enableTabSwipe?: boolean;
 }>;
 
@@ -23,25 +20,11 @@ export function ScreenContainer({
   subtitle,
   action,
   scroll = true,
-  showBackButton = false,
-  backFallbackHref,
-  backLabel = 'Volver',
   enableTabSwipe,
   children,
 }: Props) {
   const pathname = usePathname();
   const shouldEnableTabSwipe = enableTabSwipe ?? isMainTabPath(pathname);
-
-  const handleBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-      return;
-    }
-
-    if (backFallbackHref) {
-      router.replace(backFallbackHref);
-    }
-  };
 
   const handleTabSwipe = (direction: 'left' | 'right') => {
     if (!shouldEnableTabSwipe) {
@@ -58,11 +41,6 @@ export function ScreenContainer({
   const content = (
     <View style={[styles.body, !scroll && styles.bodyFill]}>
       <View style={styles.header}>
-        {showBackButton ? (
-          <Pressable onPress={handleBack} style={styles.backButton}>
-            <Text style={styles.backButtonLabel}>{backLabel}</Text>
-          </Pressable>
-        ) : null}
         <View style={styles.headerCopy}>
           <Text style={styles.title}>{title}</Text>
           {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
@@ -120,15 +98,6 @@ const styles = StyleSheet.create({
   },
   header: {
     gap: spacing.sm,
-  },
-  backButton: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-  },
-  backButtonLabel: {
-    color: palette.primaryDeep,
-    fontWeight: '800',
   },
   headerCopy: {
     gap: spacing.xs,

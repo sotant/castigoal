@@ -128,9 +128,7 @@ export function ResetPasswordScreen() {
     <ScreenContainer
       title="Nueva contrasena"
       subtitle="Define una nueva contrasena para volver a entrar en tu cuenta."
-      scroll={false}
-      showBackButton
-      backFallbackHref={appRoutes.auth}>
+      scroll={false}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
@@ -155,7 +153,7 @@ export function ResetPasswordScreen() {
                   <Text style={styles.cardTitle}>No se pudo abrir el enlace</Text>
                   <Text style={styles.cardSubtitle}>{feedback ?? 'Solicita un nuevo email de recuperacion desde la pantalla de acceso.'}</Text>
                   <Pressable onPress={() => router.replace(appRoutes.auth)} style={styles.submitPrimary}>
-                    <Text style={styles.submitPrimaryLabel}>Volver a acceso</Text>
+                    <Text style={styles.submitPrimaryLabel}>Ir a acceso</Text>
                   </Pressable>
                 </View>
               ) : null}

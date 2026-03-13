@@ -137,9 +137,7 @@ export function GoalFormScreen({ mode, goal }: Props) {
   return (
     <ScreenContainer
       title={mode === 'create' ? 'Crear objetivo' : 'Editar objetivo'}
-      subtitle="Define cuando consideras que este objetivo va bien."
-      showBackButton
-      backFallbackHref={mode === 'create' ? appRoutes.home : goal ? appRoutes.goalDetail(goal.id) : appRoutes.home}>
+      subtitle="Define cuando consideras que este objetivo va bien.">
       <View style={styles.sectionCard}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionEyebrow}>Que quieres conseguir</Text>
@@ -492,7 +490,7 @@ export function GoalFormScreen({ mode, goal }: Props) {
 
             if (goal) {
               await updateGoal(goal.id, payload);
-              router.back();
+              router.replace(appRoutes.goalDetail(goal.id));
             }
           } finally {
             setSaving(false);

@@ -2,7 +2,6 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { ScreenContainer } from '@/src/components/ScreenContainer';
 import { palette, radius, spacing } from '@/src/constants/theme';
-import { appRoutes } from '@/src/navigation/app-routes';
 
 const sections = [
   {
@@ -36,9 +35,7 @@ export function PrivacyPolicyScreen() {
   return (
     <ScreenContainer
       title="Politica de privacidad"
-      subtitle="Version 1.0. Vigente desde el 11 de marzo de 2026."
-      showBackButton
-      backFallbackHref={appRoutes.auth}>
+      subtitle="Version 1.0. Vigente desde el 11 de marzo de 2026.">
       <View style={styles.hero}>
         <Text style={styles.heroTitle}>Castigoal</Text>
         <Text style={styles.heroText}>
