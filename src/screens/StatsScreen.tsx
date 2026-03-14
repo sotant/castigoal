@@ -17,6 +17,7 @@ export function StatsScreen() {
   const refreshStatsSummary = useAppStore((state) => state.refreshStatsSummary);
   const [selectedGoalId, setSelectedGoalId] = useState<string | null>(goals[0]?.id ?? null);
   const [monthOffset, setMonthOffset] = useState(0);
+  const [isGoalDropdownOpen, setIsGoalDropdownOpen] = useState(false);
 
   useEffect(() => {
     if (!statsLoaded) {
@@ -30,6 +31,14 @@ export function StatsScreen() {
     }
   }, [goals, selectedGoalId]);
 
+  useEffect(() => {
+    if (goals.length <= 1) {
+      setIsGoalDropdownOpen(false);
+    }
+  }, [goals.length]);
+
+  const hasGoals = goals.length > 0;
+  const hasMultipleGoals = goals.length > 1;
   const selectedGoal = goals.find((goal) => goal.id === selectedGoalId) ?? goals[0] ?? null;
   const monthDate = getMonthDate(monthOffset);
   const monthLabel = formatMonthLabel(monthDate);
@@ -44,108 +53,148 @@ export function StatsScreen() {
     void loadStatsCalendar(selectedGoal.id, monthStart);
   }, [loadStatsCalendar, monthStart, selectedGoal]);
 
-  if (goals.length === 0) {
-    return (
-      <ScreenContainer title="Estadisticas" subtitle="Resumen global del sistema.">
-        <EmptyState title="Todavia no hay datos" message="Crea un objetivo y empieza a registrar actividad diaria." />
-      </ScreenContainer>
-    );
-  }
-
   return (
-    <ScreenContainer title="Estadisticas" subtitle="Vision rapida de rendimiento, constancia y consecuencias.">
-      <View style={styles.grid}>
-        <StatisticCard label="Cumplimiento medio" value={`${statsSummary.averageRate}%`} tone={palette.primary} />
-        <StatisticCard label="Check-ins logrados" value={`${statsSummary.completionRatio}%`} tone={palette.success} />
-      </View>
-      <View style={styles.grid}>
-        <StatisticCard label="Objetivos activos" value={`${statsSummary.goalsActiveCount}`} tone={palette.accent} />
-        <StatisticCard label="Castigos completados" value={`${statsSummary.completedPunishments}`} tone={palette.danger} />
-      </View>
-
-      <View style={styles.section}>
+    <ScreenContainer title="Estadisticas">
+      <View style={[styles.section, styles.goalSection]}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Mis objetivos</Text>
-          <Text style={styles.sectionSubtitle}>Selecciona uno para ver su calendario mensual.</Text>
+          <Text style={styles.sectionTitle}>Elegir objetivo</Text>
         </View>
 
-        <View style={styles.goalList}>
-          {goals.map((goal) => {
-            const isSelected = goal.id === selectedGoal?.id;
-
-            return (
-              <Pressable
-                key={goal.id}
-                onPress={() => setSelectedGoalId(goal.id)}
-                style={[styles.goalButton, isSelected && styles.goalButtonSelected]}>
-                <View style={styles.goalButtonRow}>
-                  <Text style={[styles.goalButtonTitle, isSelected && styles.goalButtonTitleSelected]}>{goal.title}</Text>
-                  <Text style={[styles.goalButtonMeta, isSelected && styles.goalButtonMetaSelected]}>
-                    {goal.active ? 'Activo' : 'Pausado'}
+        {!hasGoals ? (
+          <EmptyState
+            title="Sin objetivos registrados"
+            message="Todavia no tienes objetivos registrados. Crea uno para ver su progreso en estadisticas."
+          />
+        ) : hasMultipleGoals ? (
+          <View style={styles.dropdownArea}>
+            <Pressable
+              onPress={() => setIsGoalDropdownOpen((current) => !current)}
+              style={[styles.goalButton, isGoalDropdownOpen && styles.goalButtonSelected]}>
+              <View style={styles.goalButtonRow}>
+                <View style={styles.goalCopy}>
+                  <Text style={[styles.goalButtonTitle, isGoalDropdownOpen && styles.goalButtonTitleSelected]}>
+                    {selectedGoal?.title}
+                  </Text>
+                  <Text style={[styles.goalButtonMeta, isGoalDropdownOpen && styles.goalButtonMetaSelected]}>
+                    {selectedGoal?.active ? 'Activo' : 'Pausado'}
                   </Text>
                 </View>
-              </Pressable>
-            );
-          })}
-        </View>
+                <Feather
+                  color={isGoalDropdownOpen ? palette.primaryDeep : palette.slate}
+                  name={isGoalDropdownOpen ? 'chevron-up' : 'chevron-down'}
+                  size={18}
+                />
+              </View>
+            </Pressable>
+
+            {isGoalDropdownOpen ? (
+              <View style={styles.dropdownMenu}>
+                {goals.map((goal) => {
+                  const isSelected = goal.id === selectedGoal?.id;
+
+                  return (
+                    <Pressable
+                      key={goal.id}
+                      onPress={() => {
+                        setSelectedGoalId(goal.id);
+                        setIsGoalDropdownOpen(false);
+                      }}
+                      style={[styles.dropdownOption, isSelected && styles.dropdownOptionSelected]}>
+                      <Text style={[styles.dropdownOptionTitle, isSelected && styles.dropdownOptionTitleSelected]}>
+                        {goal.title}
+                      </Text>
+                      <Text style={[styles.dropdownOptionMeta, isSelected && styles.dropdownOptionMetaSelected]}>
+                        {goal.active ? 'Activo' : 'Pausado'}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : null}
+          </View>
+        ) : (
+          <View style={[styles.goalButton, styles.goalButtonSelected]}>
+            <View style={styles.goalButtonRow}>
+              <View style={styles.goalCopy}>
+                <Text style={[styles.goalButtonTitle, styles.goalButtonTitleSelected]}>{selectedGoal?.title}</Text>
+                <Text style={[styles.goalButtonMeta, styles.goalButtonMetaSelected]}>
+                  {selectedGoal?.active ? 'Activo' : 'Pausado'}
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
       </View>
 
-      <View style={styles.section}>
-        <View style={styles.calendarHeader}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Calendario</Text>
-            <Text style={styles.sectionSubtitle}>{selectedGoal?.title}</Text>
+      {selectedGoal ? (
+        <View style={styles.section}>
+          <View style={styles.calendarHeader}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Calendario</Text>
+              <Text style={styles.sectionSubtitle}>{selectedGoal.title}</Text>
+            </View>
+
+            <View style={styles.monthSwitcher}>
+              <Pressable onPress={() => setMonthOffset((current) => current - 1)} style={styles.monthButton}>
+                <Feather color={palette.primaryDeep} name="chevron-left" size={18} />
+              </Pressable>
+              <Text style={styles.monthLabel}>{monthLabel}</Text>
+              <Pressable onPress={() => setMonthOffset((current) => current + 1)} style={styles.monthButton}>
+                <Feather color={palette.primaryDeep} name="chevron-right" size={18} />
+              </Pressable>
+            </View>
           </View>
 
-          <View style={styles.monthSwitcher}>
-            <Pressable onPress={() => setMonthOffset((current) => current - 1)} style={styles.monthButton}>
-              <Feather color={palette.primaryDeep} name="chevron-left" size={18} />
-            </Pressable>
-            <Text style={styles.monthLabel}>{monthLabel}</Text>
-            <Pressable onPress={() => setMonthOffset((current) => current + 1)} style={styles.monthButton}>
-              <Feather color={palette.primaryDeep} name="chevron-right" size={18} />
-            </Pressable>
-          </View>
-        </View>
+          <View style={styles.calendarCard}>
+            <View style={styles.weekRow}>
+              {WEEKDAY_LABELS.map((label) => (
+                <Text key={label} style={styles.weekday}>
+                  {label}
+                </Text>
+              ))}
+            </View>
 
-        <View style={styles.legend}>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, styles.dayCompleted]} />
-            <Text style={styles.legendText}>Cumplido</Text>
-          </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, styles.dayMissed]} />
-            <Text style={styles.legendText}>Incumplido</Text>
-          </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, styles.dayEmpty]} />
-            <Text style={styles.legendText}>Sin check-in</Text>
-          </View>
-        </View>
-
-        <View style={styles.calendarCard}>
-          <View style={styles.weekRow}>
-            {WEEKDAY_LABELS.map((label) => (
-              <Text key={label} style={styles.weekday}>
-                {label}
-              </Text>
-            ))}
-          </View>
-
-          <View style={styles.calendarGrid}>
-            {calendarDays.map((day) => (
-              <View key={day.date} style={styles.dayCell}>
-                <View
-                  style={[
-                    styles.dayBubble,
-                    day.status === 'completed' ? styles.dayCompleted : day.status === 'missed' ? styles.dayMissed : styles.dayEmpty,
-                    !day.inMonth && styles.dayOutsideMonth,
-                  ]}>
-                  <Text style={[styles.dayLabel, !day.inMonth && styles.dayLabelOutsideMonth]}>{day.dayNumber}</Text>
+            <View style={styles.calendarGrid}>
+              {calendarDays.map((day) => (
+                <View key={day.date} style={styles.dayCell}>
+                  <View
+                    style={[
+                      styles.dayBubble,
+                      day.status === 'completed' ? styles.dayCompleted : day.status === 'missed' ? styles.dayMissed : styles.dayEmpty,
+                      !day.inMonth && styles.dayOutsideMonth,
+                    ]}>
+                    <Text style={[styles.dayLabel, !day.inMonth && styles.dayLabelOutsideMonth]}>{day.dayNumber}</Text>
+                  </View>
                 </View>
-              </View>
-            ))}
+              ))}
+            </View>
           </View>
+
+          <View style={styles.legend}>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, styles.dayCompleted]} />
+              <Text style={styles.legendText}>Cumplido</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, styles.dayMissed]} />
+              <Text style={styles.legendText}>Incumplido</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, styles.dayEmpty]} />
+              <Text style={styles.legendText}>Sin check-in</Text>
+            </View>
+          </View>
+        </View>
+      ) : null}
+
+      <View style={styles.section}>
+        <View style={styles.grid}>
+          <StatisticCard label="Cumplimiento medio" value={`${statsSummary.averageRate}%`} tone={palette.primary} />
+          <StatisticCard label="Check-ins logrados" value={`${statsSummary.completionRatio}%`} tone={palette.success} />
+        </View>
+        <View style={styles.grid}>
+          <StatisticCard label="Objetivos activos" value={`${statsSummary.goalsActiveCount}`} tone={palette.accent} />
+          <StatisticCard label="Castigos completados" value={`${statsSummary.completedPunishments}`} tone={palette.danger} />
         </View>
       </View>
     </ScreenContainer>
@@ -161,6 +210,9 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginTop: spacing.sm,
   },
+  goalSection: {
+    zIndex: 20,
+  },
   sectionHeader: {
     gap: spacing.xs,
   },
@@ -173,8 +225,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: palette.slate,
   },
-  goalList: {
-    gap: spacing.sm,
+  dropdownArea: {
+    position: 'relative',
   },
   goalButton: {
     padding: spacing.md,
@@ -190,12 +242,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: spacing.sm,
   },
+  goalCopy: {
+    flex: 1,
+    gap: spacing.xs,
+  },
   goalButtonSelected: {
     borderColor: palette.primary,
     backgroundColor: '#E6F6F4',
   },
   goalButtonTitle: {
-    flex: 1,
     fontSize: 16,
     fontWeight: '800',
     color: palette.ink,
@@ -208,6 +263,46 @@ const styles = StyleSheet.create({
     color: palette.slate,
   },
   goalButtonMetaSelected: {
+    color: palette.primaryDeep,
+  },
+  dropdownMenu: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    marginTop: spacing.xs,
+    padding: spacing.xs,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: palette.line,
+    backgroundColor: palette.snow,
+    gap: spacing.xs,
+    zIndex: 30,
+    ...shadows.card,
+  },
+  dropdownOption: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: 14,
+    borderRadius: radius.md,
+    backgroundColor: palette.cloud,
+    gap: 2,
+  },
+  dropdownOptionSelected: {
+    backgroundColor: '#E6F6F4',
+  },
+  dropdownOptionTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: palette.ink,
+  },
+  dropdownOptionTitleSelected: {
+    color: palette.primaryDeep,
+  },
+  dropdownOptionMeta: {
+    fontSize: 12,
+    color: palette.slate,
+  },
+  dropdownOptionMetaSelected: {
     color: palette.primaryDeep,
   },
   calendarHeader: {

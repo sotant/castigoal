@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { useShallow } from 'zustand/react/shallow';
 
 import { EmptyState } from '@/src/components/EmptyState';
 import { ScreenContainer } from '@/src/components/ScreenContainer';
-import { palette, radius, spacing } from '@/src/constants/theme';
+import { palette, radius, shadows, spacing } from '@/src/constants/theme';
 import { appRoutes } from '@/src/navigation/app-routes';
 import { Goal } from '@/src/models/types';
 import { useAppStore } from '@/src/store/app-store';
@@ -79,53 +79,48 @@ export function GoalsScreen() {
     <ScreenContainer
       title="Objetivos"
       subtitle="Lista de objetivos guardados."
-      action={
-        <Pressable onPress={() => router.push(appRoutes.createGoal)} style={styles.addButton}>
-          <Text style={styles.addButtonLabel}>Nuevo</Text>
-        </Pressable>
-      }>
+      scroll={false}>
       {goals.length === 0 ? (
-        <EmptyState
-          title="No hay objetivos todavia"
-          message="Crea tu primer objetivo para empezar a registrar tus progresos."
-          actionLabel="Crear objetivo"
-          onAction={() => router.push(appRoutes.createGoal)}
-        />
-      ) : (
-        goals.map((goal) => (
-          <GoalRow
-            key={goal.id}
-            goal={goal}
-            isConfirmingDelete={confirmDeleteId === goal.id}
-            onAskDelete={() => setConfirmDeleteId(goal.id)}
-            onCancelDelete={() => setConfirmDeleteId(null)}
-            onConfirmDelete={() => {
-              void deleteGoal(goal.id).then(() => {
-                setConfirmDeleteId(null);
-              });
-            }}
-            onToggleActive={() => {
-              void toggleGoalActive(goal.id);
-            }}
+        <View style={styles.emptyStateWrapper}>
+          <EmptyState
+            title="No hay objetivos todavia"
+            message="Crea tu primer objetivo para empezar a registrar tus progresos."
+            actionLabel="Crear objetivo"
+            onAction={() => router.push(appRoutes.createGoal)}
           />
-        ))
+        </View>
+      ) : (
+        <ScrollView
+          contentContainerStyle={styles.listContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}>
+          {goals.map((goal) => (
+            <GoalRow
+              key={goal.id}
+              goal={goal}
+              isConfirmingDelete={confirmDeleteId === goal.id}
+              onAskDelete={() => setConfirmDeleteId(goal.id)}
+              onCancelDelete={() => setConfirmDeleteId(null)}
+              onConfirmDelete={() => {
+                void deleteGoal(goal.id).then(() => {
+                  setConfirmDeleteId(null);
+                });
+              }}
+              onToggleActive={() => {
+                void toggleGoalActive(goal.id);
+              }}
+            />
+          ))}
+        </ScrollView>
       )}
+      <Pressable onPress={() => router.push(appRoutes.createGoal)} style={styles.fab}>
+        <Text style={styles.fabLabel}>+</Text>
+      </Pressable>
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  addButton: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.pill,
-    backgroundColor: palette.primary,
-  },
-  addButtonLabel: {
-    color: palette.snow,
-    fontWeight: '700',
-  },
   card: {
     padding: spacing.md,
     borderRadius: radius.lg,
@@ -230,5 +225,30 @@ const styles = StyleSheet.create({
   confirmDeleteLabel: {
     color: palette.snow,
     fontWeight: '800',
+  },
+  emptyStateWrapper: {
+    flex: 1,
+  },
+  listContent: {
+    gap: spacing.md,
+    paddingBottom: 112,
+  },
+  fab: {
+    position: 'absolute',
+    right: spacing.md,
+    bottom: 20,
+    width: 56,
+    height: 56,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: palette.primary,
+    ...shadows.card,
+  },
+  fabLabel: {
+    color: palette.snow,
+    fontSize: 30,
+    lineHeight: 32,
+    fontWeight: '700',
   },
 });
