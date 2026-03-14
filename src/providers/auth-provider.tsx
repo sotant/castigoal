@@ -29,7 +29,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const clearRemoteState = useAppStore((state) => state.clearRemoteState);
   const hydrateUser = useAppStore((state) => state.hydrateUser);
 
   const refreshProfile = useCallback(async () => {
@@ -93,8 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
     setProfile(null);
     setIsLoading(false);
-    clearRemoteState();
-  }, [clearRemoteState]);
+  }, []);
 
   const value = useMemo<AuthContextValue>(
     () => ({

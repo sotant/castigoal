@@ -1,5 +1,5 @@
 import { UserSettings } from '@/src/models/types';
-import { updateUserSettingsRecord } from '@/src/repositories/app-repository';
+import { updateUserSettingsRecord } from '@/src/services/progress-service';
 import { clearReminderSchedule, syncReminderSchedule } from '@/src/services/notifications';
 
 export function buildNextUserSettings(current: UserSettings, input: Partial<UserSettings>): UserSettings {

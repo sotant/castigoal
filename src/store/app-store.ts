@@ -15,7 +15,17 @@ import {
   User,
   UserSettings,
 } from '@/src/models/types';
-import { GoalInput, loadGoalCalendarMonth, loadGoalEvaluations, loadHomeSummary, loadStatsSummary, resetUserData } from '@/src/repositories/app-repository';
+import {
+  AppSessionState,
+  GoalInput,
+  loadGoalCalendarMonth,
+  loadGoalDetail,
+  loadGoalEvaluations,
+  loadHomeSummary,
+  loadStatsSummary,
+  resetUserData,
+  retryPendingSync,
+} from '@/src/services/progress-service';
 import { bootstrapAppSession } from '@/src/use-cases/bootstrap-app';
 import {
   createGoalUseCase,
@@ -38,6 +48,7 @@ import { updateSettingsUseCase } from '@/src/use-cases/settings-actions';
 
 interface AppState {
   hydrated: boolean;
+  sessionState: AppSessionState;
   user: User;
   goals: Goal[];
   punishments: Punishment[];
@@ -55,6 +66,7 @@ interface AppState {
   userSettings: UserSettings;
   initializeApp: () => Promise<void>;
   clearRemoteState: () => void;
+  retrySync: () => Promise<void>;
   completeOnboarding: (name: string) => void;
   createGoal: (input: GoalInput) => Promise<string>;
   updateGoal: (goalId: string, input: GoalInput) => Promise<void>;
@@ -115,6 +127,12 @@ const EMPTY_CALENDAR_DAYS: GoalCalendarDay[] = [];
 
 const initialState = {
   hydrated: false,
+  sessionState: {
+    activeOwnerId: 'guest',
+    guestId: 'guest',
+    mode: 'guest' as const,
+    syncStatus: 'idle' as const,
+  },
   user: defaultUser,
   goals: [] as Goal[],
   punishments: [] as Punishment[],
@@ -149,16 +167,16 @@ export const useAppStore = create<AppState>()((set, get) => ({
 
     const snapshot = await bootstrapAppSession();
 
-    if (!snapshot) {
-      get().clearRemoteState();
-      return;
-    }
-
     set({
       ...initialState,
       ...snapshot,
       hydrated: true,
     });
+  },
+  retrySync: async () => {
+    const sessionState = await retryPendingSync();
+    set({ sessionState });
+    await get().initializeApp();
   },
   completeOnboarding: (name) =>
     set((state) => ({
@@ -269,13 +287,10 @@ export const useAppStore = create<AppState>()((set, get) => ({
     });
   },
   loadGoalDetail: async (goalId) => {
-    const goal = get().goals.find((item) => item.id === goalId);
-
-    if (!goal) {
+    const detail = await loadGoalDetail(goalId);
+    if (!detail) {
       return;
     }
-
-    const detail = await loadGoalDetailSummaryUseCase(goal, get().goalEvaluations[goalId]);
     set((state) => ({
       goalDetails: {
         ...state.goalDetails,

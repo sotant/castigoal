@@ -9,16 +9,16 @@ import {
 import {
   addCustomPunishmentRecord,
   completeAssignedPunishmentRecord,
-  deleteCustomPunishmentRecord,
-  loadCompletedPunishmentHistory,
   loadAssignedPunishmentById,
-  loadHomeSummary,
-  loadPendingPunishments,
   loadPunishmentById,
   loadPunishmentCatalog,
+  loadCompletedPunishmentHistory,
+  loadHomeSummary,
+  loadPendingPunishments,
   loadStatsSummary,
+  deleteCustomPunishmentRecord,
   updateCustomPunishmentRecord,
-} from '@/src/repositories/app-repository';
+} from '@/src/services/progress-service';
 
 export async function loadPunishmentCatalogUseCase() {
   return loadPunishmentCatalog();

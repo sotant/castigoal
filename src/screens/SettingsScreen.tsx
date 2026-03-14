@@ -19,12 +19,15 @@ type ComboOption = {
 };
 
 export function SettingsScreen() {
-  const { deleteAccount, signOut } = useAuth();
-  const { resetApp, settings, updateSettings } = useAppStore(
+  const { deleteAccount, signOut, session } = useAuth();
+  const { resetApp, retrySync, sessionState, settings, updateSettings, user } = useAppStore(
     useShallow((state) => ({
       resetApp: state.resetApp,
+      retrySync: state.retrySync,
+      sessionState: state.sessionState,
       settings: state.userSettings,
       updateSettings: state.updateSettings,
+      user: state.user,
     })),
   );
   const [openField, setOpenField] = useState<TimeField | null>(null);
@@ -97,6 +100,10 @@ export function SettingsScreen() {
     }
   };
 
+  const isAuthenticated = sessionState.mode === 'authenticated' && Boolean(session);
+  const isSyncing = sessionState.syncStatus === 'syncing';
+  const hasSyncError = sessionState.syncStatus === 'error' && Boolean(sessionState.syncError);
+
   return (
     <ScreenContainer title="Ajustes" subtitle="Recordatorios y acciones de mantenimiento.">
       <Modal
@@ -139,6 +146,47 @@ export function SettingsScreen() {
           </View>
         </View>
       </Modal>
+
+      {!isAuthenticated ? (
+        <View style={styles.ctaCard}>
+          <Text style={styles.sectionTitle}>Guardar tu progreso</Text>
+          <Text style={styles.helperText}>
+            Crea una cuenta para guardar tu progreso y recuperarlo cuando quieras. Mientras tanto, todo sigue
+            guardado en este dispositivo.
+          </Text>
+          <Pressable
+            onPress={() => router.push({ pathname: appRoutes.auth, params: { returnTo: appRoutes.settings } })}
+            style={styles.primaryButton}>
+            <Text style={styles.primaryLabel}>Crear cuenta</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => router.push({ pathname: appRoutes.auth, params: { returnTo: appRoutes.settings } })}
+            style={styles.secondaryButton}>
+            <Text style={styles.secondaryLabel}>Login</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Cuenta activa</Text>
+          <Text style={styles.helperText}>
+            Tu progreso esta vinculado a {user.name || session?.user.email || 'tu cuenta'}.
+          </Text>
+          {isSyncing ? <Text style={styles.syncInfo}>Estamos guardando tu progreso en tu cuenta...</Text> : null}
+          {sessionState.syncStatus === 'idle' ? (
+            <Text style={styles.syncSuccess}>Tu progreso se ha guardado correctamente.</Text>
+          ) : null}
+          {hasSyncError ? (
+            <>
+              <Text style={styles.syncError}>
+                No pudimos completar la sincronizacion. Tus datos siguen en este dispositivo y volveremos a intentarlo.
+              </Text>
+              <Pressable onPress={() => void retrySync()} style={styles.secondaryButton}>
+                <Text style={styles.secondaryLabel}>Reintentar sincronizacion</Text>
+              </Pressable>
+            </>
+          ) : null}
+        </View>
+      )}
 
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>Recordatorios</Text>
@@ -210,7 +258,7 @@ export function SettingsScreen() {
 
       <EmptyState
         title="Reset de demo"
-        message="Borra objetivos, check-ins y castigos asignados del usuario actual en Supabase."
+        message="Borra objetivos, check-ins y castigos del contenedor local actual. Si tienes cuenta, la sincronizacion replicara el reset."
         actionLabel="Vaciar datos"
         onAction={() => {
           void resetApp();
@@ -227,33 +275,37 @@ export function SettingsScreen() {
           <Text style={styles.secondaryLabel}>Ver politica de privacidad</Text>
         </Pressable>
 
-        <Pressable
-          disabled={accountAction === 'delete'}
-          onPress={handleDeleteAccount}
-          style={[styles.dangerButton, accountAction === 'delete' && styles.disabled]}>
-          <Text style={styles.dangerLabel}>
-            {accountAction === 'delete' ? 'Borrando cuenta...' : 'Eliminar cuenta'}
-          </Text>
-        </Pressable>
+        {isAuthenticated ? (
+          <Pressable
+            disabled={accountAction === 'delete'}
+            onPress={handleDeleteAccount}
+            style={[styles.dangerButton, accountAction === 'delete' && styles.disabled]}>
+            <Text style={styles.dangerLabel}>
+              {accountAction === 'delete' ? 'Borrando cuenta...' : 'Eliminar cuenta'}
+            </Text>
+          </Pressable>
+        ) : null}
       </View>
 
-      <Pressable
-        disabled={accountAction === 'signout'}
-        onPress={async () => {
-          try {
-            setAccountAction('signout');
-            await signOut();
-          } catch (error) {
-            Alert.alert('No se pudo cerrar sesion', error instanceof Error ? error.message : 'Error desconocido');
-          } finally {
-            setAccountAction(null);
-          }
-        }}
-        style={[styles.secondaryButton, accountAction === 'signout' && styles.disabled]}>
-        <Text style={styles.secondaryLabel}>
-          {accountAction === 'signout' ? 'Cerrando sesion...' : 'Cerrar sesion'}
-        </Text>
-      </Pressable>
+      {isAuthenticated ? (
+        <Pressable
+          disabled={accountAction === 'signout'}
+          onPress={async () => {
+            try {
+              setAccountAction('signout');
+              await signOut();
+            } catch (error) {
+              Alert.alert('No se pudo cerrar sesion', error instanceof Error ? error.message : 'Error desconocido');
+            } finally {
+              setAccountAction(null);
+            }
+          }}
+          style={[styles.secondaryButton, accountAction === 'signout' && styles.disabled]}>
+          <Text style={styles.secondaryLabel}>
+            {accountAction === 'signout' ? 'Cerrando sesion...' : 'Cerrar sesion'}
+          </Text>
+        </Pressable>
+      ) : null}
     </ScreenContainer>
   );
 }
@@ -265,6 +317,14 @@ const styles = StyleSheet.create({
     backgroundColor: palette.snow,
     borderWidth: 1,
     borderColor: palette.line,
+    gap: spacing.sm,
+  },
+  ctaCard: {
+    padding: spacing.lg,
+    borderRadius: radius.lg,
+    backgroundColor: '#EEF8F6',
+    borderWidth: 1,
+    borderColor: '#BDE4DD',
     gap: spacing.sm,
   },
   sectionTitle: {
@@ -437,9 +497,34 @@ const styles = StyleSheet.create({
     borderColor: palette.line,
     backgroundColor: palette.snow,
   },
+  primaryButton: {
+    paddingVertical: 14,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    backgroundColor: palette.primaryDeep,
+  },
+  primaryLabel: {
+    color: palette.snow,
+    fontWeight: '800',
+  },
   secondaryLabel: {
     color: palette.ink,
     fontWeight: '800',
+  },
+  syncInfo: {
+    color: palette.primaryDeep,
+    fontWeight: '700',
+    lineHeight: 21,
+  },
+  syncSuccess: {
+    color: palette.success,
+    fontWeight: '700',
+    lineHeight: 21,
+  },
+  syncError: {
+    color: palette.danger,
+    fontWeight: '700',
+    lineHeight: 21,
   },
   dangerButton: {
     paddingVertical: 14,

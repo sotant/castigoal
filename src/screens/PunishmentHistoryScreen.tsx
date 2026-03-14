@@ -84,7 +84,7 @@ function CollapsibleSection({ children, initiallyExpanded, title }: { children: 
 
 type PunishmentTabKey = 'pending' | 'custom' | 'history' | 'catalog';
 
-const PUNISHMENT_TABS: Array<{ key: PunishmentTabKey; label: string }> = [
+const PUNISHMENT_TABS: { key: PunishmentTabKey; label: string }[] = [
   { key: 'pending', label: 'Pendientes' },
   { key: 'custom', label: 'Custom' },
   { key: 'history', label: 'Historico' },

@@ -8,9 +8,8 @@ import { clearReminderScheduleUseCase, syncPersistedReminderSettingsUseCase } fr
 export function useAppBootstrap() {
   const { session } = useAuth();
   const userId = session?.user?.id;
-  const { clearRemoteState, hydrated, initializeApp, settings } = useAppStore(
+  const { hydrated, initializeApp, settings } = useAppStore(
     useShallow((state) => ({
-      clearRemoteState: state.clearRemoteState,
       hydrated: state.hydrated,
       initializeApp: state.initializeApp,
       settings: state.userSettings,
@@ -18,20 +17,17 @@ export function useAppBootstrap() {
   );
 
   useEffect(() => {
-    if (!userId) {
-      clearRemoteState();
-      void clearReminderScheduleUseCase();
-      return;
-    }
-
     void initializeApp();
-  }, [clearRemoteState, initializeApp, userId]);
+    if (!userId) {
+      void clearReminderScheduleUseCase();
+    }
+  }, [initializeApp, userId]);
 
   useEffect(() => {
-    if (!hydrated || !userId) {
+    if (!hydrated) {
       return;
     }
 
     void syncPersistedReminderSettingsUseCase(settings);
-  }, [hydrated, settings, userId]);
+  }, [hydrated, settings]);
 }

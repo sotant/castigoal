@@ -1,7 +1,6 @@
 import { GoalDetailSummary, GoalEvaluation, Goal, StatsSummary } from '@/src/models/types';
 import {
   createGoalRecord,
-  deleteGoalRecord,
   GoalInput,
   loadGoalCheckinHistory,
   loadGoalEvaluations,
@@ -9,9 +8,10 @@ import {
   loadStatsSummary,
   recordGoalCheckinRecord,
   RecordCheckinResult,
+  deleteGoalRecord,
   toggleGoalActiveRecord,
   updateGoalRecord,
-} from '@/src/repositories/app-repository';
+} from '@/src/services/progress-service';
 import { getBestStreak, getCurrentStreak, getGoalDaysUntilStart, getGoalDeadline, getGoalRemainingDays } from '@/src/utils/goal-evaluation';
 import { startOfToday, toISODate } from '@/src/utils/date';
 

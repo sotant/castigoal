@@ -1,5 +1,5 @@
 import * as Linking from 'expo-linking';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -11,9 +11,11 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { router, useLocalSearchParams } from 'expo-router';
 
 import { ScreenContainer } from '@/src/components/ScreenContainer';
 import { palette, radius, shadows, spacing } from '@/src/constants/theme';
+import { useAuth } from '@/src/hooks/use-auth';
 import { appRoutes } from '@/src/navigation/app-routes';
 import {
   requestValidatedPasswordReset,
@@ -58,6 +60,8 @@ function getFriendlyAuthMessage(message: string) {
 type AuthMode = 'access' | 'recovery';
 
 export function AuthScreen() {
+  const params = useLocalSearchParams<{ returnTo?: string }>();
+  const { session } = useAuth();
   const [mode, setMode] = useState<AuthMode>('access');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -69,6 +73,17 @@ export function AuthScreen() {
   const canRecover = useMemo(() => /\S+@\S+\.\S+/.test(email.trim()), [email]);
   const passwordResetRedirectTo =
     Platform.OS === 'web' ? Linking.createURL(appRoutes.resetPassword) : 'castigoal://reset-password';
+  const returnTo = typeof params.returnTo === 'string' ? params.returnTo : appRoutes.settings;
+
+  useEffect(() => {
+    if (session) {
+      router.replace(returnTo);
+    }
+  }, [returnTo, session]);
+
+  if (session) {
+    return null;
+  }
 
   const switchMode = (nextMode: AuthMode) => {
     setMode(nextMode);
@@ -165,7 +180,10 @@ export function AuthScreen() {
   };
 
   return (
-    <ScreenContainer title="Acceder" subtitle="Inicia sesion para guardar tu progreso y objetivos." scroll={false}>
+    <ScreenContainer
+      title="Guardar tu progreso"
+      subtitle="Crea una cuenta o inicia sesion para vincular este dispositivo y recuperar tu progreso en el futuro."
+      scroll={false}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
@@ -183,7 +201,6 @@ export function AuthScreen() {
 
             <View style={styles.formCard}>
               <View style={styles.formHeader}>
-                <Text style={styles.eyebrow}>{mode === 'access' ? 'Acceso seguro' : 'Recuperacion'}</Text>
                 <Text style={styles.cardTitle}>
                   {mode === 'access' ? 'Tu espacio, sin distracciones.' : 'Recupera tu acceso.'}
                 </Text>
@@ -347,13 +364,6 @@ const styles = StyleSheet.create({
   },
   formHeader: {
     gap: spacing.xs,
-  },
-  eyebrow: {
-    color: palette.primaryDeep,
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
   },
   cardTitle: {
     color: '#0F172A',

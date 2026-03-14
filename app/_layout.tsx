@@ -58,32 +58,26 @@ function AuthRedirector() {
   const pathname = usePathname();
   const { isLoading, profile, session } = useAuth();
   const isPrivacyRoute = pathname === appRoutes.privacy;
-  const isResetPasswordRoute = pathname === appRoutes.resetPassword;
-  const isPublicRoute = pathname === appRoutes.auth || isPrivacyRoute || isResetPasswordRoute;
 
   useEffect(() => {
     if (isLoading) {
       return;
     }
 
-    if (!session && !isPublicRoute) {
-      router.replace(appRoutes.auth);
+    if (!session && pathname === appRoutes.onboarding) {
+      router.replace(appRoutes.home);
       return;
     }
 
-    if (session && !profile?.onboarding_completed && pathname !== appRoutes.onboarding && !isPrivacyRoute) {
-      router.replace(appRoutes.onboarding);
+    if (pathname === '/') {
+      router.replace(appRoutes.home);
       return;
     }
 
-    if (
-      session &&
-      profile?.onboarding_completed &&
-      (pathname === '/' || pathname === appRoutes.auth || pathname === appRoutes.onboarding)
-    ) {
+    if (session && profile && (pathname === appRoutes.auth || pathname === appRoutes.onboarding) && !isPrivacyRoute) {
       router.replace(appRoutes.home);
     }
-  }, [isLoading, isPrivacyRoute, isPublicRoute, pathname, profile?.onboarding_completed, session]);
+  }, [isLoading, isPrivacyRoute, pathname, profile, session]);
 
   return null;
 }
