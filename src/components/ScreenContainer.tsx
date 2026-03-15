@@ -82,7 +82,7 @@ export function ScreenContainer({
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: palette.cloud,
+    backgroundColor: '#F6F8FC',
   },
   keyboardArea: {
     flex: 1,
@@ -100,19 +100,23 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
     gap: spacing.sm,
   },
   headerCopy: {
+    flex: 1,
     gap: spacing.xs,
   },
   title: {
-    fontSize: 28,
+    fontSize: 30,
     fontWeight: '800',
     color: palette.ink,
   },
   subtitle: {
     fontSize: 15,
     lineHeight: 22,
-    color: palette.slate,
+    color: '#7C8798',
   },
 });

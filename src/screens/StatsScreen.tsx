@@ -59,7 +59,7 @@ export function StatsScreen() {
   };
 
   return (
-    <ScreenContainer title="Estadisticas">
+    <ScreenContainer title="Stats" subtitle="Resumen visual de tu constancia y tus ventanas de seguimiento.">
       <View style={[styles.section, styles.goalSection]}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Elegir objetivo</Text>
@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '800',
     color: palette.ink,
   },
@@ -239,7 +239,7 @@ const styles = StyleSheet.create({
   },
   goalButton: {
     padding: spacing.md,
-    borderRadius: radius.md,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: palette.line,
     backgroundColor: palette.snow,
@@ -256,8 +256,8 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   goalButtonSelected: {
-    borderColor: palette.primary,
-    backgroundColor: '#E6F6F4',
+    borderColor: '#CFE0FF',
+    backgroundColor: '#EEF4FF',
   },
   goalButtonTitle: {
     fontSize: 16,
@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
     color: palette.slate,
   },
   goalButtonMetaSelected: {
-    color: palette.primaryDeep,
+    color: '#5D78A6',
   },
   dropdownMenu: {
     position: 'absolute',
@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
     right: 0,
     marginTop: spacing.xs,
     padding: spacing.xs,
-    borderRadius: radius.md,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: palette.line,
     backgroundColor: palette.snow,
@@ -292,12 +292,12 @@ const styles = StyleSheet.create({
   dropdownOption: {
     paddingHorizontal: spacing.md,
     paddingVertical: 14,
-    borderRadius: radius.md,
-    backgroundColor: palette.cloud,
+    borderRadius: 16,
+    backgroundColor: '#F7F9FD',
     gap: 2,
   },
   dropdownOptionSelected: {
-    backgroundColor: '#E6F6F4',
+    backgroundColor: '#EEF4FF',
   },
   dropdownOptionTitle: {
     fontSize: 15,
@@ -329,7 +329,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: palette.line,
-    backgroundColor: palette.snow,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -364,7 +364,7 @@ const styles = StyleSheet.create({
   },
   calendarCard: {
     padding: spacing.md,
-    borderRadius: radius.lg,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: palette.line,
     backgroundColor: palette.snow,
@@ -400,11 +400,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   dayCompleted: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: '#EAFBF1',
     borderColor: '#86EFAC',
   },
   dayMissed: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: '#FFF1F1',
     borderColor: '#FCA5A5',
   },
   dayEmpty: {

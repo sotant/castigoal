@@ -135,12 +135,13 @@ export function GoalDetailScreen({ goal }: Props) {
 const styles = StyleSheet.create({
   summary: {
     padding: spacing.lg,
-    borderRadius: radius.lg,
+    borderRadius: 22,
     backgroundColor: palette.snow,
     borderWidth: 1,
     borderColor: palette.line,
     gap: spacing.md,
     alignItems: 'center',
+    ...shadows.card,
   },
   summaryCopy: {
     gap: spacing.xs,
@@ -170,9 +171,9 @@ const styles = StyleSheet.create({
   primaryAction: {
     flex: 1,
     paddingVertical: 14,
-    borderRadius: radius.md,
+    borderRadius: radius.pill,
     alignItems: 'center',
-    backgroundColor: palette.primaryDeep,
+    backgroundColor: palette.primary,
   },
   primaryActionDisabled: {
     opacity: 0.45,
@@ -184,7 +185,7 @@ const styles = StyleSheet.create({
   secondaryAction: {
     flex: 1,
     paddingVertical: 14,
-    borderRadius: radius.md,
+    borderRadius: radius.pill,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: palette.line,
@@ -196,11 +197,12 @@ const styles = StyleSheet.create({
   },
   card: {
     padding: spacing.md,
-    borderRadius: radius.lg,
+    borderRadius: 20,
     backgroundColor: palette.snow,
     borderWidth: 1,
     borderColor: palette.line,
     gap: spacing.sm,
+    ...shadows.card,
   },
   cardTitle: {
     fontSize: 18,
@@ -225,11 +227,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   badgeSuccess: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: '#EAFBF1',
     color: palette.success,
   },
   badgeDanger: {
-    backgroundColor: '#FEE4E2',
+    backgroundColor: '#FFF1F1',
     color: palette.danger,
   },
   fabOffset: {

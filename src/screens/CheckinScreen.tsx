@@ -5,7 +5,7 @@ import { router } from 'expo-router';
 import { DailyCheckButton } from '@/src/components/DailyCheckButton';
 import { EmptyState } from '@/src/components/EmptyState';
 import { ScreenContainer } from '@/src/components/ScreenContainer';
-import { palette, radius, spacing } from '@/src/constants/theme';
+import { palette, spacing } from '@/src/constants/theme';
 import { appRoutes } from '@/src/navigation/app-routes';
 import { Goal } from '@/src/models/types';
 import { useAppStore } from '@/src/store/app-store';
@@ -125,8 +125,10 @@ export function CheckinScreen({ goal }: Props) {
 const styles = StyleSheet.create({
   card: {
     padding: spacing.lg,
-    borderRadius: radius.lg,
-    backgroundColor: '#FFF4E8',
+    borderRadius: 22,
+    backgroundColor: '#EEF4FF',
+    borderWidth: 1,
+    borderColor: '#CCDCFF',
     gap: spacing.sm,
   },
   cardTitle: {
@@ -159,10 +161,10 @@ const styles = StyleSheet.create({
   input: {
     paddingHorizontal: spacing.md,
     paddingVertical: 14,
-    borderRadius: radius.md,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: palette.line,
-    backgroundColor: palette.snow,
+    backgroundColor: '#FFFFFF',
     fontSize: 16,
   },
   multiline: {

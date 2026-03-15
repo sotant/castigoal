@@ -9,7 +9,7 @@ type Props = {
 };
 
 export function ProgressRing({ value, size = 88, label = 'cumplido' }: Props) {
-  const tone = value >= 80 ? palette.success : value >= 60 ? palette.warning : palette.danger;
+  const tone = value >= 80 ? palette.success : value >= 40 ? palette.primary : palette.warning;
 
   return (
     <View style={[styles.outer, { width: size, height: size, borderColor: tone }]}>
@@ -34,12 +34,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   value: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '800',
     color: palette.ink,
   },
   label: {
-    fontSize: 11,
+    fontSize: 10,
     color: palette.slate,
     textTransform: 'uppercase',
   },

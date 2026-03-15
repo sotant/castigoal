@@ -11,7 +11,7 @@ type Props = {
 };
 
 export function DailyCheckButton({ disabled = false, label, status, onPress }: Props) {
-  const backgroundColor = status === 'completed' ? palette.success : palette.danger;
+  const backgroundColor = status === 'completed' ? '#22C55E' : '#EF4444';
 
   return (
     <Pressable disabled={disabled} style={[styles.button, { backgroundColor }, disabled && styles.buttonDisabled]} onPress={onPress}>
@@ -25,7 +25,7 @@ const styles = StyleSheet.create({
     minWidth: 132,
     paddingHorizontal: spacing.md,
     paddingVertical: 14,
-    borderRadius: radius.md,
+    borderRadius: radius.pill,
     alignItems: 'center',
   },
   buttonDisabled: {

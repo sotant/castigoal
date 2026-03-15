@@ -12,6 +12,7 @@ export function StatisticCard({ label, value, tone = palette.primary }: Props) {
   return (
     <View style={styles.card}>
       <Text style={styles.label}>{label}</Text>
+      <View style={[styles.accent, { backgroundColor: tone }]} />
       <Text style={[styles.value, { color: tone }]}>{value}</Text>
     </View>
   );
@@ -22,20 +23,24 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 140,
     padding: spacing.md,
-    borderRadius: radius.md,
+    borderRadius: 18,
     backgroundColor: palette.snow,
     borderWidth: 1,
     borderColor: palette.line,
     ...shadows.card,
-    gap: spacing.xs,
+    gap: spacing.sm,
   },
   label: {
     fontSize: 13,
     color: palette.slate,
-    textTransform: 'uppercase',
+  },
+  accent: {
+    width: 28,
+    height: 4,
+    borderRadius: radius.pill,
   },
   value: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: '800',
   },
 });

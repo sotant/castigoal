@@ -71,8 +71,8 @@ export function OnboardingScreen() {
 const styles = StyleSheet.create({
   hero: {
     padding: spacing.lg,
-    borderRadius: radius.lg,
-    backgroundColor: palette.night,
+    borderRadius: 24,
+    backgroundColor: palette.primary,
     gap: spacing.xs,
   },
   metric: {
@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   metricLabel: {
-    color: '#BFEDE7',
+    color: '#DCE8FF',
     fontSize: 16,
   },
   list: {
@@ -96,15 +96,15 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderWidth: 1,
     borderColor: palette.line,
-    borderRadius: radius.md,
+    borderRadius: 18,
     backgroundColor: palette.snow,
     fontSize: 16,
   },
   button: {
     paddingVertical: 16,
-    borderRadius: radius.md,
+    borderRadius: radius.pill,
     alignItems: 'center',
-    backgroundColor: palette.accent,
+    backgroundColor: palette.primary,
   },
   buttonLabel: {
     color: palette.snow,

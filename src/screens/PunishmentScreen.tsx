@@ -79,8 +79,10 @@ export function PunishmentScreen({ assignedId }: Props) {
 const styles = StyleSheet.create({
   hero: {
     padding: spacing.lg,
-    borderRadius: radius.lg,
-    backgroundColor: '#FEE4E2',
+    borderRadius: 22,
+    backgroundColor: '#FFF0F0',
+    borderWidth: 1,
+    borderColor: '#FFD3D3',
     gap: spacing.sm,
   },
   category: {
@@ -100,7 +102,7 @@ const styles = StyleSheet.create({
   },
   metaCard: {
     padding: spacing.md,
-    borderRadius: radius.md,
+    borderRadius: 18,
     backgroundColor: palette.snow,
     borderWidth: 1,
     borderColor: palette.line,
@@ -111,7 +113,7 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     paddingVertical: 16,
-    borderRadius: radius.md,
+    borderRadius: radius.pill,
     alignItems: 'center',
     backgroundColor: palette.danger,
   },

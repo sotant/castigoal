@@ -508,7 +508,7 @@ export function GoalFormScreen({ mode, goal }: Props) {
 const styles = StyleSheet.create({
   sectionCard: {
     padding: spacing.md,
-    borderRadius: radius.lg,
+    borderRadius: 22,
     borderWidth: 1,
     borderColor: palette.line,
     backgroundColor: palette.snow,
@@ -546,10 +546,10 @@ const styles = StyleSheet.create({
   input: {
     paddingHorizontal: spacing.md,
     paddingVertical: 14,
-    borderRadius: radius.md,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: palette.line,
-    backgroundColor: palette.snow,
+    backgroundColor: '#FAFBFE',
     fontSize: 16,
   },
   inputError: {
@@ -571,10 +571,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
-    borderRadius: radius.md,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: palette.line,
-    backgroundColor: palette.cloud,
+    backgroundColor: '#F7F9FD',
   },
   stepButtonLabel: {
     fontSize: 15,
@@ -584,8 +584,8 @@ const styles = StyleSheet.create({
   metricCard: {
     flex: 1,
     paddingVertical: spacing.md,
-    borderRadius: radius.md,
-    backgroundColor: '#F4F8FB',
+    borderRadius: 18,
+    backgroundColor: '#F4F7FD',
     alignItems: 'center',
     gap: 2,
   },
@@ -641,8 +641,8 @@ const styles = StyleSheet.create({
   },
   previewCard: {
     padding: spacing.md,
-    borderRadius: radius.md,
-    backgroundColor: '#EEF8F6',
+    borderRadius: 18,
+    backgroundColor: '#EEF4FF',
     gap: spacing.xs,
   },
   previewEyebrow: {
@@ -673,8 +673,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   dateButtonActive: {
-    borderColor: palette.primary,
-    backgroundColor: '#F0FDFA',
+    borderColor: '#CFE0FF',
+    backgroundColor: '#EEF4FF',
   },
   customDateCopy: {
     flex: 1,
@@ -692,13 +692,13 @@ const styles = StyleSheet.create({
   },
   dateSelector: {
     padding: spacing.sm,
-    borderRadius: radius.md,
-    backgroundColor: palette.cloud,
+    borderRadius: 18,
+    backgroundColor: '#F7F9FD',
     gap: spacing.sm,
   },
   calendarCard: {
     padding: spacing.md,
-    borderRadius: radius.md,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: palette.line,
     backgroundColor: palette.snow,
@@ -716,7 +716,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: palette.line,
-    backgroundColor: palette.cloud,
+    backgroundColor: '#F7F9FD',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -782,8 +782,8 @@ const styles = StyleSheet.create({
   },
   previewInlineCard: {
     padding: spacing.md,
-    borderRadius: radius.md,
-    backgroundColor: '#F4F8FB',
+    borderRadius: 18,
+    backgroundColor: '#F4F7FD',
     gap: spacing.xs,
   },
   previewInlineLabel: {
@@ -799,8 +799,8 @@ const styles = StyleSheet.create({
   },
   sliderValueCard: {
     padding: spacing.md,
-    borderRadius: radius.md,
-    backgroundColor: '#F4F8FB',
+    borderRadius: 18,
+    backgroundColor: '#F4F7FD',
     gap: spacing.xs,
     alignItems: 'center',
   },
@@ -851,8 +851,8 @@ const styles = StyleSheet.create({
   },
   infoCallout: {
     padding: spacing.md,
-    borderRadius: radius.md,
-    backgroundColor: '#FFF7ED',
+    borderRadius: 18,
+    backgroundColor: '#FFF6EA',
   },
   infoCalloutText: {
     color: palette.warning,
@@ -876,9 +876,9 @@ const styles = StyleSheet.create({
   },
   submit: {
     paddingVertical: 16,
-    borderRadius: radius.md,
+    borderRadius: radius.pill,
     alignItems: 'center',
-    backgroundColor: palette.primaryDeep,
+    backgroundColor: palette.primary,
   },
   submitDisabled: {
     opacity: 0.45,

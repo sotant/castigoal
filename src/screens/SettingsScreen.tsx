@@ -105,7 +105,7 @@ export function SettingsScreen() {
   const hasSyncError = sessionState.syncStatus === 'error' && Boolean(sessionState.syncError);
 
   return (
-    <ScreenContainer title="Ajustes" subtitle="Recordatorios y acciones de mantenimiento.">
+    <ScreenContainer title="Ajustes" subtitle="Cuenta, recordatorios y mantenimiento con el nuevo look visual.">
       <Modal
         animationType="fade"
         transparent
@@ -313,7 +313,7 @@ export function SettingsScreen() {
 const styles = StyleSheet.create({
   card: {
     padding: spacing.md,
-    borderRadius: radius.lg,
+    borderRadius: 20,
     backgroundColor: palette.snow,
     borderWidth: 1,
     borderColor: palette.line,
@@ -321,10 +321,10 @@ const styles = StyleSheet.create({
   },
   ctaCard: {
     padding: spacing.lg,
-    borderRadius: radius.lg,
-    backgroundColor: '#EEF8F6',
+    borderRadius: 22,
+    backgroundColor: '#EEF4FF',
     borderWidth: 1,
-    borderColor: '#BDE4DD',
+    borderColor: '#CCDCFF',
     gap: spacing.sm,
   },
   sectionTitle: {
@@ -364,10 +364,10 @@ const styles = StyleSheet.create({
   comboButton: {
     paddingHorizontal: spacing.md,
     paddingVertical: 14,
-    borderRadius: radius.md,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: palette.line,
-    backgroundColor: palette.cloud,
+    backgroundColor: '#F7F9FD',
   },
   comboValue: {
     color: palette.ink,
@@ -390,14 +390,14 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     padding: spacing.lg,
-    borderRadius: radius.lg,
+    borderRadius: 22,
     backgroundColor: palette.snow,
     gap: spacing.sm,
   },
   modalEyebrow: {
     fontSize: 12,
     fontWeight: '700',
-    color: palette.accent,
+    color: palette.primary,
     textTransform: 'uppercase',
   },
   modalTitle: {
@@ -426,7 +426,7 @@ const styles = StyleSheet.create({
   modalSecondaryButton: {
     flex: 1,
     paddingVertical: 14,
-    borderRadius: radius.md,
+    borderRadius: radius.pill,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: palette.line,
@@ -435,7 +435,7 @@ const styles = StyleSheet.create({
   modalDangerButton: {
     flex: 1,
     paddingVertical: 14,
-    borderRadius: radius.md,
+    borderRadius: radius.pill,
     alignItems: 'center',
     backgroundColor: '#B91C1C',
   },
@@ -450,14 +450,14 @@ const styles = StyleSheet.create({
     maxHeight: '70%',
     padding: spacing.lg,
     gap: spacing.sm,
-    borderTopLeftRadius: radius.lg,
-    borderTopRightRadius: radius.lg,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     backgroundColor: palette.snow,
   },
   sheetEyebrow: {
     fontSize: 12,
     fontWeight: '700',
-    color: palette.accent,
+    color: palette.primary,
     textTransform: 'uppercase',
   },
   sheetTitle: {
@@ -472,14 +472,14 @@ const styles = StyleSheet.create({
   optionButton: {
     paddingHorizontal: spacing.md,
     paddingVertical: 14,
-    borderRadius: radius.md,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: palette.line,
-    backgroundColor: palette.cloud,
+    backgroundColor: '#F7F9FD',
   },
   optionButtonSelected: {
-    borderColor: palette.primary,
-    backgroundColor: '#E6F6F4',
+    borderColor: '#CFE0FF',
+    backgroundColor: '#EEF4FF',
   },
   optionLabel: {
     color: palette.ink,
@@ -491,7 +491,7 @@ const styles = StyleSheet.create({
   },
   secondaryButton: {
     paddingVertical: 14,
-    borderRadius: radius.md,
+    borderRadius: radius.pill,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: palette.line,
@@ -499,9 +499,9 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     paddingVertical: 14,
-    borderRadius: radius.md,
+    borderRadius: radius.pill,
     alignItems: 'center',
-    backgroundColor: palette.primaryDeep,
+    backgroundColor: palette.primary,
   },
   primaryLabel: {
     color: palette.snow,
@@ -528,7 +528,7 @@ const styles = StyleSheet.create({
   },
   dangerButton: {
     paddingVertical: 14,
-    borderRadius: radius.md,
+    borderRadius: radius.pill,
     alignItems: 'center',
     backgroundColor: '#B91C1C',
   },

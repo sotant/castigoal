@@ -1,21 +1,14 @@
-import { Feather } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 
+import { BottomNavIcon, getBottomNavScreenOptions } from '@/src/components/BottomNav';
+import { useAppStore } from '@/src/store/app-store';
+
 export default function TabLayout() {
+  const pendingPunishmentsCount = useAppStore((state) => state.homeSummary.pendingPunishmentsCount);
+
   return (
     <Tabs
-      screenOptions={{
-        headerShown: false,
-        animation: 'shift',
-        tabBarActiveTintColor: '#0F766E',
-        tabBarInactiveTintColor: '#425466',
-        tabBarStyle: {
-          height: 72,
-          paddingTop: 8,
-          paddingBottom: 10,
-          backgroundColor: '#FFFFFF',
-        },
-      }}>
+      screenOptions={getBottomNavScreenOptions()}>
       <Tabs.Screen
         name="index"
         options={{
@@ -26,14 +19,18 @@ export default function TabLayout() {
         name="home"
         options={{
           title: 'Hoy',
-          tabBarIcon: ({ color, size }) => <Feather name="target" size={size} color={color} />,
+          tabBarIcon: ({ color, focused, size }) => (
+            <BottomNavIcon color={color} focused={focused} iconFamily="ionicons" name="home" size={size} />
+          ),
         }}
       />
       <Tabs.Screen
         name="goals"
         options={{
           title: 'Objetivos',
-          tabBarIcon: ({ color, size }) => <Feather name="list" size={size} color={color} />,
+          tabBarIcon: ({ color, focused, size }) => (
+            <BottomNavIcon color={color} focused={focused} iconFamily="ionicons" name="compass" size={size} />
+          ),
         }}
       />
       <Tabs.Screen
@@ -46,21 +43,34 @@ export default function TabLayout() {
         name="punishments"
         options={{
           title: 'Castigos',
-          tabBarIcon: ({ color, size }) => <Feather name="alert-triangle" size={size} color={color} />,
+          tabBarIcon: ({ color, focused, size }) => (
+            <BottomNavIcon
+              color={color}
+              focused={focused}
+              iconFamily="ionicons"
+              name="notifications"
+              showDot={pendingPunishmentsCount > 0}
+              size={size}
+            />
+          ),
         }}
       />
       <Tabs.Screen
         name="stats"
         options={{
           title: 'Stats',
-          tabBarIcon: ({ color, size }) => <Feather name="bar-chart-2" size={size} color={color} />,
+          tabBarIcon: ({ color, focused, size }) => (
+            <BottomNavIcon color={color} focused={focused} iconFamily="feather" name="stats" size={size} />
+          ),
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
           title: 'Ajustes',
-          tabBarIcon: ({ color, size }) => <Feather name="settings" size={size} color={color} />,
+          tabBarIcon: ({ color, focused, size }) => (
+            <BottomNavIcon color={color} focused={focused} iconFamily="ionicons" name="settings" size={size} />
+          ),
         }}
       />
     </Tabs>
