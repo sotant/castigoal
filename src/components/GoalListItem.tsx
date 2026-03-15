@@ -24,7 +24,9 @@ function getDeadlineLabel(summary: HomeGoalSummary) {
 
 export function GoalListItem({ summary }: Props) {
   const deleteGoal = useAppStore((state) => state.deleteGoal);
-  const deadlineWarning = summary.daysUntilStart === 0 && summary.remainingDays > 0 && summary.remainingDays <= 1;
+  const deadlineWarning = summary.daysUntilStart === 0 && summary.remainingDays > 0 && summary.remainingDays < 5;
+  const canOpenGoal = true;
+  const canQuickCheck = summary.active && summary.daysUntilStart === 0 && summary.remainingDays > 0;
 
   return (
     <GoalCard
@@ -40,11 +42,12 @@ export function GoalListItem({ summary }: Props) {
             : summary.todayStatus === 'missed'
               ? 'Hoy: fallado'
               : 'Hoy: pendiente'
-          : 'Objetivo pausado'
+          : 'Objetivo finalizado'
       }
       deadlineLabel={getDeadlineLabel(summary)}
       deadlineWarning={deadlineWarning}
       todayStatus={summary.todayStatus ?? 'pending'}
+      muted={!summary.active}
       onDelete={() => {
         Alert.alert('Eliminar desafio', 'Se borraran tambien sus check-ins y castigos asignados. Esta accion no se puede deshacer.', [
           { text: 'Cancelar', style: 'cancel' },
@@ -57,9 +60,9 @@ export function GoalListItem({ summary }: Props) {
           },
         ]);
       }}
-      disabled={!summary.active}
-      onPress={summary.active ? () => router.push(appRoutes.goalDetail(summary.goalId)) : undefined}
-      onQuickCheck={summary.active ? () => router.push(appRoutes.checkin(summary.goalId)) : undefined}
+      disabled={!canOpenGoal}
+      onPress={canOpenGoal ? () => router.push(appRoutes.goalDetail(summary.goalId)) : undefined}
+      onQuickCheck={canQuickCheck ? () => router.push(appRoutes.checkin(summary.goalId)) : undefined}
     />
   );
 }

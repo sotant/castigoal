@@ -11,6 +11,7 @@ type Props = PropsWithChildren<{
   title: string;
   subtitle?: string;
   action?: ReactNode;
+  overlay?: ReactNode;
   scroll?: boolean;
   enableTabSwipe?: boolean;
 }>;
@@ -19,6 +20,7 @@ export function ScreenContainer({
   title,
   subtitle,
   action,
+  overlay,
   scroll = true,
   enableTabSwipe,
   children,
@@ -69,6 +71,7 @@ export function ScreenContainer({
             ) : (
               content
             )}
+            {overlay}
           </KeyboardAvoidingView>
         </SafeAreaView>
       </FlingGestureHandler>

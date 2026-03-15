@@ -32,15 +32,15 @@ function GoalRow({
           <Text style={styles.title}>{goal.title}</Text>
           {goal.description ? <Text style={styles.description}>{goal.description}</Text> : null}
         </View>
-        <Text style={[styles.badge, goal.active ? styles.badgeActive : styles.badgePaused]}>
-          {goal.active ? 'Activo' : 'Pausado'}
+        <Text style={[styles.badge, goal.active ? styles.badgeActive : styles.badgeFinalized]}>
+          {goal.active ? 'Activo' : 'Finalizado'}
         </Text>
       </View>
 
       <View style={styles.actionsRow}>
-        <Pressable onPress={onToggleActive} style={[styles.secondaryButton, goal.active ? styles.pauseButton : styles.activateButton]}>
-          <Text style={[styles.secondaryLabel, goal.active ? styles.pauseLabel : styles.activateLabel]}>
-            {goal.active ? 'Desactivar' : 'Activar'}
+        <Pressable onPress={onToggleActive} style={[styles.secondaryButton, goal.active ? styles.finalizeButton : styles.activateButton]}>
+          <Text style={[styles.secondaryLabel, goal.active ? styles.finalizeLabel : styles.activateLabel]}>
+            {goal.active ? 'Finalizar' : 'Reactivar'}
           </Text>
         </Pressable>
         <Pressable onPress={() => router.push(appRoutes.editGoal(goal.id))} style={styles.secondaryButton}>
@@ -160,7 +160,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#DCFCE7',
     color: palette.success,
   },
-  badgePaused: {
+  badgeFinalized: {
     backgroundColor: '#E0F2FE',
     color: '#075985',
   },
@@ -188,11 +188,11 @@ const styles = StyleSheet.create({
   activateLabel: {
     color: palette.success,
   },
-  pauseButton: {
+  finalizeButton: {
     backgroundColor: '#FFF7ED',
     borderColor: '#FED7AA',
   },
-  pauseLabel: {
+  finalizeLabel: {
     color: '#C2410C',
   },
   dangerButton: {

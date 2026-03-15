@@ -18,6 +18,7 @@ type Props = {
   onPress?: () => void;
   onQuickCheck?: () => void;
   disabled?: boolean;
+  muted?: boolean;
 };
 
 export function GoalCard({
@@ -34,13 +35,14 @@ export function GoalCard({
   onPress,
   onQuickCheck,
   disabled = false,
+  muted = false,
 }: Props) {
   return (
-    <Pressable disabled={disabled} onPress={onPress} style={[styles.card, disabled && styles.cardDisabled]}>
+    <Pressable disabled={disabled} onPress={onPress} style={[styles.card, muted && styles.cardDisabled]}>
       <View style={styles.topRow}>
         <View style={styles.copy}>
           <View style={styles.titleRow}>
-            <Text style={[styles.title, disabled && styles.titleDisabled]}>{title}</Text>
+            <Text style={[styles.title, muted && styles.titleDisabled]}>{title}</Text>
             {onDelete && !disabled ? (
               <Pressable
                 hitSlop={10}
@@ -53,19 +55,19 @@ export function GoalCard({
               </Pressable>
             ) : null}
           </View>
-          {description ? <Text style={[styles.description, disabled && styles.copyDisabled]}>{description}</Text> : null}
+          {description ? <Text style={[styles.description, muted && styles.copyDisabled]}>{description}</Text> : null}
           <Text
             style={[
               styles.status,
               todayStatus === 'completed' && styles.statusCompleted,
               todayStatus === 'pending' && styles.statusPending,
               todayStatus === 'missed' && styles.statusMissed,
-              disabled && styles.statusDisabled,
+              muted && styles.statusDisabled,
             ]}>
             {todayLabel}
           </Text>
           {deadlineLabel ? (
-            <Text style={[styles.deadline, deadlineWarning && styles.deadlineWarning, disabled && styles.copyDisabled]}>
+            <Text style={[styles.deadline, deadlineWarning && styles.deadlineWarning, muted && styles.copyDisabled]}>
               {deadlineLabel}
             </Text>
           ) : null}
@@ -74,9 +76,9 @@ export function GoalCard({
       </View>
 
       <View style={styles.footer}>
-        <Text style={[styles.meta, disabled && styles.copyDisabled]}>Racha {currentStreak} d</Text>
-        <Text style={[styles.meta, disabled && styles.copyDisabled]}>Mejor {bestStreak} d</Text>
-        {!disabled && onQuickCheck ? (
+        <Text style={[styles.meta, muted && styles.copyDisabled]}>Racha {currentStreak} d</Text>
+        <Text style={[styles.meta, muted && styles.copyDisabled]}>Mejor {bestStreak} d</Text>
+        {!muted && onQuickCheck ? (
           <Pressable
             onPress={(event) => {
               event.stopPropagation();

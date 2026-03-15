@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Feather } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Directions, FlingGestureHandler } from 'react-native-gesture-handler';
 
 import { EmptyState } from '@/src/components/EmptyState';
 import { ScreenContainer } from '@/src/components/ScreenContainer';
@@ -53,6 +54,10 @@ export function StatsScreen() {
     void loadStatsCalendar(selectedGoal.id, monthStart);
   }, [loadStatsCalendar, monthStart, selectedGoal]);
 
+  const handleCalendarSwipe = (direction: 'left' | 'right') => {
+    setMonthOffset((current) => (direction === 'left' ? current + 1 : current - 1));
+  };
+
   return (
     <ScreenContainer title="Estadisticas">
       <View style={[styles.section, styles.goalSection]}>
@@ -76,7 +81,7 @@ export function StatsScreen() {
                     {selectedGoal?.title}
                   </Text>
                   <Text style={[styles.goalButtonMeta, isGoalDropdownOpen && styles.goalButtonMetaSelected]}>
-                    {selectedGoal?.active ? 'Activo' : 'Pausado'}
+                    {selectedGoal?.active ? 'Activo' : 'Finalizado'}
                   </Text>
                 </View>
                 <Feather
@@ -104,7 +109,7 @@ export function StatsScreen() {
                         {goal.title}
                       </Text>
                       <Text style={[styles.dropdownOptionMeta, isSelected && styles.dropdownOptionMetaSelected]}>
-                        {goal.active ? 'Activo' : 'Pausado'}
+                        {goal.active ? 'Activo' : 'Finalizado'}
                       </Text>
                     </Pressable>
                   );
@@ -118,7 +123,7 @@ export function StatsScreen() {
               <View style={styles.goalCopy}>
                 <Text style={[styles.goalButtonTitle, styles.goalButtonTitleSelected]}>{selectedGoal?.title}</Text>
                 <Text style={[styles.goalButtonMeta, styles.goalButtonMetaSelected]}>
-                  {selectedGoal?.active ? 'Activo' : 'Pausado'}
+                  {selectedGoal?.active ? 'Activo' : 'Finalizado'}
                 </Text>
               </View>
             </View>
@@ -145,30 +150,34 @@ export function StatsScreen() {
             </View>
           </View>
 
-          <View style={styles.calendarCard}>
-            <View style={styles.weekRow}>
-              {WEEKDAY_LABELS.map((label) => (
-                <Text key={label} style={styles.weekday}>
-                  {label}
-                </Text>
-              ))}
-            </View>
-
-            <View style={styles.calendarGrid}>
-              {calendarDays.map((day) => (
-                <View key={day.date} style={styles.dayCell}>
-                  <View
-                    style={[
-                      styles.dayBubble,
-                      day.status === 'completed' ? styles.dayCompleted : day.status === 'missed' ? styles.dayMissed : styles.dayEmpty,
-                      !day.inMonth && styles.dayOutsideMonth,
-                    ]}>
-                    <Text style={[styles.dayLabel, !day.inMonth && styles.dayLabelOutsideMonth]}>{day.dayNumber}</Text>
-                  </View>
+          <FlingGestureHandler direction={Directions.LEFT} onActivated={() => handleCalendarSwipe('left')}>
+            <FlingGestureHandler direction={Directions.RIGHT} onActivated={() => handleCalendarSwipe('right')}>
+              <View style={styles.calendarCard}>
+                <View style={styles.weekRow}>
+                  {WEEKDAY_LABELS.map((label) => (
+                    <Text key={label} style={styles.weekday}>
+                      {label}
+                    </Text>
+                  ))}
                 </View>
-              ))}
-            </View>
-          </View>
+
+                <View style={styles.calendarGrid}>
+                  {calendarDays.map((day) => (
+                    <View key={day.date} style={styles.dayCell}>
+                      <View
+                        style={[
+                          styles.dayBubble,
+                          day.status === 'completed' ? styles.dayCompleted : day.status === 'missed' ? styles.dayMissed : styles.dayEmpty,
+                          !day.inMonth && styles.dayOutsideMonth,
+                        ]}>
+                        <Text style={[styles.dayLabel, !day.inMonth && styles.dayLabelOutsideMonth]}>{day.dayNumber}</Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            </FlingGestureHandler>
+          </FlingGestureHandler>
 
           <View style={styles.legend}>
             <View style={styles.legendItem}>

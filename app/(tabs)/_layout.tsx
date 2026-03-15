@@ -37,6 +37,12 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="goal-detail/[id]"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
         name="punishments"
         options={{
           title: 'Castigos',

@@ -4,16 +4,17 @@ import { palette, radius, spacing } from '@/src/constants/theme';
 import { CheckinStatus } from '@/src/models/types';
 
 type Props = {
+  disabled?: boolean;
   label: string;
   status: CheckinStatus;
   onPress: () => void;
 };
 
-export function DailyCheckButton({ label, status, onPress }: Props) {
+export function DailyCheckButton({ disabled = false, label, status, onPress }: Props) {
   const backgroundColor = status === 'completed' ? palette.success : palette.danger;
 
   return (
-    <Pressable style={[styles.button, { backgroundColor }]} onPress={onPress}>
+    <Pressable disabled={disabled} style={[styles.button, { backgroundColor }, disabled && styles.buttonDisabled]} onPress={onPress}>
       <Text style={styles.label}>{label}</Text>
     </Pressable>
   );
@@ -26,6 +27,9 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: radius.md,
     alignItems: 'center',
+  },
+  buttonDisabled: {
+    opacity: 0.45,
   },
   label: {
     color: palette.snow,

@@ -6,11 +6,12 @@ import { EmptyState } from '@/src/components/EmptyState';
 import { ProgressRing } from '@/src/components/ProgressRing';
 import { ScreenContainer } from '@/src/components/ScreenContainer';
 import { StatisticCard } from '@/src/components/StatisticCard';
-import { palette, radius, spacing } from '@/src/constants/theme';
+import { palette, radius, shadows, spacing } from '@/src/constants/theme';
 import { appRoutes } from '@/src/navigation/app-routes';
 import { Goal } from '@/src/models/types';
 import { selectGoalDetail, useAppStore } from '@/src/store/app-store';
 import { formatLongDate, formatShortDate } from '@/src/utils/date';
+import { getGoalRemainingDays } from '@/src/utils/goal-evaluation';
 
 type Props = {
   goal?: Goal;
@@ -58,14 +59,15 @@ export function GoalDetailScreen({ goal }: Props) {
       passed: false,
     },
   };
+  const canCheckIn = goal.active && getGoalRemainingDays(goal) > 0;
 
   return (
     <ScreenContainer
       title={goal.title}
       subtitle={goal.description || 'Objetivo sin descripcion.'}
-      action={
-        <Pressable onPress={() => router.push(appRoutes.editGoal(goal.id))} style={styles.headerButton}>
-          <Text style={styles.headerButtonLabel}>Editar</Text>
+      overlay={
+        <Pressable onPress={() => router.push(appRoutes.editGoal(goal.id))} style={styles.fab}>
+          <Text style={styles.fabLabel}>Editar</Text>
         </Pressable>
       }>
       <View style={styles.summary}>
@@ -94,7 +96,10 @@ export function GoalDetailScreen({ goal }: Props) {
       </View>
 
       <View style={styles.actions}>
-        <Pressable onPress={() => router.push(appRoutes.checkin(goal.id))} style={styles.primaryAction}>
+        <Pressable
+          disabled={!canCheckIn}
+          onPress={() => router.push(appRoutes.checkin(goal.id))}
+          style={[styles.primaryAction, !canCheckIn && styles.primaryActionDisabled]}>
           <Text style={styles.primaryActionLabel}>Hacer check-in</Text>
         </Pressable>
         <Pressable
@@ -102,7 +107,7 @@ export function GoalDetailScreen({ goal }: Props) {
             void toggleGoalActive(goal.id);
           }}
           style={styles.secondaryAction}>
-          <Text style={styles.secondaryActionLabel}>{goal.active ? 'Pausar' : 'Activar'}</Text>
+          <Text style={styles.secondaryActionLabel}>{goal.active ? 'Finalizar' : 'Reactivar'}</Text>
         </Pressable>
       </View>
 
@@ -121,22 +126,13 @@ export function GoalDetailScreen({ goal }: Props) {
           ))
         )}
       </View>
+
+      <View style={styles.fabOffset} />
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  headerButton: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.pill,
-    backgroundColor: palette.primary,
-  },
-  headerButtonLabel: {
-    color: palette.snow,
-    fontWeight: '700',
-  },
   summary: {
     padding: spacing.lg,
     borderRadius: radius.lg,
@@ -177,6 +173,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     alignItems: 'center',
     backgroundColor: palette.primaryDeep,
+  },
+  primaryActionDisabled: {
+    opacity: 0.45,
   },
   primaryActionLabel: {
     color: palette.snow,
@@ -232,5 +231,26 @@ const styles = StyleSheet.create({
   badgeDanger: {
     backgroundColor: '#FEE4E2',
     color: palette.danger,
+  },
+  fabOffset: {
+    height: 76,
+  },
+  fab: {
+    position: 'absolute',
+    right: spacing.md,
+    bottom: 20,
+    minWidth: 56,
+    height: 56,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: palette.primary,
+    ...shadows.card,
+  },
+  fabLabel: {
+    color: palette.snow,
+    fontSize: 16,
+    fontWeight: '800',
   },
 });

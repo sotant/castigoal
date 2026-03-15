@@ -9,6 +9,7 @@ import { palette, radius, spacing } from '@/src/constants/theme';
 import { appRoutes } from '@/src/navigation/app-routes';
 import { Goal } from '@/src/models/types';
 import { useAppStore } from '@/src/store/app-store';
+import { getGoalRemainingDays } from '@/src/utils/goal-evaluation';
 
 type Props = {
   goal?: Goal;
@@ -50,7 +51,7 @@ export function CheckinScreen({ goal }: Props) {
   }
 
   const submit = async (status: 'completed' | 'missed') => {
-    if (saving) {
+    if (saving || !canCheckIn) {
       return;
     }
 
@@ -70,6 +71,7 @@ export function CheckinScreen({ goal }: Props) {
     }
   };
 
+  const canCheckIn = goal.active && getGoalRemainingDays(goal) > 0;
   const requiredDays = getRequiredDays(goal.targetDays, goal.minimumSuccessRate);
 
   return (
@@ -87,14 +89,28 @@ export function CheckinScreen({ goal }: Props) {
       </View>
 
       <View style={styles.actions}>
-        <DailyCheckButton label={saving ? 'Guardando...' : 'Cumplido'} status="completed" onPress={() => void submit('completed')} />
-        <DailyCheckButton label={saving ? 'Guardando...' : 'No cumplido'} status="missed" onPress={() => void submit('missed')} />
+        <DailyCheckButton
+          label={!canCheckIn ? 'Plazo finalizado' : saving ? 'Guardando...' : 'Cumplido'}
+          status="completed"
+          disabled={!canCheckIn || saving}
+          onPress={() => void submit('completed')}
+        />
+        <DailyCheckButton
+          label={!canCheckIn ? 'Plazo finalizado' : saving ? 'Guardando...' : 'No cumplido'}
+          status="missed"
+          disabled={!canCheckIn || saving}
+          onPress={() => void submit('missed')}
+        />
       </View>
+
+      {!canCheckIn ? (
+        <Text style={styles.expiredMessage}>Este objetivo ya ha terminado su plazo y no admite mas check-ins.</Text>
+      ) : null}
 
       <View style={styles.group}>
         <Text style={styles.label}>Nota del dia</Text>
         <TextInput
-          editable={!saving}
+          editable={!saving && canCheckIn}
           value={note}
           onChangeText={setNote}
           style={[styles.input, styles.multiline]}
@@ -134,6 +150,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: palette.ink,
+  },
+  expiredMessage: {
+    color: palette.danger,
+    fontWeight: '700',
+    lineHeight: 21,
   },
   input: {
     paddingHorizontal: spacing.md,

@@ -51,7 +51,7 @@ export function useGoalListItemData(goalId: string) {
       bestStreak: summary.bestStreak,
       currentStreak: summary.currentStreak,
       deadlineLabel,
-      deadlineWarning: summary.daysUntilStart === 0 && summary.remainingDays === 1,
+      deadlineWarning: summary.daysUntilStart === 0 && summary.remainingDays > 0 && summary.remainingDays < 5,
       deleteGoal,
       evaluation: evaluation ?? buildFallbackEvaluation(goal.id),
       goal,
@@ -61,7 +61,7 @@ export function useGoalListItemData(goalId: string) {
           : summary.todayStatus === 'missed'
             ? 'Hoy: fallado'
             : 'Hoy: pendiente'
-        : 'Objetivo pausado',
+        : 'Objetivo finalizado',
       todayStatus: summary.todayStatus,
     };
   }, [deleteGoal, evaluation, goal, summary]);

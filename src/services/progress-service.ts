@@ -326,6 +326,36 @@ function sortGoals(goals: Goal[]) {
   return [...goals].sort((left, right) => right.createdAt.localeCompare(left.createdAt));
 }
 
+function expireGoalsIfNeeded(container: LocalContainer, referenceDate = startOfToday()) {
+  const today = toISODate(referenceDate);
+  let changed = false;
+
+  for (const [goalId, record] of Object.entries(container.records.goals)) {
+    const goal = record.data;
+
+    if (!goal.active || today <= getGoalDeadline(goal)) {
+      continue;
+    }
+
+    container.records.goals[goalId] = touchRecord(
+      record,
+      {
+        ...goal,
+        active: false,
+        updatedAt: nowIso(),
+      },
+      container.actorType === 'guest' ? container.guestId : undefined,
+    );
+    changed = true;
+  }
+
+  if (changed && container.actorType === 'authenticated') {
+    container.sync.status = 'pending';
+  }
+
+  return changed;
+}
+
 function getGoalEvaluationsMap(goals: Goal[], checkins: Checkin[], referenceDate = startOfToday()) {
   return Object.fromEntries(goals.map((goal) => [goal.id, evaluateGoalPeriod(goal, checkins, referenceDate)]));
 }
@@ -526,16 +556,24 @@ async function getActiveContainer() {
 
   if (!session) {
     const guestId = await getCurrentGuestId();
+    const container = await getOrCreateContainer('guest', guestId, guestId);
+    if (expireGoalsIfNeeded(container)) {
+      await saveContainer(container);
+    }
     return {
-      container: await getOrCreateContainer('guest', guestId, guestId),
+      container,
       mode: 'guest' as const,
       session: null,
     };
   }
 
   const guestId = await getCurrentGuestId();
+  const container = await getOrCreateContainer('authenticated', session.user.id, guestId);
+  if (expireGoalsIfNeeded(container)) {
+    await saveContainer(container);
+  }
   return {
-    container: await getOrCreateContainer('authenticated', session.user.id, guestId),
+    container,
     mode: 'authenticated' as const,
     session,
   };
@@ -1178,7 +1216,11 @@ async function bootstrapContainer() {
 
   if (!authState) {
     const guestId = await getCurrentGuestId();
-    return getOrCreateContainer('guest', guestId, guestId);
+    const container = await getOrCreateContainer('guest', guestId, guestId);
+    if (expireGoalsIfNeeded(container)) {
+      await saveContainer(container);
+    }
+    return container;
   }
 
   const guestId = await getCurrentGuestId();
@@ -1190,6 +1232,10 @@ async function bootstrapContainer() {
   if (didMergeGuest) {
     await saveContainer(accountContainer);
     await rotateGuestId();
+  }
+
+  if (expireGoalsIfNeeded(accountContainer)) {
+    await saveContainer(accountContainer);
   }
 
   return syncAuthenticatedContainer(accountContainer);

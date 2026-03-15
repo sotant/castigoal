@@ -456,7 +456,7 @@ export function GoalFormScreen({ mode, goal }: Props) {
           <View style={styles.toggleCard}>
             <View style={styles.toggleCopy}>
               <Text style={styles.label}>Objetivo activo</Text>
-              <Text style={styles.helper}>Si lo pausas, dejas de registrar check-ins y evaluar castigos hasta reactivarlo.</Text>
+              <Text style={styles.helper}>Si lo finalizas, deja de admitir check-ins y pasa a considerarse cerrado hasta que lo reactives.</Text>
             </View>
             <Switch disabled={saving} value={active} onValueChange={setActive} />
           </View>
