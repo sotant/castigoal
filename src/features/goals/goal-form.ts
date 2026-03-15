@@ -1,4 +1,4 @@
-export type DurationMode = 'days' | 'custom';
+export type DurationMode = 'days' | 'endDate';
 export type MinimumMode = 'percentage' | 'days';
 
 export type CalendarDay = {
@@ -7,7 +7,7 @@ export type CalendarDay = {
   inMonth: boolean;
 };
 
-export const targetDayPresets = [3, 5, 7, 14, 30];
+export const targetDayPresets = [7, 14, 30];
 export const minimumRatePresets = [50, 70, 80, 100];
 export const weekdayLabels = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 export const sliderSteps = Array.from({ length: 21 }, (_, index) => index * 5);
