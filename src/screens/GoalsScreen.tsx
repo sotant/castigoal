@@ -92,7 +92,7 @@ export function GoalsScreen() {
   const renderGoal: ListRenderItem<Goal> = ({ item }) => (
     <ObjectiveListItem
       goal={item}
-      onEdit={() => router.push(appRoutes.editGoal(item.id))}
+      onOpenDetail={() => router.push(appRoutes.goalDetail(item.id))}
       onOpenActions={() => setActiveMenuGoalId(item.id)}
       onToggleActive={() => handleToggleActive(item.id)}
     />
@@ -116,7 +116,6 @@ export function GoalsScreen() {
   return (
     <ScreenContainer
       title="Objetivos"
-      subtitle="Controla tus objetivos de un vistazo y deja las acciones secundarias fuera del ruido."
       scroll={false}>
       {goals.length === 0 ? (
         <View style={[styles.emptyStateWrapper, { paddingBottom: tabBarHeight + insets.bottom + 96 }]}>

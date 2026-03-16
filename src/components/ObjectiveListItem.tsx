@@ -7,19 +7,19 @@ import { StatusBadge } from '@/src/components/StatusBadge';
 
 type Props = {
   goal: Goal;
-  onEdit: () => void;
+  onOpenDetail: () => void;
   onOpenActions: () => void;
   onToggleActive: () => void;
 };
 
-export function ObjectiveListItem({ goal, onEdit, onOpenActions, onToggleActive }: Props) {
+export function ObjectiveListItem({ goal, onOpenDetail, onOpenActions, onToggleActive }: Props) {
   const primaryActionLabel = goal.active ? 'Finalizar' : 'Reactivar';
 
   return (
     <Pressable
-      accessibilityHint="Abre la edicion del objetivo"
+      accessibilityHint="Abre el detalle del objetivo"
       accessibilityRole="button"
-      onPress={onEdit}
+      onPress={onOpenDetail}
       style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}>
       <View style={styles.header}>
         <View style={styles.copy}>

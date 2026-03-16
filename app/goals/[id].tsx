@@ -1,13 +1,15 @@
-import { Redirect, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 
-import { appRoutes } from '@/src/navigation/app-routes';
+import { GoalDetailScreen } from '@/src/screens/GoalDetailScreen';
+import { useAppStore } from '@/src/store/app-store';
 
 export default function GoalDetailRoute() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const goal = useAppStore((state) => state.goals.find((item) => item.id === id));
 
   if (!id) {
     return null;
   }
 
-  return <Redirect href={appRoutes.goalDetail(id)} />;
+  return <GoalDetailScreen goal={goal} />;
 }

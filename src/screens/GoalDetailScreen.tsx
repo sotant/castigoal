@@ -61,7 +61,6 @@ export function GoalDetailScreen({ goal }: Props) {
   return (
     <ScreenContainer
       title={goal.title}
-      subtitle={goal.description || 'Objetivo sin descripcion.'}
       overlay={
         <Pressable onPress={() => router.push(appRoutes.editGoal(goal.id))} style={styles.fab}>
           <Text style={styles.fabLabel}>Editar</Text>
