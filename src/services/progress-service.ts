@@ -59,11 +59,17 @@ export type RecordCheckinResult = {
   assignedPunishment?: AssignedPunishment;
   checkin: Checkin;
   evaluation: GoalEvaluation;
+  goalEvaluations: Record<string, GoalEvaluation>;
+  homeSummary: HomeSummary;
+  statsSummary: StatsSummary;
 };
 
 export type ClearCheckinResult = {
   evaluation: GoalEvaluation;
+  goalEvaluations: Record<string, GoalEvaluation>;
+  homeSummary: HomeSummary;
   removedAssignedPunishmentId?: string;
+  statsSummary: StatsSummary;
 };
 
 type EntitySyncState = 'synced' | 'pending_upsert';
@@ -364,23 +370,25 @@ function getGoalEvaluationsMap(goals: Goal[], checkins: Checkin[], referenceDate
   return Object.fromEntries(goals.map((goal) => [goal.id, evaluateGoalPeriod(goal, checkins, referenceDate)]));
 }
 
-function getTodayStatus(goalId: string, checkins: Checkin[]) {
-  const today = startOfToday();
-  return checkins.find((item) => item.goalId === goalId && item.date === today)?.status;
+function getStatusForDate(goalId: string, checkins: Checkin[], referenceDate = startOfToday()) {
+  const date = toISODate(referenceDate);
+  return checkins.find((item) => item.goalId === goalId && item.date === date)?.status;
 }
 
-function buildHomeGoalSummary(goal: Goal, checkins: Checkin[], evaluation: GoalEvaluation): HomeGoalSummary {
+function buildHomeGoalSummary(goal: Goal, checkins: Checkin[], evaluation: GoalEvaluation, referenceDate = startOfToday()): HomeGoalSummary {
   return {
     active: goal.active,
     bestStreak: getBestStreak(goal.id, checkins),
+    completedDays: evaluation.completedDays,
     completionRate: evaluation.completionRate,
-    currentStreak: getCurrentStreak(goal.id, checkins),
-    daysUntilStart: getGoalDaysUntilStart(goal),
+    currentStreak: getCurrentStreak(goal.id, checkins, referenceDate),
+    daysUntilStart: getGoalDaysUntilStart(goal, referenceDate),
     description: goal.description,
     goalId: goal.id,
-    remainingDays: getGoalRemainingDays(goal),
+    remainingDays: getGoalRemainingDays(goal, referenceDate),
+    targetDays: goal.targetDays,
     title: goal.title,
-    todayStatus: getTodayStatus(goal.id, checkins),
+    todayStatus: getStatusForDate(goal.id, checkins, referenceDate),
   };
 }
 
@@ -489,13 +497,18 @@ function getPendingPunishmentSummaries(
     .sort((left, right) => right.assignedAt.localeCompare(left.assignedAt));
 }
 
-function buildHomeSummary(goals: Goal[], checkins: Checkin[], pending: PendingAssignedPunishmentSummary[]): HomeSummary {
-  const evaluations = getGoalEvaluationsMap(goals, checkins);
+function buildHomeSummary(
+  goals: Goal[],
+  checkins: Checkin[],
+  pending: PendingAssignedPunishmentSummary[],
+  referenceDate = startOfToday(),
+) {
+  const evaluations = getGoalEvaluationsMap(goals, checkins, referenceDate);
   const latestPending = pending[0];
 
   return {
     activeGoalsCount: goals.filter((goal) => goal.active).length,
-    goalSummaries: goals.map((goal) => buildHomeGoalSummary(goal, checkins, evaluations[goal.id])),
+    goalSummaries: goals.map((goal) => buildHomeGoalSummary(goal, checkins, evaluations[goal.id], referenceDate)),
     latestPending: latestPending
       ? {
           assignedId: latestPending.assignedId,
@@ -530,7 +543,7 @@ function getDerivedData(container: LocalContainer, referenceDate = startOfToday(
     completedHistory,
     goalEvaluations,
     goals,
-    homeSummary: buildHomeSummary(goals, checkins, pendingPunishments),
+    homeSummary: buildHomeSummary(goals, checkins, pendingPunishments, referenceDate),
     pendingPunishments,
     punishments,
     settings: container.records.userSettings?.data ?? defaultSettings,
@@ -1309,9 +1322,9 @@ export async function loadGoalEvaluations(referenceDate?: string) {
   return Object.fromEntries(goals.map((goal) => [goal.id, evaluateGoalPeriod(goal, checkins, referenceDate ?? startOfToday())]));
 }
 
-export async function loadHomeSummary() {
+export async function loadHomeSummary(referenceDate?: string) {
   const { container } = await getActiveContainer();
-  return getDerivedData(container).homeSummary;
+  return getDerivedData(container, referenceDate ?? startOfToday()).homeSummary;
 }
 
 export async function loadStatsSummary(_referenceDate?: string) {
@@ -1355,6 +1368,13 @@ export async function loadGoalCheckinHistory(goalId: string) {
   return getDerivedData(container).checkins
     .filter((checkin) => checkin.goalId === goalId)
     .sort((left, right) => right.date.localeCompare(left.date));
+}
+
+export async function loadCheckinsInRange(startDate: string, endDate: string) {
+  const { container } = await getActiveContainer();
+  return getDerivedData(container).checkins
+    .filter((checkin) => checkin.date >= startDate && checkin.date <= endDate)
+    .sort((left, right) => left.date.localeCompare(right.date));
 }
 
 export async function loadAssignedPunishmentById(assignedId: string) {
@@ -1465,6 +1485,17 @@ function buildHistoryId(assignedId: string) {
   return assignedId;
 }
 
+function buildCheckinMutationSnapshot(container: LocalContainer) {
+  const today = startOfToday();
+  const todayDerived = getDerivedData(container, today);
+
+  return {
+    goalEvaluations: todayDerived.goalEvaluations,
+    homeSummary: todayDerived.homeSummary,
+    statsSummary: todayDerived.statsSummary,
+  };
+}
+
 export async function recordGoalCheckinRecord(input: CheckinInput & { date: string }): Promise<RecordCheckinResult> {
   return withActiveContainer(async (container) => {
     const goal = container.records.goals[input.goalId]?.data;
@@ -1514,10 +1545,15 @@ export async function recordGoalCheckinRecord(input: CheckinInput & { date: stri
       }
     }
 
+    const snapshot = buildCheckinMutationSnapshot(container);
+
     return {
       assignedPunishment,
       checkin,
       evaluation,
+      goalEvaluations: snapshot.goalEvaluations,
+      homeSummary: snapshot.homeSummary,
+      statsSummary: snapshot.statsSummary,
     };
   });
 }
@@ -1550,9 +1586,14 @@ export async function clearGoalCheckinRecord(input: { date: string; goalId: stri
       removedAssignedPunishmentId = assignedForPeriod.data.id;
     }
 
+    const snapshot = buildCheckinMutationSnapshot(container);
+
     return {
       evaluation,
+      goalEvaluations: snapshot.goalEvaluations,
+      homeSummary: snapshot.homeSummary,
       removedAssignedPunishmentId,
+      statsSummary: snapshot.statsSummary,
     };
   });
 }

@@ -1,20 +1,32 @@
 import { Feather } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { EmptyState } from '@/src/components/EmptyState';
+import { HorizontalDateCalendar } from '@/src/components/HorizontalDateCalendar';
 import { ScreenContainer } from '@/src/components/ScreenContainer';
 import { palette, radius, shadows, spacing } from '@/src/constants/theme';
-import { HomeGoalSummary } from '@/src/models/types';
+import { Goal, HomeGoalSummary, HomeSummary, Checkin } from '@/src/models/types';
 import { appRoutes } from '@/src/navigation/app-routes';
 import { useAppStore } from '@/src/store/app-store';
+import { loadCheckinsInRangeUseCase, loadHomeSummaryUseCase } from '@/src/use-cases/goal-actions';
+import { getGoalDeadline } from '@/src/utils/goal-evaluation';
+import { addMonths, enumerateDates, formatCompactDate, startOfToday, toISODate } from '@/src/utils/date';
 
 type GoalCardViewModel = {
   summary: HomeGoalSummary;
   completedDays: number;
   requiredDays: number;
+  selectedStatus: 'completed' | 'pending' | 'missed';
+  canEdit: boolean;
+  isTodaySelected: boolean;
 };
+
+type CalendarMarkerStatus = 'pending';
+const CALENDAR_START_OFFSET_MONTHS = -2;
+const CALENDAR_END_OFFSET_MONTHS = 1;
 
 function getDeadlineCopy(remainingDays: number) {
   if (remainingDays <= 0) {
@@ -24,11 +36,60 @@ function getDeadlineCopy(remainingDays: number) {
   return remainingDays === 1 ? 'Acaba en 1 dia' : `Acaba en ${remainingDays} dias`;
 }
 
-type ActiveGoalCardProps = GoalCardViewModel & {
-  disabled?: boolean;
-  onSetCompleted: () => void;
-  onSetMissed: () => void;
-};
+function getDateHeading(selectedDate: string) {
+  const today = startOfToday();
+
+  if (selectedDate === today) {
+    return 'Para hoy';
+  }
+
+  return formatCompactDate(selectedDate);
+}
+
+function isGoalVisibleOnDate(goal: Goal | undefined, summary: HomeGoalSummary, date: string) {
+  if (!goal) {
+    return false;
+  }
+
+  if (toISODate(goal.createdAt) > date) {
+    return false;
+  }
+
+  return summary.daysUntilStart === 0 && summary.remainingDays > 0;
+}
+
+function isGoalScheduledOnDate(goal: Goal, date: string) {
+  return toISODate(goal.createdAt) <= date && goal.startDate <= date && getGoalDeadline(goal) >= date;
+}
+
+function getMarkerForSummary(summary: HomeGoalSummary[], goals: Goal[], date: string) {
+  const hasPendingCheckin = summary.some((item) => {
+    const goal = goals.find((goalItem) => goalItem.id === item.goalId);
+
+    return isGoalVisibleOnDate(goal, item, date) && !item.todayStatus;
+  });
+
+  return hasPendingCheckin ? ('pending' as const) : undefined;
+}
+
+function getCalendarMarkersFromCheckins(dates: string[], goals: Goal[], checkins: Checkin[]) {
+  const today = startOfToday();
+  const checkinKeys = new Set(checkins.map((checkin) => `${checkin.goalId}:${checkin.date}`));
+
+  return Object.fromEntries(
+    dates
+      .map((date) => {
+        if (date > today) {
+          return [date, undefined] as const;
+        }
+
+        const hasPendingCheckin = goals.some((goal) => isGoalScheduledOnDate(goal, date) && !checkinKeys.has(`${goal.id}:${date}`));
+
+        return [date, hasPendingCheckin ? ('pending' as const) : undefined] as const;
+      })
+      .filter((entry): entry is [string, CalendarMarkerStatus] => Boolean(entry[1])),
+  );
+}
 
 type SegmentTone = {
   activeBackground: string;
@@ -64,11 +125,6 @@ function StatusSegment({ active, disabled, iconName, iconSize, onPress, style, t
     outputRange: [tone.inactiveBackground, tone.activeBackground],
   });
 
-  const iconColor = progress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [tone.inactiveIcon, tone.activeIcon],
-  });
-
   return (
     <Pressable disabled={disabled} hitSlop={6} onPress={onPress} style={[styles.actionIconButton, style, disabled && styles.actionIconButtonDisabled]}>
       <Animated.View style={[styles.segmentSurface, { backgroundColor }]}>
@@ -78,17 +134,42 @@ function StatusSegment({ active, disabled, iconName, iconSize, onPress, style, t
   );
 }
 
-function ActiveGoalCardView({ summary, completedDays, requiredDays, disabled = false, onSetCompleted, onSetMissed }: ActiveGoalCardProps) {
-  const canCheckin = !disabled && summary.active && summary.daysUntilStart === 0 && summary.remainingDays > 0;
-  const clampedCompletedDays = Math.max(0, Math.min(completedDays, requiredDays));
-  const progressWidth = (requiredDays > 0 ? `${Math.min((clampedCompletedDays / requiredDays) * 100, 100)}%` : '0%') as `${number}%`;
+type ActiveGoalCardProps = GoalCardViewModel & {
+  disabled?: boolean;
+  selectedDate: string;
+  onOpenDetail: () => void;
+  onSetCompleted: () => void;
+  onSetMissed: () => void;
+};
+
+function ActiveGoalCardView({
+  summary,
+  completedDays,
+  requiredDays,
+  selectedStatus,
+  canEdit,
+  isTodaySelected,
+  disabled = false,
+  onOpenDetail,
+  onSetCompleted,
+  onSetMissed,
+}: ActiveGoalCardProps) {
+  const safeRequiredDays = Math.max(requiredDays, 1);
+  const clampedCompletedDays = Math.max(0, Math.min(completedDays, safeRequiredDays));
+  const progressWidth = (safeRequiredDays > 0 ? `${Math.min((clampedCompletedDays / safeRequiredDays) * 100, 100)}%` : '0%') as `${number}%`;
+  const readOnly = !canEdit;
   const separators = Array.from({ length: 9 }, (_, index) => ({
     key: `${summary.goalId}-divider-${index}`,
     left: `${(index + 1) * 10}%` as `${number}%`,
   }));
 
   return (
-    <Pressable onPress={() => router.push(appRoutes.goalDetail(summary.goalId))} style={styles.goalCard}>
+    <Pressable
+      onPress={() => {
+        onOpenDetail();
+        router.push(appRoutes.goalDetail(summary.goalId));
+      }}
+      style={[styles.goalCard, readOnly && styles.goalCardReadOnly]}>
       <View style={styles.cardMainRow}>
         <View style={styles.cardCopy}>
           <Text numberOfLines={1} style={styles.goalTitle}>
@@ -97,9 +178,9 @@ function ActiveGoalCardView({ summary, completedDays, requiredDays, disabled = f
 
           <View style={styles.progressMetaRow}>
             <Text style={styles.progressLabel}>
-              {clampedCompletedDays}/{requiredDays} dias cumplidos
+              {clampedCompletedDays}/{safeRequiredDays} dias cumplidos
             </Text>
-            <Text style={styles.progressDeadline}>{getDeadlineCopy(summary.remainingDays)}</Text>
+            {isTodaySelected ? <Text style={styles.progressDeadline}>{getDeadlineCopy(summary.remainingDays)}</Text> : null}
           </View>
 
           <View style={styles.progressTrack}>
@@ -112,8 +193,8 @@ function ActiveGoalCardView({ summary, completedDays, requiredDays, disabled = f
 
         <View style={styles.actionsGroup}>
           <StatusSegment
-            active={summary.todayStatus === 'completed'}
-            disabled={!canCheckin}
+            active={selectedStatus === 'completed'}
+            disabled={!canEdit || disabled}
             iconName="check"
             iconSize={16}
             onPress={(event) => {
@@ -129,8 +210,8 @@ function ActiveGoalCardView({ summary, completedDays, requiredDays, disabled = f
           />
 
           <StatusSegment
-            active={summary.todayStatus === 'missed'}
-            disabled={!canCheckin}
+            active={selectedStatus === 'missed'}
+            disabled={!canEdit || disabled}
             iconName="x"
             iconSize={16}
             onPress={(event) => {
@@ -151,34 +232,161 @@ function ActiveGoalCardView({ summary, completedDays, requiredDays, disabled = f
   );
 }
 
+function LoadingGoalsModal({ visible }: { visible: boolean }) {
+  return (
+    <Modal animationType="fade" transparent visible={visible}>
+      <View style={styles.loadingOverlay}>
+        <View style={styles.loadingModal}>
+          <ActivityIndicator color={palette.primary} size="small" />
+          <Text style={styles.loadingModalTitle}>Actualizando objetivos</Text>
+          <Text style={styles.loadingModalCopy}>Cargando el estado del dia seleccionado...</Text>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 export function HomeScreen() {
   const homeSummary = useAppStore((state) => state.homeSummary);
   const goals = useAppStore((state) => state.goals);
-  const goalEvaluations = useAppStore((state) => state.goalEvaluations);
   const recordCheckin = useAppStore((state) => state.recordCheckin);
   const clearCheckin = useAppStore((state) => state.clearCheckin);
+  const refreshHomeSummary = useAppStore((state) => state.refreshHomeSummary);
+  const [selectedDate, setSelectedDate] = useState(startOfToday());
+  const [selectedSummary, setSelectedSummary] = useState(homeSummary);
+  const [calendarMarkers, setCalendarMarkers] = useState<Partial<Record<string, CalendarMarkerStatus>>>({});
+  const [todayProgressSummary, setTodayProgressSummary] = useState(homeSummary);
+  const [loadingDate, setLoadingDate] = useState(false);
   const [savingGoalId, setSavingGoalId] = useState<string | null>(null);
+  const preserveSelectedDateOnNextFocus = useRef(false);
+  const summaryCache = useRef<Record<string, HomeSummary>>({});
+  const today = startOfToday();
+  const calendarStartDate = addMonths(today, CALENDAR_START_OFFSET_MONTHS);
+  const calendarEndDate = addMonths(today, CALENDAR_END_OFFSET_MONTHS);
+  const calendarDates = useMemo(() => enumerateDates(calendarStartDate, calendarEndDate), [calendarEndDate, calendarStartDate]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (preserveSelectedDateOnNextFocus.current) {
+        preserveSelectedDateOnNextFocus.current = false;
+        return;
+      }
+
+      setSelectedDate(today);
+    }, [today]),
+  );
+
+  useEffect(() => {
+    setTodayProgressSummary(homeSummary);
+
+    if (selectedDate === today) {
+      setSelectedSummary(homeSummary);
+      summaryCache.current[selectedDate] = homeSummary;
+    }
+  }, [homeSummary, selectedDate, today]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadCalendarMarkers = async () => {
+      const checkins = await loadCheckinsInRangeUseCase({
+        startDate: calendarStartDate,
+        endDate: calendarEndDate,
+      });
+
+      if (cancelled) {
+        return;
+      }
+
+      setCalendarMarkers(getCalendarMarkersFromCheckins(calendarDates, goals, checkins));
+    };
+
+    void loadCalendarMarkers();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [calendarDates, calendarEndDate, calendarStartDate, goals]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadForDate = async () => {
+      const cachedSummary = summaryCache.current[selectedDate];
+
+      setLoadingDate(!cachedSummary);
+
+      try {
+        const summary = cachedSummary ? cachedSummary : await loadHomeSummaryUseCase(selectedDate);
+
+        if (cancelled) {
+          return;
+        }
+
+        summaryCache.current[selectedDate] = summary;
+        setSelectedSummary(summary);
+      } finally {
+        if (!cancelled) {
+          setLoadingDate(false);
+        }
+      }
+    };
+
+    void loadForDate();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedDate]);
+
+  const isFutureSelected = selectedDate > startOfToday();
 
   const activeGoals = useMemo(() => {
-    return homeSummary.goalSummaries
-      .filter((summary) => !(summary.daysUntilStart === 0 && summary.remainingDays === 0))
+    return selectedSummary.goalSummaries
+      .filter((summary) => {
+        const goal = goals.find((item) => item.id === summary.goalId);
+        return isGoalVisibleOnDate(goal, summary, selectedDate);
+      })
       .map((summary) => {
         const goal = goals.find((item) => item.id === summary.goalId);
-        const evaluation = goalEvaluations[summary.goalId];
-        const targetDays = Math.max(goal?.targetDays ?? 1, 1);
+        const todayGoalSummary = todayProgressSummary.goalSummaries.find((item) => item.goalId === summary.goalId);
+        const targetDays = Math.max(todayGoalSummary?.targetDays ?? summary.targetDays ?? goal?.targetDays ?? 1, 1);
         const minimumSuccessRate = Math.max(goal?.minimumSuccessRate ?? 100, 0);
         const requiredDays = Math.max(1, Math.ceil((targetDays * minimumSuccessRate) / 100));
+        const completedDays = todayGoalSummary?.completedDays ?? summary.completedDays;
 
         return {
           summary,
-          completedDays: Math.max(evaluation?.completedDays ?? Math.round((summary.completionRate / 100) * targetDays), 0),
+          canEdit: !isFutureSelected && summary.active,
+          completedDays: Math.max(completedDays, 0),
           requiredDays,
-        };
+          isTodaySelected: selectedDate === startOfToday(),
+          selectedStatus: summary.todayStatus ?? 'pending',
+        } satisfies GoalCardViewModel;
       })
       .sort((left, right) => {
         return left.summary.remainingDays - right.summary.remainingDays;
       });
-  }, [goalEvaluations, goals, homeSummary.goalSummaries]);
+  }, [goals, isFutureSelected, selectedDate, selectedSummary.goalSummaries, todayProgressSummary.goalSummaries]);
+
+  const applyOptimisticStatus = (goalId: string, status: HomeGoalSummary['todayStatus']) => {
+    setSelectedSummary((current) => {
+      const goalSummaries = current.goalSummaries.map((item) => (item.goalId === goalId ? { ...item, todayStatus: status } : item));
+      const marker = getMarkerForSummary(goalSummaries, goals, selectedDate);
+      const nextSummary = {
+        ...current,
+        goalSummaries,
+      };
+
+      setCalendarMarkers((previous) => ({
+        ...previous,
+        [selectedDate]: marker,
+      }));
+      summaryCache.current[selectedDate] = nextSummary;
+
+      return nextSummary;
+    });
+  };
 
   const applyStatus = async (goalId: string, status: 'completed' | 'missed' | 'pending') => {
     if (savingGoalId) {
@@ -186,18 +394,29 @@ export function HomeScreen() {
     }
 
     setSavingGoalId(goalId);
+    applyOptimisticStatus(goalId, status === 'pending' ? undefined : status);
 
     try {
+      let freshTodaySummary = todayProgressSummary;
+
       if (status === 'pending') {
-        await clearCheckin({ goalId });
-        return;
+        const result = await clearCheckin({ date: selectedDate, goalId });
+        freshTodaySummary = result.homeSummary;
+      } else {
+        const result = await recordCheckin({ date: selectedDate, goalId, status });
+        freshTodaySummary = result.homeSummary;
+
+        if (result.assignedPunishment) {
+          router.push(appRoutes.punishment(result.assignedPunishment.id));
+        }
       }
 
-      const result = await recordCheckin({ goalId, status });
-
-      if (result.assignedPunishment) {
-        router.push(appRoutes.punishment(result.assignedPunishment.id));
+      setTodayProgressSummary(freshTodaySummary);
+      summaryCache.current[today] = freshTodaySummary;
+      if (selectedDate === today) {
+        setSelectedSummary(freshTodaySummary);
       }
+      void refreshHomeSummary();
     } finally {
       setSavingGoalId(null);
     }
@@ -205,26 +424,44 @@ export function HomeScreen() {
 
   return (
     <ScreenContainer
-      title="Para hoy"
+      title={getDateHeading(selectedDate)}
       action={
         <View style={styles.headerBadge}>
           <Text style={styles.headerBadgeText}>{activeGoals.length}</Text>
         </View>
       }>
-      {homeSummary.goalSummaries.length === 0 ? (
+      <HorizontalDateCalendar
+        endDate={calendarEndDate}
+        markerByDate={calendarMarkers}
+        onSelectDate={setSelectedDate}
+        selectedDate={selectedDate}
+        startDate={calendarStartDate}
+      />
+      <LoadingGoalsModal visible={loadingDate} />
+
+      {selectedSummary.goalSummaries.length === 0 ? (
         <EmptyState
           title="No hay objetivos todavia"
           message="Cuando tengas objetivos creados, aqui veras tus tareas del dia para resolverlas rapido."
+        />
+      ) : activeGoals.length === 0 ? (
+        <EmptyState
+          title="No habia objetivos vigentes ese dia"
+          message="Cambia la fecha para revisar otro momento o crea un nuevo objetivo para empezar a registrar actividad."
         />
       ) : (
         <View style={styles.content}>
           {activeGoals.map((item) => (
             <ActiveGoalCardView
-              key={item.summary.goalId}
+              key={`${item.summary.goalId}-${selectedDate}`}
               {...item}
               disabled={savingGoalId === item.summary.goalId}
-              onSetCompleted={() => void applyStatus(item.summary.goalId, item.summary.todayStatus === 'completed' ? 'pending' : 'completed')}
-              onSetMissed={() => void applyStatus(item.summary.goalId, item.summary.todayStatus === 'missed' ? 'pending' : 'missed')}
+              selectedDate={selectedDate}
+              onOpenDetail={() => {
+                preserveSelectedDateOnNextFocus.current = true;
+              }}
+              onSetCompleted={() => void applyStatus(item.summary.goalId, item.selectedStatus === 'completed' ? 'pending' : 'completed')}
+              onSetMissed={() => void applyStatus(item.summary.goalId, item.selectedStatus === 'missed' ? 'pending' : 'missed')}
             />
           ))}
         </View>
@@ -235,7 +472,36 @@ export function HomeScreen() {
 
 const styles = StyleSheet.create({
   content: {
-    gap: 4,
+    gap: spacing.sm,
+  },
+  loadingOverlay: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.lg,
+    backgroundColor: 'rgba(20, 33, 61, 0.22)',
+  },
+  loadingModal: {
+    minWidth: 220,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: radius.lg,
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: 'rgba(255, 255, 255, 0.96)',
+    borderWidth: 1,
+    borderColor: '#DCE6F3',
+    ...shadows.card,
+  },
+  loadingModalTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: palette.ink,
+  },
+  loadingModalCopy: {
+    fontSize: 13,
+    textAlign: 'center',
+    color: palette.slate,
   },
   headerBadge: {
     minWidth: 24,
@@ -255,13 +521,18 @@ const styles = StyleSheet.create({
   },
   goalCard: {
     paddingHorizontal: spacing.md,
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderRadius: radius.md,
     backgroundColor: palette.snow,
     borderWidth: 1,
     borderColor: palette.line,
     gap: 4,
     ...shadows.card,
+  },
+  goalCardReadOnly: {
+    backgroundColor: '#F8FAFD',
+    borderColor: '#DCE6F3',
+    opacity: 0.72,
   },
   cardMainRow: {
     flexDirection: 'row',
@@ -270,7 +541,7 @@ const styles = StyleSheet.create({
   },
   cardCopy: {
     flex: 1,
-    gap: 6,
+    gap: 8,
     justifyContent: 'center',
   },
   goalTitle: {

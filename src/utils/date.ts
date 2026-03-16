@@ -43,6 +43,18 @@ export function addDays(date: string | Date, amount: number): string {
   return formatParts(base.getUTCFullYear(), base.getUTCMonth() + 1, base.getUTCDate());
 }
 
+export function addMonths(date: string | Date, amount: number): string {
+  const base = typeof date === 'string' && ISO_DATE_PATTERN.test(date) ? parseISODate(date) : parseISODate(toISODate(date));
+  const originalDay = base.getUTCDate();
+  base.setUTCDate(1);
+  base.setUTCMonth(base.getUTCMonth() + amount);
+
+  const daysInTargetMonth = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + 1, 0)).getUTCDate();
+  base.setUTCDate(Math.min(originalDay, daysInTargetMonth));
+
+  return formatParts(base.getUTCFullYear(), base.getUTCMonth() + 1, base.getUTCDate());
+}
+
 export function diffInDays(start: string, end: string): number {
   const startDate = parseISODate(start);
   const endDate = parseISODate(end);
@@ -61,8 +73,35 @@ export function formatShortDate(date: string): string {
   }).format(parseISODate(date));
 }
 
+export function formatCompactDate(date: string): string {
+  return new Intl.DateTimeFormat('es-ES', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
+    .format(parseISODate(date))
+    .replace('.', '');
+}
+
+export function formatWeekdayShort(date: string): string {
+  return new Intl.DateTimeFormat('es-ES', {
+    weekday: 'short',
+  })
+    .format(parseISODate(date))
+    .replace('.', '');
+}
+
 export function formatLongDate(date: string): string {
   return new Intl.DateTimeFormat('es-ES', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(parseISODate(date));
+}
+
+export function formatLongDateWithWeekday(date: string): string {
+  return new Intl.DateTimeFormat('es-ES', {
+    weekday: 'long',
     day: 'numeric',
     month: 'long',
     year: 'numeric',

@@ -80,6 +80,8 @@ type HomeGoalSummaryRow = {
   title: string;
   description: string | null;
   active: boolean;
+  target_days?: number;
+  completed_days?: number;
   completion_rate: number;
   current_streak: number;
   best_streak: number;
@@ -270,6 +272,8 @@ function mapHomeGoalSummary(row: HomeGoalSummaryRow): HomeGoalSummary {
     title: row.title,
     description: row.description ?? undefined,
     active: row.active,
+    targetDays: Math.max(row.target_days ?? 1, 1),
+    completedDays: Math.max(row.completed_days ?? 0, 0),
     completionRate: row.completion_rate,
     currentStreak: row.current_streak,
     bestStreak: row.best_streak,

@@ -332,10 +332,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
     const goal = get().goals.find((item) => item.id === input.goalId);
 
     set((state) => ({
-      goalEvaluations: {
-        ...state.goalEvaluations,
-        [result.evaluation.goalId]: result.evaluation,
-      },
+      goalEvaluations: result.goalEvaluations,
       homeSummary: result.homeSummary,
       statsSummary: result.statsSummary,
       statsLoaded: true,
@@ -376,10 +373,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
 
       return {
         assignedPunishmentDetails: nextAssignedDetails,
-        goalEvaluations: {
-          ...state.goalEvaluations,
-          [result.evaluation.goalId]: result.evaluation,
-        },
+        goalEvaluations: result.goalEvaluations,
         homeSummary: result.homeSummary,
         statsSummary: result.statsSummary,
         statsLoaded: true,

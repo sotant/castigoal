@@ -5,6 +5,8 @@ export interface HomeGoalSummary {
   title: string;
   description?: string;
   active: boolean;
+  targetDays: number;
+  completedDays: number;
   completionRate: number;
   currentStreak: number;
   bestStreak: number;
