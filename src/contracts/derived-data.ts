@@ -1,5 +1,11 @@
 import { AssignedPunishment, Checkin, Goal, GoalEvaluation, Punishment, UserSettings } from '@/src/models/types';
 
+export interface GoalRecentDay {
+  date?: string;
+  dayNumber?: number;
+  status: 'completed' | 'pending' | 'missed' | 'unavailable';
+}
+
 export interface HomeGoalSummary {
   goalId: string;
   title: string;
@@ -13,6 +19,7 @@ export interface HomeGoalSummary {
   todayStatus?: Checkin['status'];
   daysUntilStart: number;
   remainingDays: number;
+  recentDays: GoalRecentDay[];
 }
 
 export interface PendingPunishmentPreview {

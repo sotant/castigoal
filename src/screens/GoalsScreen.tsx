@@ -24,12 +24,11 @@ function isHistoricalGoal(summary: HomeGoalSummary) {
 
 export function GoalsScreen() {
   const today = startOfToday();
-  const { deleteGoal, goals, homeSummary, toggleGoalActive } = useAppStore(
+  const { deleteGoal, goals, homeSummary } = useAppStore(
     useShallow((state) => ({
       deleteGoal: state.deleteGoal,
       goals: state.goals,
       homeSummary: state.homeSummary,
-      toggleGoalActive: state.toggleGoalActive,
     })),
   );
   const tabBarHeight = useBottomTabBarHeight();
@@ -39,6 +38,10 @@ export function GoalsScreen() {
   const activeMenuGoal = useMemo(
     () => goals.find((goal) => goal.id === activeMenuGoalId) ?? null,
     [activeMenuGoalId, goals],
+  );
+  const summariesByGoalId = useMemo(
+    () => new Map(homeSummary.goalSummaries.map((summary) => [summary.goalId, summary])),
+    [homeSummary.goalSummaries],
   );
   const historicalGoals = useMemo(() => {
     const goalById = new Map(goals.map((goal) => [goal.id, goal]));
@@ -65,11 +68,6 @@ export function GoalsScreen() {
 
   const closeMenu = () => setActiveMenuGoalId(null);
 
-  const handleToggleActive = (goalId: string) => {
-    void Haptics.selectionAsync();
-    void toggleGoalActive(goalId);
-  };
-
   const handleDelete = (goal: Goal) => {
     closeMenu();
     Alert.alert(
@@ -89,14 +87,22 @@ export function GoalsScreen() {
     );
   };
 
-  const renderGoal: ListRenderItem<Goal> = ({ item }) => (
-    <ObjectiveListItem
-      goal={item}
-      onOpenDetail={() => router.push(appRoutes.goalDetail(item.id))}
-      onOpenActions={() => setActiveMenuGoalId(item.id)}
-      onToggleActive={() => handleToggleActive(item.id)}
-    />
-  );
+  const renderGoal: ListRenderItem<Goal> = ({ item }) => {
+    const summary = summariesByGoalId.get(item.id);
+
+    if (!summary) {
+      return null;
+    }
+
+    return (
+      <ObjectiveListItem
+        goal={item}
+        summary={summary}
+        onOpenDetail={() => router.push(appRoutes.goalDetail(item.id))}
+        onOpenActions={() => setActiveMenuGoalId(item.id)}
+      />
+    );
+  };
 
   const listFooter = historicalGoals.length > 0 ? (
     <View style={styles.historySection}>
@@ -173,7 +179,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   listContent: {
-    gap: 12,
+    gap: 3,
   },
   historySection: {
     marginTop: spacing.lg,

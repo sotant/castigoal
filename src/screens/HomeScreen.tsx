@@ -1,4 +1,5 @@
 import { Feather } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -9,6 +10,7 @@ import { HorizontalDateCalendar } from '@/src/components/HorizontalDateCalendar'
 import { ScreenContainer } from '@/src/components/ScreenContainer';
 import { palette, radius, shadows, spacing } from '@/src/constants/theme';
 import { Goal, HomeGoalSummary, HomeSummary, Checkin } from '@/src/models/types';
+import { appRoutes } from '@/src/navigation/app-routes';
 import { useAppStore } from '@/src/store/app-store';
 import { loadCheckinsInRangeUseCase, loadHomeSummaryUseCase } from '@/src/use-cases/goal-actions';
 import { getGoalDeadline } from '@/src/utils/goal-evaluation';

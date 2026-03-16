@@ -32,7 +32,7 @@ import {
   getGoalDaysUntilStart,
   getGoalRemainingDays,
 } from '@/src/utils/goal-evaluation';
-import { addDays, startOfToday, toISODate } from '@/src/utils/date';
+import { addDays, diffInDays, startOfToday, toISODate } from '@/src/utils/date';
 
 type SessionMode = 'guest' | 'authenticated';
 type SyncStatus = 'idle' | 'pending' | 'syncing' | 'error';
@@ -375,6 +375,56 @@ function getStatusForDate(goalId: string, checkins: Checkin[], referenceDate = s
   return checkins.find((item) => item.goalId === goalId && item.date === date)?.status;
 }
 
+function buildRecentGoalDays(goal: Goal, checkins: Checkin[], referenceDate = startOfToday()) {
+  const deadline = getGoalDeadline(goal);
+  const lastTrackedDate = deadline < referenceDate ? deadline : referenceDate;
+  const checkinsByDate = new Map(
+    checkins.filter((item) => item.goalId === goal.id).map((item) => [item.date, item.status]),
+  );
+  const sequenceEnd = lastTrackedDate >= goal.startDate ? lastTrackedDate : goal.startDate;
+
+  if (lastTrackedDate < goal.startDate) {
+    return Array.from({ length: 5 }, (_, index) => {
+      const date = addDays(sequenceEnd, index - 4);
+
+      return {
+        date,
+        dayNumber: Number(date.slice(-2)),
+        status: 'unavailable' as const,
+      };
+    });
+  }
+
+  const elapsedDays = diffInDays(goal.startDate, lastTrackedDate) + 1;
+  const visibleDays = Math.min(elapsedDays, 5);
+  const unavailableDays = Math.max(5 - visibleDays, 0);
+  const recentDays: HomeGoalSummary['recentDays'] = [];
+  const sequenceStart = addDays(sequenceEnd, -4);
+
+  for (let index = 0; index < unavailableDays; index += 1) {
+    const date = addDays(sequenceStart, index);
+
+    recentDays.push({
+      date,
+      dayNumber: Number(date.slice(-2)),
+      status: 'unavailable',
+    });
+  }
+
+  for (let index = unavailableDays; index < 5; index += 1) {
+    const date = addDays(sequenceStart, index);
+    const status: HomeGoalSummary['recentDays'][number]['status'] = checkinsByDate.get(date) ?? 'pending';
+
+    recentDays.push({
+      date,
+      dayNumber: Number(date.slice(-2)),
+      status,
+    });
+  }
+
+  return recentDays;
+}
+
 function buildHomeGoalSummary(goal: Goal, checkins: Checkin[], evaluation: GoalEvaluation, referenceDate = startOfToday()): HomeGoalSummary {
   return {
     active: goal.active,
@@ -386,6 +436,7 @@ function buildHomeGoalSummary(goal: Goal, checkins: Checkin[], evaluation: GoalE
     description: goal.description,
     goalId: goal.id,
     remainingDays: getGoalRemainingDays(goal, referenceDate),
+    recentDays: buildRecentGoalDays(goal, checkins, referenceDate),
     targetDays: goal.targetDays,
     title: goal.title,
     todayStatus: getStatusForDate(goal.id, checkins, referenceDate),

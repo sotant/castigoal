@@ -28,10 +28,10 @@ const styles = StyleSheet.create({
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 4,
     alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: radius.pill,
     borderWidth: 1,
   },
@@ -44,9 +44,9 @@ const styles = StyleSheet.create({
     borderColor: '#D9E4F2',
   },
   label: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 0.2,
+    letterSpacing: 0.1,
   },
   labelActive: {
     color: '#177245',
