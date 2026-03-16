@@ -52,7 +52,6 @@ export type GoalInput = Pick<
 export type CheckinInput = {
   date?: string;
   goalId: string;
-  note?: string;
   status: Checkin['status'];
 };
 
@@ -60,6 +59,11 @@ export type RecordCheckinResult = {
   assignedPunishment?: AssignedPunishment;
   checkin: Checkin;
   evaluation: GoalEvaluation;
+};
+
+export type ClearCheckinResult = {
+  evaluation: GoalEvaluation;
+  removedAssignedPunishmentId?: string;
 };
 
 type EntitySyncState = 'synced' | 'pending_upsert';
@@ -775,7 +779,6 @@ function mapCheckinRow(row: Tables<'checkins'>): SyncRecord<Checkin> {
       date: row.checkin_date,
       goalId: row.goal_id,
       id: row.id,
-      note: row.note ?? undefined,
       status: row.status as Checkin['status'],
     },
     meta: {
@@ -1030,7 +1033,6 @@ async function pushPendingRecords(container: LocalContainer) {
       created_at: record.data.createdAt,
       goal_id: record.data.goalId,
       id: record.data.id,
-      note: record.data.note ?? null,
       origin_device_id: deviceId,
       source_guest_id: record.meta.sourceGuestId ?? null,
       status: record.data.status,
@@ -1041,7 +1043,6 @@ async function pushPendingRecords(container: LocalContainer) {
       created_at: record.data.createdAt,
       goal_id: record.data.goalId,
       id: record.data.id,
-      note: record.data.note ?? null,
       status: record.data.status,
       user_id: userId,
     }));
@@ -1477,7 +1478,6 @@ export async function recordGoalCheckinRecord(input: CheckinInput & { date: stri
       date: input.date,
       goalId: input.goalId,
       id: existing?.data.id ?? createUuid(),
-      note: input.note?.trim() || undefined,
       status: input.status,
     };
 
@@ -1518,6 +1518,41 @@ export async function recordGoalCheckinRecord(input: CheckinInput & { date: stri
       assignedPunishment,
       checkin,
       evaluation,
+    };
+  });
+}
+
+export async function clearGoalCheckinRecord(input: { date: string; goalId: string }): Promise<ClearCheckinResult> {
+  return withActiveContainer(async (container) => {
+    const goal = container.records.goals[input.goalId]?.data;
+    if (!goal) {
+      throw new Error('No he encontrado el objetivo para actualizar el check-in.');
+    }
+
+    const existing = findCheckinByGoalDate(container, input.goalId, input.date);
+    if (existing) {
+      delete container.records.checkins[existing.data.id];
+      setDeleted(container, 'checkins', existing.data.id);
+    }
+
+    const { checkins } = getDerivedData(container, input.date);
+    const evaluation = evaluateGoalPeriod(goal, checkins, input.date);
+
+    const assignedForPeriod = Object.values(container.records.assignedPunishments).find(
+      (record) => record.data.goalId === goal.id && record.data.periodKey === evaluation.periodKey,
+    );
+
+    let removedAssignedPunishmentId: string | undefined;
+
+    if (assignedForPeriod && assignedForPeriod.data.status === 'pending' && evaluation.passed) {
+      delete container.records.assignedPunishments[assignedForPeriod.data.id];
+      setDeleted(container, 'assignedPunishments', assignedForPeriod.data.id);
+      removedAssignedPunishmentId = assignedForPeriod.data.id;
+    }
+
+    return {
+      evaluation,
+      removedAssignedPunishmentId,
     };
   });
 }

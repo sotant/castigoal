@@ -26,7 +26,6 @@ export function GoalListItem({ summary }: Props) {
   const deleteGoal = useAppStore((state) => state.deleteGoal);
   const deadlineWarning = summary.daysUntilStart === 0 && summary.remainingDays > 0 && summary.remainingDays < 5;
   const canOpenGoal = true;
-  const canQuickCheck = summary.active && summary.daysUntilStart === 0 && summary.remainingDays > 0;
 
   return (
     <GoalCard
@@ -62,7 +61,6 @@ export function GoalListItem({ summary }: Props) {
       }}
       disabled={!canOpenGoal}
       onPress={canOpenGoal ? () => router.push(appRoutes.goalDetail(summary.goalId)) : undefined}
-      onQuickCheck={canQuickCheck ? () => router.push(appRoutes.checkin(summary.goalId)) : undefined}
     />
   );
 }

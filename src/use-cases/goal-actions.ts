@@ -1,5 +1,6 @@
 import { GoalDetailSummary, GoalEvaluation, Goal, StatsSummary } from '@/src/models/types';
 import {
+  clearGoalCheckinRecord,
   createGoalRecord,
   GoalInput,
   loadGoalCheckinHistory,
@@ -92,15 +93,38 @@ export async function toggleGoalActiveUseCase(goalId: string, active: boolean) {
 export async function recordGoalCheckinUseCase(input: {
   date?: string;
   goalId: string;
-  note?: string;
   status: 'completed' | 'missed';
 }): Promise<RecordCheckinResult & { date: string; homeSummary: Awaited<ReturnType<typeof loadHomeSummary>>; statsSummary: StatsSummary }> {
   const date = toISODate(input.date ?? startOfToday());
   const result = await recordGoalCheckinRecord({
     date,
     goalId: input.goalId,
-    note: input.note,
     status: input.status,
+  });
+  const [homeSummary, statsSummary] = await Promise.all([loadHomeSummary(), loadStatsSummary(date)]);
+
+  return {
+    ...result,
+    date,
+    homeSummary,
+    statsSummary,
+  };
+}
+
+export async function clearGoalCheckinUseCase(input: {
+  date?: string;
+  goalId: string;
+}): Promise<{
+  date: string;
+  evaluation: GoalEvaluation;
+  homeSummary: Awaited<ReturnType<typeof loadHomeSummary>>;
+  removedAssignedPunishmentId?: string;
+  statsSummary: StatsSummary;
+}> {
+  const date = toISODate(input.date ?? startOfToday());
+  const result = await clearGoalCheckinRecord({
+    date,
+    goalId: input.goalId,
   });
   const [homeSummary, statsSummary] = await Promise.all([loadHomeSummary(), loadStatsSummary(date)]);
 

@@ -11,7 +11,6 @@ import { appRoutes } from '@/src/navigation/app-routes';
 import { Goal } from '@/src/models/types';
 import { selectGoalDetail, useAppStore } from '@/src/store/app-store';
 import { formatLongDate, formatShortDate } from '@/src/utils/date';
-import { getGoalRemainingDays } from '@/src/utils/goal-evaluation';
 
 type Props = {
   goal?: Goal;
@@ -59,8 +58,6 @@ export function GoalDetailScreen({ goal }: Props) {
       passed: false,
     },
   };
-  const canCheckIn = goal.active && getGoalRemainingDays(goal) > 0;
-
   return (
     <ScreenContainer
       title={goal.title}
@@ -97,17 +94,11 @@ export function GoalDetailScreen({ goal }: Props) {
 
       <View style={styles.actions}>
         <Pressable
-          disabled={!canCheckIn}
-          onPress={() => router.push(appRoutes.checkin(goal.id))}
-          style={[styles.primaryAction, !canCheckIn && styles.primaryActionDisabled]}>
-          <Text style={styles.primaryActionLabel}>Hacer check-in</Text>
-        </Pressable>
-        <Pressable
           onPress={() => {
             void toggleGoalActive(goal.id);
           }}
-          style={styles.secondaryAction}>
-          <Text style={styles.secondaryActionLabel}>{goal.active ? 'Finalizar' : 'Reactivar'}</Text>
+          style={styles.primaryAction}>
+          <Text style={styles.primaryActionLabel}>{goal.active ? 'Finalizar' : 'Reactivar'}</Text>
         </Pressable>
       </View>
 
@@ -166,7 +157,6 @@ const styles = StyleSheet.create({
   },
   actions: {
     flexDirection: 'row',
-    gap: spacing.sm,
   },
   primaryAction: {
     flex: 1,
@@ -175,24 +165,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: palette.primary,
   },
-  primaryActionDisabled: {
-    opacity: 0.45,
-  },
   primaryActionLabel: {
     color: palette.snow,
-    fontWeight: '800',
-  },
-  secondaryAction: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: radius.pill,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: palette.line,
-    backgroundColor: palette.snow,
-  },
-  secondaryActionLabel: {
-    color: palette.ink,
     fontWeight: '800',
   },
   card: {

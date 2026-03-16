@@ -49,7 +49,6 @@ type RecordGoalCheckinRow = {
   checkin_date: string;
   checkin_goal_id: string;
   checkin_id: string;
-  checkin_note: string | null;
   checkin_status: string;
   evaluation_completed_days: number;
   evaluation_completion_rate: number;
@@ -143,7 +142,6 @@ export type CheckinInput = {
   goalId: string;
   date?: string;
   status: Checkin['status'];
-  note?: string;
 };
 
 export type RecordCheckinResult = {
@@ -172,7 +170,6 @@ function mapCheckin(row: CheckinRow): Checkin {
     goalId: row.goal_id,
     date: row.checkin_date,
     status: row.status as Checkin['status'],
-    note: row.note ?? undefined,
     createdAt: row.created_at,
   };
 }
@@ -368,7 +365,6 @@ function mapCheckinRpcRow(row: RecordGoalCheckinRow): RecordCheckinResult {
     goalId: row.checkin_goal_id,
     date: row.checkin_date,
     status: row.checkin_status as Checkin['status'],
-    note: row.checkin_note ?? undefined,
     createdAt: row.checkin_created_at,
   };
 
@@ -730,7 +726,6 @@ export async function recordGoalCheckinRecord(input: CheckinInput & { date: stri
     .rpc('record_goal_checkin', {
       p_checkin_date: input.date,
       p_goal_id: input.goalId,
-      p_note: input.note?.trim() || undefined,
       p_status: input.status,
     })
     .single();

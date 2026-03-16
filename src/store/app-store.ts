@@ -28,6 +28,7 @@ import {
 } from '@/src/services/progress-service';
 import { bootstrapAppSession } from '@/src/use-cases/bootstrap-app';
 import {
+  clearGoalCheckinUseCase,
   createGoalUseCase,
   deleteGoalUseCase,
   loadGoalDetailSummaryUseCase,
@@ -84,8 +85,11 @@ interface AppState {
     goalId: string;
     date?: string;
     status: 'completed' | 'missed';
-    note?: string;
   }) => Promise<Awaited<ReturnType<typeof recordGoalCheckinUseCase>>>;
+  clearCheckin: (input: {
+    goalId: string;
+    date?: string;
+  }) => Promise<Awaited<ReturnType<typeof clearGoalCheckinUseCase>>>;
   completeAssignedPunishment: (assignedId: string) => Promise<void>;
   addCustomPunishment: (input: Omit<Punishment, 'id' | 'scope'>) => Promise<void>;
   updateCustomPunishment: (punishmentId: string, input: Omit<Punishment, 'id' | 'scope'>) => Promise<void>;
@@ -346,6 +350,41 @@ export const useAppStore = create<AppState>()((set, get) => ({
             }
           : state.assignedPunishmentDetails,
     }));
+
+    if (goal && get().goalDetails[input.goalId]) {
+      const detail = await loadGoalDetailSummaryUseCase(goal, result.evaluation);
+      set((state) => ({
+        goalDetails: {
+          ...state.goalDetails,
+          [goal.id]: detail,
+        },
+      }));
+    }
+
+    return result;
+  },
+  clearCheckin: async (input) => {
+    const result = await clearGoalCheckinUseCase(input);
+    const goal = get().goals.find((item) => item.id === input.goalId);
+
+    set((state) => {
+      const nextAssignedDetails = { ...state.assignedPunishmentDetails };
+
+      if (result.removedAssignedPunishmentId) {
+        delete nextAssignedDetails[result.removedAssignedPunishmentId];
+      }
+
+      return {
+        assignedPunishmentDetails: nextAssignedDetails,
+        goalEvaluations: {
+          ...state.goalEvaluations,
+          [result.evaluation.goalId]: result.evaluation,
+        },
+        homeSummary: result.homeSummary,
+        statsSummary: result.statsSummary,
+        statsLoaded: true,
+      };
+    });
 
     if (goal && get().goalDetails[input.goalId]) {
       const detail = await loadGoalDetailSummaryUseCase(goal, result.evaluation);

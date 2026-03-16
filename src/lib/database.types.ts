@@ -139,7 +139,6 @@ export type Database = {
           created_at: string;
           goal_id: string;
           id: string;
-          note: string | null;
           status: string;
           user_id: string;
         };
@@ -148,7 +147,6 @@ export type Database = {
           created_at?: string;
           goal_id: string;
           id?: string;
-          note?: string | null;
           status: string;
           user_id: string;
         };
@@ -157,7 +155,6 @@ export type Database = {
           created_at?: string;
           goal_id?: string;
           id?: string;
-          note?: string | null;
           status?: string;
           user_id?: string;
         };
@@ -526,7 +523,6 @@ export type Database = {
         Args: {
           p_checkin_date?: string;
           p_goal_id: string;
-          p_note?: string;
           p_status: string;
         };
         Returns: {
@@ -542,7 +538,6 @@ export type Database = {
           checkin_date: string;
           checkin_goal_id: string;
           checkin_id: string;
-          checkin_note: string;
           checkin_status: string;
           evaluation_completed_days: number;
           evaluation_completion_rate: number;

@@ -32,7 +32,6 @@ export interface Checkin {
   goalId: string;
   date: string;
   status: CheckinStatus;
-  note?: string;
   createdAt: string;
 }
 

@@ -11,7 +11,6 @@ export const appRoutes = {
   createGoal: '/goals/create',
   goalDetail: (goalId: string) => `/(tabs)/goal-detail/${goalId}` as const,
   editGoal: (goalId: string) => `/goals/edit/${goalId}` as const,
-  checkin: (goalId: string) => `/checkin/${goalId}` as const,
   punishment: (assignedId: string) => `/punishments/${assignedId}` as const,
 } as const;
 
