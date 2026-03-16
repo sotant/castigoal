@@ -1,6 +1,5 @@
 import { Feather } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Directions, FlingGestureHandler } from 'react-native-gesture-handler';
@@ -10,7 +9,6 @@ import { HorizontalDateCalendar } from '@/src/components/HorizontalDateCalendar'
 import { ScreenContainer } from '@/src/components/ScreenContainer';
 import { palette, radius, shadows, spacing } from '@/src/constants/theme';
 import { Goal, HomeGoalSummary, HomeSummary, Checkin } from '@/src/models/types';
-import { appRoutes } from '@/src/navigation/app-routes';
 import { useAppStore } from '@/src/store/app-store';
 import { loadCheckinsInRangeUseCase, loadHomeSummaryUseCase } from '@/src/use-cases/goal-actions';
 import { getGoalDeadline } from '@/src/utils/goal-evaluation';
@@ -138,7 +136,6 @@ function StatusSegment({ active, disabled, iconName, iconSize, onPress, style, t
 type ActiveGoalCardProps = GoalCardViewModel & {
   disabled?: boolean;
   selectedDate: string;
-  onOpenDetail: () => void;
   onSetCompleted: () => void;
   onSetMissed: () => void;
 };
@@ -151,7 +148,6 @@ function ActiveGoalCardView({
   canEdit,
   isTodaySelected,
   disabled = false,
-  onOpenDetail,
   onSetCompleted,
   onSetMissed,
 }: ActiveGoalCardProps) {
@@ -165,12 +161,7 @@ function ActiveGoalCardView({
   }));
 
   return (
-    <Pressable
-      onPress={() => {
-        onOpenDetail();
-        router.push(appRoutes.goalDetail(summary.goalId));
-      }}
-      style={[styles.goalCard, readOnly && styles.goalCardReadOnly]}>
+    <View style={[styles.goalCard, readOnly && styles.goalCardReadOnly]}>
       <View style={styles.cardMainRow}>
         <View style={styles.cardCopy}>
           <Text numberOfLines={1} style={styles.goalTitle}>
@@ -229,7 +220,7 @@ function ActiveGoalCardView({
           />
         </View>
       </View>
-    </Pressable>
+    </View>
   );
 }
 
@@ -259,7 +250,6 @@ export function HomeScreen() {
   const [todayProgressSummary, setTodayProgressSummary] = useState(homeSummary);
   const [loadingDate, setLoadingDate] = useState(false);
   const [savingGoalId, setSavingGoalId] = useState<string | null>(null);
-  const preserveSelectedDateOnNextFocus = useRef(false);
   const summaryCache = useRef<Record<string, HomeSummary>>({});
   const today = startOfToday();
   const calendarStartDate = addMonths(today, CALENDAR_START_OFFSET_MONTHS);
@@ -268,11 +258,6 @@ export function HomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (preserveSelectedDateOnNextFocus.current) {
-        preserveSelectedDateOnNextFocus.current = false;
-        return;
-      }
-
       setSelectedDate(today);
     }, [today]),
   );
@@ -477,9 +462,6 @@ export function HomeScreen() {
                     {...item}
                     disabled={savingGoalId === item.summary.goalId}
                     selectedDate={selectedDate}
-                    onOpenDetail={() => {
-                      preserveSelectedDateOnNextFocus.current = true;
-                    }}
                     onSetCompleted={() => void applyStatus(item.summary.goalId, item.selectedStatus === 'completed' ? 'pending' : 'completed')}
                     onSetMissed={() => void applyStatus(item.summary.goalId, item.selectedStatus === 'missed' ? 'pending' : 'missed')}
                   />
