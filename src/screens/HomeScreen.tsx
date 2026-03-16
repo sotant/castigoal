@@ -3,6 +3,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Directions, FlingGestureHandler } from 'react-native-gesture-handler';
 
 import { EmptyState } from '@/src/components/EmptyState';
 import { HorizontalDateCalendar } from '@/src/components/HorizontalDateCalendar';
@@ -13,7 +14,7 @@ import { appRoutes } from '@/src/navigation/app-routes';
 import { useAppStore } from '@/src/store/app-store';
 import { loadCheckinsInRangeUseCase, loadHomeSummaryUseCase } from '@/src/use-cases/goal-actions';
 import { getGoalDeadline } from '@/src/utils/goal-evaluation';
-import { addMonths, enumerateDates, formatCompactDate, startOfToday, toISODate } from '@/src/utils/date';
+import { addDays, addMonths, enumerateDates, formatCompactDate, startOfToday, toISODate } from '@/src/utils/date';
 
 type GoalCardViewModel = {
   summary: HomeGoalSummary;
@@ -202,9 +203,9 @@ function ActiveGoalCardView({
               onSetCompleted();
             }}
             tone={{
-              inactiveBackground: '#E5E7EB',
+              inactiveBackground: '#F3F4F6',
               activeBackground: '#DCFCE7',
-              inactiveIcon: '#6B7280',
+              inactiveIcon: '#9CA3AF',
               activeIcon: '#15803D',
             }}
           />
@@ -220,9 +221,9 @@ function ActiveGoalCardView({
             }}
             style={styles.actionIconButtonLast}
             tone={{
-              inactiveBackground: '#E5E7EB',
+              inactiveBackground: '#F3F4F6',
               activeBackground: '#FEE2E2',
-              inactiveIcon: '#6B7280',
+              inactiveIcon: '#9CA3AF',
               activeIcon: '#B91C1C',
             }}
           />
@@ -422,8 +423,24 @@ export function HomeScreen() {
     }
   };
 
+  const handleDateSwipe = useCallback(
+    (direction: 'left' | 'right') => {
+      setSelectedDate((current) => {
+        const nextDate = addDays(current, direction === 'left' ? 1 : -1);
+
+        if (nextDate < calendarStartDate || nextDate > calendarEndDate) {
+          return current;
+        }
+
+        return nextDate;
+      });
+    },
+    [calendarEndDate, calendarStartDate],
+  );
+
   return (
     <ScreenContainer
+      enableTabSwipe={false}
       title={getDateHeading(selectedDate)}
       action={
         <View style={styles.headerBadge}>
@@ -439,40 +456,50 @@ export function HomeScreen() {
       />
       <LoadingGoalsModal visible={loadingDate} />
 
-      {selectedSummary.goalSummaries.length === 0 ? (
-        <EmptyState
-          title="No hay objetivos todavia"
-          message="Cuando tengas objetivos creados, aqui veras tus tareas del dia para resolverlas rapido."
-        />
-      ) : activeGoals.length === 0 ? (
-        <EmptyState
-          title="No habia objetivos vigentes ese dia"
-          message="Cambia la fecha para revisar otro momento o crea un nuevo objetivo para empezar a registrar actividad."
-        />
-      ) : (
-        <View style={styles.content}>
-          {activeGoals.map((item) => (
-            <ActiveGoalCardView
-              key={`${item.summary.goalId}-${selectedDate}`}
-              {...item}
-              disabled={savingGoalId === item.summary.goalId}
-              selectedDate={selectedDate}
-              onOpenDetail={() => {
-                preserveSelectedDateOnNextFocus.current = true;
-              }}
-              onSetCompleted={() => void applyStatus(item.summary.goalId, item.selectedStatus === 'completed' ? 'pending' : 'completed')}
-              onSetMissed={() => void applyStatus(item.summary.goalId, item.selectedStatus === 'missed' ? 'pending' : 'missed')}
-            />
-          ))}
-        </View>
-      )}
+      <FlingGestureHandler direction={Directions.LEFT} onActivated={() => handleDateSwipe('left')}>
+        <FlingGestureHandler direction={Directions.RIGHT} onActivated={() => handleDateSwipe('right')}>
+          <View style={styles.swipeArea}>
+            {selectedSummary.goalSummaries.length === 0 ? (
+              <EmptyState
+                title="No hay objetivos todavia"
+                message="Cuando tengas objetivos creados, aqui veras tus tareas del dia para resolverlas rapido."
+              />
+            ) : activeGoals.length === 0 ? (
+              <EmptyState
+                title="No habia objetivos vigentes ese dia"
+                message="Cambia la fecha para revisar otro momento o crea un nuevo objetivo para empezar a registrar actividad."
+              />
+            ) : (
+              <View style={styles.content}>
+                {activeGoals.map((item) => (
+                  <ActiveGoalCardView
+                    key={`${item.summary.goalId}-${selectedDate}`}
+                    {...item}
+                    disabled={savingGoalId === item.summary.goalId}
+                    selectedDate={selectedDate}
+                    onOpenDetail={() => {
+                      preserveSelectedDateOnNextFocus.current = true;
+                    }}
+                    onSetCompleted={() => void applyStatus(item.summary.goalId, item.selectedStatus === 'completed' ? 'pending' : 'completed')}
+                    onSetMissed={() => void applyStatus(item.summary.goalId, item.selectedStatus === 'missed' ? 'pending' : 'missed')}
+                  />
+                ))}
+              </View>
+            )}
+          </View>
+        </FlingGestureHandler>
+      </FlingGestureHandler>
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
   content: {
-    gap: spacing.sm,
+    gap: 2,
+  },
+  swipeArea: {
+    flexGrow: 1,
+    minHeight: 420,
   },
   loadingOverlay: {
     flex: 1,
@@ -520,13 +547,11 @@ const styles = StyleSheet.create({
     color: '#4A86F7',
   },
   goalCard: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: 12,
     borderRadius: radius.md,
     backgroundColor: palette.snow,
     borderWidth: 1,
     borderColor: palette.line,
-    gap: 4,
+    overflow: 'hidden',
     ...shadows.card,
   },
   goalCardReadOnly: {
@@ -537,12 +562,15 @@ const styles = StyleSheet.create({
   cardMainRow: {
     flexDirection: 'row',
     alignItems: 'stretch',
-    gap: spacing.sm,
   },
   cardCopy: {
     flex: 1,
     gap: 8,
     justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+    paddingTop: 8,
+    paddingBottom: 10,
+    paddingRight: spacing.sm,
   },
   goalTitle: {
     fontSize: 16,
@@ -584,18 +612,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#C6D3E5',
   },
   actionsGroup: {
-    width: 34,
+    width: 52,
     flexDirection: 'column',
     alignItems: 'stretch',
-    overflow: 'hidden',
-    borderRadius: radius.sm,
+    alignSelf: 'stretch',
     backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#DCE4EE',
+    borderLeftWidth: 1,
+    borderLeftColor: '#DCE4EE',
   },
   actionIconButton: {
-    width: 34,
-    height: 31,
+    flex: 1,
+    width: '100%',
     borderBottomWidth: 1,
     borderBottomColor: '#CBD5E1',
   },
