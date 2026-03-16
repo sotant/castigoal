@@ -1,14 +1,14 @@
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Alert, FlatList, ListRenderItem, StyleSheet, Text, View } from 'react-native';
+import { Feather } from '@expo/vector-icons';
+import { Alert, FlatList, ListRenderItem, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
 
 import { EmptyState } from '@/src/components/EmptyState';
 import { FloatingAddButton } from '@/src/components/FloatingAddButton';
-import { ObjectiveHistoryCard } from '@/src/components/ObjectiveHistoryCard';
 import { ObjectiveActionsMenu } from '@/src/components/ObjectiveActionsMenu';
 import { ObjectiveListItem } from '@/src/components/ObjectiveListItem';
 import { ScreenContainer } from '@/src/components/ScreenContainer';
@@ -22,6 +22,38 @@ function isHistoricalGoal(summary: HomeGoalSummary) {
   return summary.daysUntilStart === 0 && summary.remainingDays === 0;
 }
 
+type HistoricalGoalEntry = {
+  goal: Goal;
+  summary: HomeGoalSummary;
+  daysSinceEnd: number;
+};
+
+type GoalListEntry =
+  | {
+      type: 'section';
+      key: 'section-active' | 'section-finished';
+      title: string;
+      count: number;
+      expanded: boolean;
+    }
+  | {
+      type: 'goal';
+      key: string;
+      goal: Goal;
+      summary: HomeGoalSummary;
+    }
+  | {
+      type: 'finished';
+      key: string;
+      goal: Goal;
+      summary: HomeGoalSummary;
+    }
+  | {
+      type: 'empty';
+      key: 'empty-active' | 'empty-finished';
+      message: string;
+    };
+
 export function GoalsScreen() {
   const today = startOfToday();
   const { deleteGoal, goals, homeSummary } = useAppStore(
@@ -33,7 +65,10 @@ export function GoalsScreen() {
   );
   const tabBarHeight = useBottomTabBarHeight();
   const insets = useSafeAreaInsets();
+  const floatingButtonBottomOffset = 4;
   const [activeMenuGoalId, setActiveMenuGoalId] = useState<string | null>(null);
+  const [showActiveGoals, setShowActiveGoals] = useState(true);
+  const [showFinishedGoals, setShowFinishedGoals] = useState(false);
 
   const activeMenuGoal = useMemo(
     () => goals.find((goal) => goal.id === activeMenuGoalId) ?? null,
@@ -43,7 +78,7 @@ export function GoalsScreen() {
     () => new Map(homeSummary.goalSummaries.map((summary) => [summary.goalId, summary])),
     [homeSummary.goalSummaries],
   );
-  const historicalGoals = useMemo(() => {
+  const historicalGoals = useMemo<HistoricalGoalEntry[]>(() => {
     const goalById = new Map(goals.map((goal) => [goal.id, goal]));
 
     return homeSummary.goalSummaries
@@ -58,13 +93,92 @@ export function GoalsScreen() {
         const deadline = addDays(goal.startDate, Math.max(goal.targetDays - 1, 0));
 
         return [{
+          goal,
           summary,
           daysSinceEnd: Math.max(diffInDays(deadline, today), 0),
-          passed: summary.completionRate >= goal.minimumSuccessRate,
         }];
       })
       .sort((left, right) => left.daysSinceEnd - right.daysSinceEnd);
   }, [goals, homeSummary.goalSummaries, today]);
+  const historicalGoalIds = useMemo(
+    () => new Set(historicalGoals.map((item) => item.summary.goalId)),
+    [historicalGoals],
+  );
+  const activeGoals = useMemo(
+    () => goals.flatMap((goal) => {
+      if (historicalGoalIds.has(goal.id)) {
+        return [];
+      }
+
+      const summary = summariesByGoalId.get(goal.id);
+
+      if (!summary) {
+        return [];
+      }
+
+      return [{ goal, summary }];
+    }),
+    [goals, historicalGoalIds, summariesByGoalId],
+  );
+  const listData = useMemo<GoalListEntry[]>(() => {
+    const items: GoalListEntry[] = [
+      {
+        type: 'section',
+        key: 'section-active',
+        title: 'Activos',
+        count: activeGoals.length,
+        expanded: showActiveGoals,
+      },
+    ];
+
+    if (showActiveGoals) {
+      if (activeGoals.length === 0) {
+        items.push({
+          type: 'empty',
+          key: 'empty-active',
+          message: 'No tienes objetivos activos ahora mismo.',
+        });
+      } else {
+        items.push(
+          ...activeGoals.map(({ goal, summary }) => ({
+            type: 'goal' as const,
+            key: goal.id,
+            goal,
+            summary,
+          })),
+        );
+      }
+    }
+
+    items.push({
+      type: 'section',
+      key: 'section-finished',
+      title: 'Finalizados',
+      count: historicalGoals.length,
+      expanded: showFinishedGoals,
+    });
+
+    if (showFinishedGoals) {
+      if (historicalGoals.length === 0) {
+        items.push({
+          type: 'empty',
+          key: 'empty-finished',
+          message: 'Todavia no hay objetivos finalizados.',
+        });
+      } else {
+        items.push(
+          ...historicalGoals.map((item) => ({
+            type: 'finished' as const,
+            key: `finished-${item.goal.id}`,
+            goal: item.goal,
+            summary: item.summary,
+          })),
+        );
+      }
+    }
+
+    return items;
+  }, [activeGoals, historicalGoals, showActiveGoals, showFinishedGoals]);
 
   const closeMenu = () => setActiveMenuGoalId(null);
 
@@ -87,67 +201,99 @@ export function GoalsScreen() {
     );
   };
 
-  const renderGoal: ListRenderItem<Goal> = ({ item }) => {
-    const summary = summariesByGoalId.get(item.id);
+  const renderGoal: ListRenderItem<GoalListEntry> = ({ item }) => {
+    if (item.type === 'section') {
+      const isActiveSection = item.key === 'section-active';
 
-    if (!summary) {
-      return null;
+      return (
+        <Pressable
+          accessibilityHint={`${item.expanded ? 'Oculta' : 'Muestra'} la seccion ${item.title.toLowerCase()}`}
+          accessibilityRole="button"
+          onPress={() => {
+            if (isActiveSection) {
+              setShowActiveGoals((current) => !current);
+              return;
+            }
+
+            setShowFinishedGoals((current) => !current);
+          }}
+          style={({ pressed }) => [styles.sectionHeader, pressed && styles.sectionHeaderPressed]}>
+          <View style={styles.sectionHeaderCopy}>
+            <Text style={styles.sectionTitle}>{item.title}</Text>
+            <Text style={styles.sectionMeta}>{item.count}</Text>
+          </View>
+          <Feather
+            color={palette.primaryDeep}
+            name={item.expanded ? 'chevron-down' : 'chevron-right'}
+            size={20}
+          />
+        </Pressable>
+      );
+    }
+
+    if (item.type === 'empty') {
+      return (
+        <View style={styles.sectionEmpty}>
+          <Text style={styles.sectionEmptyText}>{item.message}</Text>
+        </View>
+      );
+    }
+
+    if (item.type === 'finished') {
+      return (
+        <ObjectiveListItem
+          goal={item.goal}
+          summary={item.summary}
+          onOpenDetail={() => router.push(appRoutes.goalDetail(item.goal.id))}
+          onOpenActions={() => setActiveMenuGoalId(item.goal.id)}
+        />
+      );
     }
 
     return (
       <ObjectiveListItem
-        goal={item}
-        summary={summary}
-        onOpenDetail={() => router.push(appRoutes.goalDetail(item.id))}
-        onOpenActions={() => setActiveMenuGoalId(item.id)}
+        goal={item.goal}
+        summary={item.summary}
+        onOpenDetail={() => router.push(appRoutes.goalDetail(item.goal.id))}
+        onOpenActions={() => setActiveMenuGoalId(item.goal.id)}
       />
     );
   };
 
-  const listFooter = historicalGoals.length > 0 ? (
-    <View style={styles.historySection}>
-      <View style={styles.historyHeader}>
-        <Text style={styles.historyEyebrow}>Historico</Text>
-        <Text style={styles.historyTitle}>Objetivos cerrados recientemente</Text>
-        <Text style={styles.historySubtitle}>
-          Consulta rapido como terminaron tus ciclos anteriores sin cargar la pantalla de hoy.
-        </Text>
-      </View>
-      {historicalGoals.map((item) => (
-        <ObjectiveHistoryCard key={item.summary.goalId} item={item} />
-      ))}
-    </View>
-  ) : null;
-
   return (
     <ScreenContainer
+      bodyStyle={styles.screenBody}
       title="Objetivos"
       scroll={false}>
       {goals.length === 0 ? (
-        <View style={[styles.emptyStateWrapper, { paddingBottom: tabBarHeight + insets.bottom + 96 }]}>
-          <EmptyState
-            title="No hay objetivos todavia"
-            message="Crea tu primer objetivo para empezar a registrar avances, cerrar ciclos y mantener el foco."
-            actionLabel="Crear objetivo"
-            onAction={() => router.push(appRoutes.createGoal)}
-          />
+        <View style={styles.contentSurface}>
+          <View style={[styles.emptyStateWrapper, { paddingBottom: tabBarHeight + insets.bottom + 96 }]}>
+            <EmptyState
+              title="No hay objetivos todavia"
+              message="Crea tu primer objetivo para empezar a registrar avances, cerrar ciclos y mantener el foco."
+              actionLabel="Crear objetivo"
+              onAction={() => router.push(appRoutes.createGoal)}
+            />
+          </View>
         </View>
       ) : (
-        <FlatList
-          contentContainerStyle={[
-            styles.listContent,
-            { paddingBottom: tabBarHeight + insets.bottom + 104 },
-          ]}
-          data={goals}
-          keyExtractor={(item) => item.id}
-          keyboardShouldPersistTaps="handled"
-          ListFooterComponent={listFooter}
-          renderItem={renderGoal}
-          showsVerticalScrollIndicator={false}
-        />
+        <View style={styles.contentSurface}>
+          <FlatList
+            style={styles.list}
+            contentContainerStyle={[
+              styles.listContent,
+              { paddingBottom: tabBarHeight + insets.bottom + 88 },
+            ]}
+            data={listData}
+            keyExtractor={(item) => item.key}
+            keyboardShouldPersistTaps="handled"
+            renderItem={renderGoal}
+            showsVerticalScrollIndicator={false}
+          />
+        </View>
       )}
       <FloatingAddButton
-        bottomOffset={tabBarHeight - 30}
+        bottomOffset={floatingButtonBottomOffset}
         onPress={() => router.push(appRoutes.createGoal)}
       />
       <ObjectiveActionsMenu
@@ -178,30 +324,65 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
   },
+  screenBody: {
+    paddingBottom: 0,
+  },
+  contentSurface: {
+    flex: 1,
+  },
   listContent: {
     gap: 3,
   },
-  historySection: {
-    marginTop: spacing.lg,
+  list: {
+    flex: 1,
+  },
+  sectionHeader: {
+    marginTop: spacing.xs,
+    marginBottom: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 5,
+    borderRadius: 16,
+    backgroundColor: '#ECF2FB',
+    borderWidth: 1,
+    borderColor: '#D6E1F1',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     gap: spacing.sm,
   },
-  historyHeader: {
-    gap: 4,
-    paddingTop: 4,
+  sectionHeaderPressed: {
+    opacity: 0.86,
   },
-  historyEyebrow: {
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-    color: palette.primaryDeep,
+  sectionHeaderCopy: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
-  historyTitle: {
-    fontSize: 20,
+  sectionTitle: {
+    fontSize: 16,
     fontWeight: '800',
     color: palette.ink,
   },
-  historySubtitle: {
+  sectionMeta: {
+    minWidth: 24,
+    paddingHorizontal: 7,
+    paddingVertical: 1,
+    borderRadius: 999,
+    backgroundColor: palette.snow,
+    textAlign: 'center',
+    fontSize: 11,
+    fontWeight: '800',
+    color: palette.primaryDeep,
+  },
+  sectionEmpty: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.md,
+    borderRadius: 18,
+    backgroundColor: '#F1F5FB',
+    borderWidth: 1,
+    borderColor: '#D6E1F1',
+  },
+  sectionEmptyText: {
     fontSize: 14,
     lineHeight: 20,
     color: palette.slate,

@@ -311,20 +311,20 @@ const styles = StyleSheet.create({
   streakRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
   },
   streakBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 0,
   },
   diamond: {
-    width: 26,
-    height: 26,
+    width: 18,
+    height: 18,
     transform: [{ rotate: '45deg' }],
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 6,
+    borderRadius: 4,
     backgroundColor: 'transparent',
   },
   diamondInner: {
@@ -336,6 +336,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: palette.slate,
+    marginLeft: -1,
   },
   actions: {
     flexDirection: 'row',

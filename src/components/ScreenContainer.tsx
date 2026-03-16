@@ -1,5 +1,5 @@
 import { PropsWithChildren, ReactNode } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { Directions, FlingGestureHandler } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, usePathname } from 'expo-router';
@@ -14,6 +14,7 @@ type Props = PropsWithChildren<{
   overlay?: ReactNode;
   scroll?: boolean;
   enableTabSwipe?: boolean;
+  bodyStyle?: StyleProp<ViewStyle>;
 }>;
 
 export function ScreenContainer({
@@ -23,6 +24,7 @@ export function ScreenContainer({
   overlay,
   scroll = true,
   enableTabSwipe,
+  bodyStyle,
   children,
 }: Props) {
   const pathname = usePathname();
@@ -41,7 +43,7 @@ export function ScreenContainer({
   };
 
   const content = (
-    <View style={[styles.body, !scroll && styles.bodyFill]}>
+    <View style={[styles.body, !scroll && styles.bodyFill, bodyStyle]}>
       <View style={styles.header}>
         <View style={styles.headerCopy}>
           <Text style={styles.title}>{title}</Text>
