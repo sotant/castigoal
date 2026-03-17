@@ -8,6 +8,7 @@ export default function TabLayout() {
 
   return (
     <Tabs
+      backBehavior="history"
       screenOptions={getBottomNavScreenOptions()}>
       <Tabs.Screen
         name="index"

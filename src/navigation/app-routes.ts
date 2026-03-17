@@ -3,13 +3,13 @@ export const appRoutes = {
   resetPassword: '/reset-password',
   privacy: '/privacy',
   onboarding: '/onboarding',
-  home: '/(tabs)/home',
-  goals: '/(tabs)/goals',
-  punishments: '/(tabs)/punishments',
-  stats: '/(tabs)/stats',
-  settings: '/(tabs)/settings',
+  home: '/home',
+  goals: '/goals',
+  punishments: '/punishments',
+  stats: '/stats',
+  settings: '/settings',
   createGoal: '/goals/create',
-  goalDetail: (goalId: string) => `/goals/${goalId}` as const,
+  goalDetail: (goalId: string) => `/goal-detail/${goalId}` as const,
   editGoal: (goalId: string) => `/goals/edit/${goalId}` as const,
   punishment: (assignedId: string) => `/punishments/${assignedId}` as const,
 } as const;
@@ -17,26 +17,12 @@ export const appRoutes = {
 export const mainTabPaths = ['/home', '/goals', '/punishments', '/stats', '/settings'] as const;
 
 type MainTabPath = (typeof mainTabPaths)[number];
-type MainTabHref =
-  | '/(tabs)/home'
-  | '/(tabs)/goals'
-  | '/(tabs)/punishments'
-  | '/(tabs)/stats'
-  | '/(tabs)/settings';
-
-const mainTabHrefByPath: Record<MainTabPath, MainTabHref> = {
-  '/home': '/(tabs)/home',
-  '/goals': '/(tabs)/goals',
-  '/punishments': '/(tabs)/punishments',
-  '/stats': '/(tabs)/stats',
-  '/settings': '/(tabs)/settings',
-};
 
 export function isMainTabPath(pathname: string): pathname is MainTabPath {
   return mainTabPaths.some((route) => route === pathname);
 }
 
-export function getAdjacentTabHref(pathname: string, direction: 'left' | 'right'): MainTabHref | null {
+export function getAdjacentTabHref(pathname: string, direction: 'left' | 'right'): MainTabPath | null {
   const currentIndex = mainTabPaths.findIndex((route) => route === pathname);
 
   if (currentIndex === -1) {
@@ -49,5 +35,5 @@ export function getAdjacentTabHref(pathname: string, direction: 'left' | 'right'
     return null;
   }
 
-  return mainTabHrefByPath[mainTabPaths[targetIndex]];
+  return mainTabPaths[targetIndex];
 }
