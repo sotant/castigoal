@@ -11,6 +11,7 @@ export interface HomeGoalSummary {
   title: string;
   description?: string;
   active: boolean;
+  passed: boolean;
   targetDays: number;
   completedDays: number;
   completionRate: number;

@@ -80,6 +80,7 @@ type HomeGoalSummaryRow = {
   title: string;
   description: string | null;
   active: boolean;
+  passed: boolean;
   target_days?: number;
   completed_days?: number;
   completion_rate: number;
@@ -267,22 +268,23 @@ function mapGoalEvaluations(rows: GoalEvaluationRow[]) {
 }
 
 function mapHomeGoalSummary(row: HomeGoalSummaryRow): HomeGoalSummary {
-    return {
-      goalId: row.goal_id,
-      title: row.title,
-      description: row.description ?? undefined,
+  return {
+    goalId: row.goal_id,
+    title: row.title,
+    description: row.description ?? undefined,
     active: row.active,
+    passed: row.passed,
     targetDays: Math.max(row.target_days ?? 1, 1),
     completedDays: Math.max(row.completed_days ?? 0, 0),
     completionRate: row.completion_rate,
     currentStreak: row.current_streak,
     bestStreak: row.best_streak,
-      todayStatus: row.today_status ?? undefined,
-      daysUntilStart: row.days_until_start,
-      remainingDays: row.remaining_days,
-      recentDays: [],
-    };
-  }
+    todayStatus: row.today_status ?? undefined,
+    daysUntilStart: row.days_until_start,
+    remainingDays: row.remaining_days,
+    recentDays: [],
+  };
+}
 
 function mapPendingPunishmentPreview(row: HomeSummaryRow): PendingPunishmentPreview | undefined {
   if (

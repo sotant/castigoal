@@ -14,6 +14,7 @@ import { formatWeekdayShort } from '@/src/utils/date';
 type Props = {
   goal: Goal;
   summary: HomeGoalSummary;
+  showCompletionFlag?: boolean;
   onOpenDetail: () => void;
   onOpenActions: () => void;
 };
@@ -43,7 +44,7 @@ function getRecentDayStyles(status: HomeGoalSummary['recentDays'][number]['statu
   }
 }
 
-export function ObjectiveListItem({ goal, summary, onOpenDetail, onOpenActions }: Props) {
+export function ObjectiveListItem({ goal, summary, showCompletionFlag = false, onOpenDetail, onOpenActions }: Props) {
   const loadStatsCalendar = useAppStore((state) => state.loadStatsCalendar);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [monthOffset, setMonthOffset] = useState(0);
@@ -67,9 +68,24 @@ export function ObjectiveListItem({ goal, summary, onOpenDetail, onOpenActions }
     <View style={styles.card}>
       <View style={styles.header}>
         <View style={styles.titleBlock}>
-          <Text numberOfLines={1} style={styles.title}>
-            {goal.title}
-          </Text>
+          <View style={styles.titleRow}>
+            {showCompletionFlag ? (
+              <View
+                style={[
+                  styles.completionFlagBadge,
+                  summary.passed ? styles.completionFlagBadgeSuccess : styles.completionFlagBadgeDanger,
+                ]}>
+                <Feather
+                  color={summary.passed ? palette.success : palette.danger}
+                  name={summary.passed ? 'check' : 'x'}
+                  size={14}
+                />
+              </View>
+            ) : null}
+            <Text numberOfLines={1} style={styles.title}>
+              {goal.title}
+            </Text>
+          </View>
         </View>
         <StatusBadge active={goal.active} />
       </View>
@@ -231,11 +247,31 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingRight: 4,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  completionFlagBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  completionFlagBadgeSuccess: {
+    backgroundColor: '#ECFDF3',
+  },
+  completionFlagBadgeDanger: {
+    backgroundColor: '#FEF2F2',
+  },
   title: {
     fontSize: 18,
     fontWeight: '800',
     color: palette.ink,
     lineHeight: 22,
+    flex: 1,
   },
   recentSection: {
     gap: 5,

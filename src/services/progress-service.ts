@@ -435,6 +435,7 @@ function buildHomeGoalSummary(goal: Goal, checkins: Checkin[], evaluation: GoalE
     daysUntilStart: getGoalDaysUntilStart(goal, referenceDate),
     description: goal.description,
     goalId: goal.id,
+    passed: evaluation.passed,
     remainingDays: getGoalRemainingDays(goal, referenceDate),
     recentDays: buildRecentGoalDays(goal, checkins, referenceDate),
     targetDays: goal.targetDays,

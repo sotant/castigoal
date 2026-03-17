@@ -2,13 +2,14 @@ import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Feather } from '@expo/vector-icons';
-import { Alert, FlatList, ListRenderItem, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, ListRenderItem, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
 
 import { EmptyState } from '@/src/components/EmptyState';
 import { FloatingAddButton } from '@/src/components/FloatingAddButton';
+import { GoalActionConfirmationModal } from '@/src/components/GoalActionConfirmationModal';
 import { ObjectiveActionsMenu } from '@/src/components/ObjectiveActionsMenu';
 import { ObjectiveListItem } from '@/src/components/ObjectiveListItem';
 import { ScreenContainer } from '@/src/components/ScreenContainer';
@@ -20,6 +21,10 @@ import { addDays, diffInDays, startOfToday } from '@/src/utils/date';
 
 function isHistoricalGoal(summary: HomeGoalSummary) {
   return summary.daysUntilStart === 0 && summary.remainingDays === 0;
+}
+
+function isFinishedGoal(summary: HomeGoalSummary) {
+  return !summary.active || isHistoricalGoal(summary);
 }
 
 type HistoricalGoalEntry = {
@@ -54,6 +59,20 @@ type GoalListEntry =
       message: string;
     };
 
+type PendingGoalAction =
+  | {
+      type: 'delete' | 'finalize';
+      goal: Goal;
+    }
+  | null;
+
+type ProcessingGoalAction =
+  | {
+      type: 'delete' | 'finalize';
+      goalId: string;
+    }
+  | null;
+
 export function GoalsScreen() {
   const today = startOfToday();
   const { deleteGoal, goals, homeSummary, toggleGoalActive } = useAppStore(
@@ -68,6 +87,8 @@ export function GoalsScreen() {
   const insets = useSafeAreaInsets();
   const floatingButtonBottomOffset = 4;
   const [activeMenuGoalId, setActiveMenuGoalId] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<PendingGoalAction>(null);
+  const [processingAction, setProcessingAction] = useState<ProcessingGoalAction>(null);
   const [showActiveGoals, setShowActiveGoals] = useState(true);
   const [showFinishedGoals, setShowFinishedGoals] = useState(false);
 
@@ -79,11 +100,29 @@ export function GoalsScreen() {
     () => new Map(homeSummary.goalSummaries.map((summary) => [summary.goalId, summary])),
     [homeSummary.goalSummaries],
   );
+  const visibleGoals = useMemo(() => {
+    if (!processingAction) {
+      return goals;
+    }
+
+    if (processingAction.type === 'delete') {
+      return goals.filter((goal) => goal.id !== processingAction.goalId);
+    }
+
+    return goals.map((goal) =>
+      goal.id === processingAction.goalId
+        ? {
+            ...goal,
+            active: false,
+          }
+        : goal,
+    );
+  }, [goals, processingAction]);
   const historicalGoals = useMemo<HistoricalGoalEntry[]>(() => {
-    const goalById = new Map(goals.map((goal) => [goal.id, goal]));
+    const goalById = new Map(visibleGoals.map((goal) => [goal.id, goal]));
 
     return homeSummary.goalSummaries
-      .filter(isHistoricalGoal)
+      .filter(isFinishedGoal)
       .flatMap((summary) => {
         const goal = goalById.get(summary.goalId);
 
@@ -93,21 +132,33 @@ export function GoalsScreen() {
 
         const deadline = addDays(goal.startDate, Math.max(goal.targetDays - 1, 0));
 
-        return [{
-          goal,
-          summary,
-          daysSinceEnd: Math.max(diffInDays(deadline, today), 0),
-        }];
+        return [
+          {
+            goal,
+            summary,
+            daysSinceEnd: Math.max(diffInDays(deadline, today), 0),
+          },
+        ];
       })
-      .sort((left, right) => left.daysSinceEnd - right.daysSinceEnd);
-  }, [goals, homeSummary.goalSummaries, today]);
+      .sort((left, right) => {
+        if (left.summary.active !== right.summary.active) {
+          return left.summary.active ? 1 : -1;
+        }
+
+        return left.daysSinceEnd - right.daysSinceEnd;
+      });
+  }, [homeSummary.goalSummaries, today, visibleGoals]);
   const historicalGoalIds = useMemo(
     () => new Set(historicalGoals.map((item) => item.summary.goalId)),
     [historicalGoals],
   );
   const activeGoals = useMemo(
-    () => goals.flatMap((goal) => {
+    () => visibleGoals.flatMap((goal) => {
       if (historicalGoalIds.has(goal.id)) {
+        return [];
+      }
+
+      if (!goal.active) {
         return [];
       }
 
@@ -119,7 +170,7 @@ export function GoalsScreen() {
 
       return [{ goal, summary }];
     }),
-    [goals, historicalGoalIds, summariesByGoalId],
+    [historicalGoalIds, summariesByGoalId, visibleGoals],
   );
   const listData = useMemo<GoalListEntry[]>(() => {
     const items: GoalListEntry[] = [
@@ -185,40 +236,62 @@ export function GoalsScreen() {
 
   const handleDelete = (goal: Goal) => {
     closeMenu();
-    Alert.alert(
-      'Borrar objetivo',
-      'Se borraran tambien sus check-ins y castigos asignados. Esta accion no se puede deshacer.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Borrar',
-          style: 'destructive',
-          onPress: () => {
-            void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-            void deleteGoal(goal.id);
-          },
-        },
-      ],
-    );
+    setPendingAction({ type: 'delete', goal });
   };
 
   const handleFinalize = (goal: Goal) => {
     closeMenu();
-    Alert.alert(
-      'Finalizar objetivo',
-      'El objetivo dejara de estar activo y saldra de esta seccion. Podras seguir consultandolo despues.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Finalizar',
-          onPress: () => {
-            void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            void toggleGoalActive(goal.id);
-          },
-        },
-      ],
-    );
+    setPendingAction({ type: 'finalize', goal });
   };
+
+  const closeConfirmationModal = () => setPendingAction(null);
+
+  const confirmPendingAction = async () => {
+    if (!pendingAction) {
+      return;
+    }
+
+    const { goal, type } = pendingAction;
+    setPendingAction(null);
+    setProcessingAction({ goalId: goal.id, type });
+
+    try {
+      if (type === 'delete') {
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        await deleteGoal(goal.id);
+        return;
+      }
+
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      await toggleGoalActive(goal.id);
+    } finally {
+      setProcessingAction((current) => (current?.goalId === goal.id ? null : current));
+    }
+  };
+
+  const confirmationCopy = useMemo(() => {
+    if (!pendingAction) {
+      return null;
+    }
+
+    if (pendingAction.type === 'delete') {
+      return {
+        eyebrow: 'Eliminar objetivo',
+        title: 'Borrar objetivo',
+        description: 'Se borraran tambien sus check-ins y castigos asignados. Esta accion no se puede deshacer.',
+        confirmLabel: 'Borrar',
+        tone: 'danger' as const,
+      };
+    }
+
+    return {
+      eyebrow: 'Cerrar ciclo',
+      title: 'Finalizar objetivo',
+      description: 'El objetivo dejara de estar activo y saldra de esta seccion. Podras seguir consultandolo despues.',
+      confirmLabel: 'Finalizar',
+      tone: 'default' as const,
+    };
+  }, [pendingAction]);
 
   const renderGoal: ListRenderItem<GoalListEntry> = ({ item }) => {
     if (item.type === 'section') {
@@ -263,6 +336,7 @@ export function GoalsScreen() {
         <ObjectiveListItem
           goal={item.goal}
           summary={item.summary}
+          showCompletionFlag
           onOpenDetail={() => router.push(appRoutes.goalDetail(item.goal.id))}
           onOpenActions={() => setActiveMenuGoalId(item.goal.id)}
         />
@@ -340,6 +414,18 @@ export function GoalsScreen() {
         showFinalize={Boolean(activeMenuGoal?.active)}
         visible={Boolean(activeMenuGoal)}
       />
+      {confirmationCopy ? (
+        <GoalActionConfirmationModal
+          confirmLabel={confirmationCopy.confirmLabel}
+          description={confirmationCopy.description}
+          eyebrow={confirmationCopy.eyebrow}
+          onCancel={closeConfirmationModal}
+          onConfirm={confirmPendingAction}
+          title={confirmationCopy.title}
+          tone={confirmationCopy.tone}
+          visible
+        />
+      ) : null}
     </ScreenContainer>
   );
 }
