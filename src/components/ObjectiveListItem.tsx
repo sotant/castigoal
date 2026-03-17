@@ -1,14 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Feather } from '@expo/vector-icons';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Directions, FlingGestureHandler } from 'react-native-gesture-handler';
 
 import { StatusBadge } from '@/src/components/StatusBadge';
-import { palette, radius, shadows, spacing } from '@/src/constants/theme';
-import { formatMonthLabel, getMonthDate, getMonthStart, WEEKDAY_LABELS } from '@/src/features/stats/calendar';
+import { palette, shadows, spacing } from '@/src/constants/theme';
 import { Goal, HomeGoalSummary } from '@/src/models/types';
-import { selectStatsCalendar, useAppStore } from '@/src/store/app-store';
 import { formatWeekdayShort } from '@/src/utils/date';
 
 type Props = {
@@ -45,25 +40,6 @@ function getRecentDayStyles(status: HomeGoalSummary['recentDays'][number]['statu
 }
 
 export function ObjectiveListItem({ goal, summary, showCompletionFlag = false, onOpenDetail, onOpenActions }: Props) {
-  const loadStatsCalendar = useAppStore((state) => state.loadStatsCalendar);
-  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-  const [monthOffset, setMonthOffset] = useState(0);
-  const monthDate = useMemo(() => getMonthDate(monthOffset), [monthOffset]);
-  const monthStart = useMemo(() => getMonthStart(monthDate), [monthDate]);
-  const calendarDays = useAppStore(selectStatsCalendar(goal.id, monthStart));
-
-  useEffect(() => {
-    if (!isCalendarOpen) {
-      return;
-    }
-
-    void loadStatsCalendar(goal.id, monthStart);
-  }, [goal.id, isCalendarOpen, loadStatsCalendar, monthStart]);
-
-  const handleCalendarSwipe = (direction: 'left' | 'right') => {
-    setMonthOffset((current) => (direction === 'left' ? current + 1 : current - 1));
-  };
-
   return (
     <View style={styles.card}>
       <View style={styles.header}>
@@ -138,17 +114,6 @@ export function ObjectiveListItem({ goal, summary, showCompletionFlag = false, o
             style={({ pressed }) => [styles.iconButton, pressed && styles.actionPressed]}>
             <Feather color={palette.ink} name="eye" size={18} />
           </Pressable>
-          <Pressable
-            accessibilityHint="Muestra el calendario mensual del objetivo"
-            accessibilityLabel={`Abrir estadisticas de ${goal.title}`}
-            accessibilityRole="button"
-            onPress={(event) => {
-              event.stopPropagation();
-              setIsCalendarOpen((current) => !current);
-            }}
-            style={({ pressed }) => [styles.iconButton, pressed && styles.actionPressed]}>
-            <Feather color={palette.ink} name="bar-chart-2" size={18} />
-          </Pressable>
 
           <Pressable
             accessibilityHint="Muestra mas acciones para este objetivo"
@@ -163,65 +128,6 @@ export function ObjectiveListItem({ goal, summary, showCompletionFlag = false, o
           </Pressable>
         </View>
       </View>
-
-      {isCalendarOpen ? (
-        <View style={styles.calendarSection}>
-          <View style={styles.calendarHeader}>
-            <Text style={styles.calendarTitle}>{formatMonthLabel(monthDate)}</Text>
-            <View style={styles.calendarActions}>
-              <Pressable
-                onPress={(event) => {
-                  event.stopPropagation();
-                  setMonthOffset((current) => current - 1);
-                }}
-                style={({ pressed }) => [styles.calendarNavButton, pressed && styles.actionPressed]}>
-                <Feather color={palette.primaryDeep} name="chevron-left" size={18} />
-              </Pressable>
-              <Pressable
-                onPress={(event) => {
-                  event.stopPropagation();
-                  setMonthOffset((current) => current + 1);
-                }}
-                style={({ pressed }) => [styles.calendarNavButton, pressed && styles.actionPressed]}>
-                <Feather color={palette.primaryDeep} name="chevron-right" size={18} />
-              </Pressable>
-            </View>
-          </View>
-
-          <FlingGestureHandler direction={Directions.LEFT} onActivated={() => handleCalendarSwipe('left')}>
-            <FlingGestureHandler direction={Directions.RIGHT} onActivated={() => handleCalendarSwipe('right')}>
-              <View>
-                <View style={styles.weekRow}>
-                  {WEEKDAY_LABELS.map((label) => (
-                    <Text key={`${goal.id}-${label}`} style={styles.weekday}>
-                      {label}
-                    </Text>
-                  ))}
-                </View>
-
-                <View style={styles.calendarGrid}>
-                  {calendarDays.map((day) => (
-                    <View key={day.date} style={styles.dayCell}>
-                      <View
-                        style={[
-                          styles.dayBubble,
-                          day.status === 'completed'
-                            ? styles.dayCompleted
-                            : day.status === 'missed'
-                              ? styles.dayMissed
-                              : styles.dayNeutral,
-                          !day.inMonth && styles.dayOutsideMonth,
-                        ]}>
-                        <Text style={[styles.dayLabel, !day.inMonth && styles.dayLabelOutsideMonth]}>{day.dayNumber}</Text>
-                      </View>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            </FlingGestureHandler>
-          </FlingGestureHandler>
-        </View>
-      ) : null}
     </View>
   );
 }
@@ -391,88 +297,5 @@ const styles = StyleSheet.create({
   },
   actionPressed: {
     opacity: 0.86,
-  },
-  calendarSection: {
-    marginTop: 0,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#E6ECF4',
-    gap: 8,
-  },
-  calendarHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  calendarTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: palette.ink,
-    textTransform: 'capitalize',
-  },
-  calendarActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  calendarNavButton: {
-    width: 30,
-    height: 30,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: '#D7DEE9',
-    backgroundColor: palette.snow,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  weekRow: {
-    flexDirection: 'row',
-  },
-  weekday: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: 10,
-    fontWeight: '800',
-    color: palette.slate,
-  },
-  calendarGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    rowGap: 6,
-  },
-  dayCell: {
-    width: '14.2857%',
-    alignItems: 'center',
-  },
-  dayBubble: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-  },
-  dayCompleted: {
-    backgroundColor: '#ECFDF3',
-  },
-  dayMissed: {
-    backgroundColor: '#FFF1F2',
-  },
-  dayNeutral: {
-    backgroundColor: '#FFFFFF',
-  },
-  dayOutsideMonth: {
-    opacity: 0.35,
-  },
-  dayLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: palette.ink,
-  },
-  dayLabelOutsideMonth: {
-    color: palette.slate,
   },
 });
