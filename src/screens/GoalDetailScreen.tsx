@@ -1,28 +1,97 @@
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useEffect } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Directions, FlingGestureHandler } from 'react-native-gesture-handler';
 
 import { EmptyState } from '@/src/components/EmptyState';
 import { ProgressRing } from '@/src/components/ProgressRing';
 import { ScreenContainer } from '@/src/components/ScreenContainer';
-import { StatisticCard } from '@/src/components/StatisticCard';
 import { palette, radius, shadows, spacing } from '@/src/constants/theme';
+import { buildMonthCalendar } from '@/src/features/goals/goal-form';
+import { getMonthStart, WEEKDAY_LABELS } from '@/src/features/stats/calendar';
+import { Goal, GoalCalendarDay } from '@/src/models/types';
 import { appRoutes } from '@/src/navigation/app-routes';
-import { Goal } from '@/src/models/types';
-import { selectGoalDetail, useAppStore } from '@/src/store/app-store';
-import { formatLongDate, formatShortDate } from '@/src/utils/date';
+import { selectGoalDetail, selectStatsCalendar, useAppStore } from '@/src/store/app-store';
+import { addMonths, formatCompactDate, startOfToday } from '@/src/utils/date';
 
 type Props = {
   goal?: Goal;
 };
 
+type SummaryStatProps = {
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  label: string;
+  value: string;
+  tone: string;
+};
+
+type InfoItemProps = {
+  label: string;
+  value: string;
+};
+
+function SummaryStat({ icon, label, value, tone }: SummaryStatProps) {
+  return (
+    <View style={styles.miniStatCard}>
+      <View style={styles.miniStatHeader}>
+        <MaterialCommunityIcons color={tone} name={icon} size={14} />
+        <Text numberOfLines={1} style={styles.miniStatLabel}>
+          {label}
+        </Text>
+      </View>
+      <Text style={[styles.miniStatValue, { color: tone }]}>{value}</Text>
+    </View>
+  );
+}
+
+function InfoItem({ label, value }: InfoItemProps) {
+  return (
+    <View style={styles.infoItem}>
+      <Text style={styles.infoLabel}>{label}</Text>
+      <Text style={styles.infoValue}>{value}</Text>
+    </View>
+  );
+}
+
+function getCalendarFallback(monthDate: Date): GoalCalendarDay[] {
+  return buildMonthCalendar(monthDate).map((day) => ({
+    date: day.date,
+    dayNumber: day.dayNumber,
+    inMonth: day.inMonth,
+    status: undefined,
+  }));
+}
+
+function formatCalendarMonthLabel(date: Date) {
+  const parts = new Intl.DateTimeFormat('es-ES', {
+    month: 'long',
+    year: 'numeric',
+  }).formatToParts(date);
+
+  const month = parts.find((part) => part.type === 'month')?.value ?? '';
+  const year = parts.find((part) => part.type === 'year')?.value ?? '';
+
+  return `${month.charAt(0).toUpperCase()}${month.slice(1)} ${year}`.trim();
+}
+
 export function GoalDetailScreen({ goal }: Props) {
   const detail = useAppStore(selectGoalDetail(goal?.id ?? ''));
   const loadGoalDetail = useAppStore((state) => state.loadGoalDetail);
   const toggleGoalActive = useAppStore((state) => state.toggleGoalActive);
+  const loadStatsCalendar = useAppStore((state) => state.loadStatsCalendar);
   const evaluation = useAppStore((state) => (goal ? state.goalEvaluations[goal.id] : undefined));
   const goalSubtitle = goal?.description?.trim() || undefined;
+  const [monthOffset, setMonthOffset] = useState(0);
+
+  const monthDate = useMemo(() => {
+    const today = startOfToday();
+    const monthStart = addMonths(today, monthOffset).slice(0, 8) + '01';
+    const [year, month] = monthStart.split('-').map(Number);
+    return new Date(year, month - 1, 1);
+  }, [monthOffset]);
+  const monthStart = useMemo(() => getMonthStart(monthDate), [monthDate]);
+  const loadedCalendarDays = useAppStore(selectStatsCalendar(goal?.id ?? '', monthStart));
 
   useEffect(() => {
     if (!goal) {
@@ -31,6 +100,14 @@ export function GoalDetailScreen({ goal }: Props) {
 
     void loadGoalDetail(goal.id);
   }, [goal, loadGoalDetail]);
+
+  useEffect(() => {
+    if (!goal) {
+      return;
+    }
+
+    void loadStatsCalendar(goal.id, monthStart);
+  }, [goal, loadStatsCalendar, monthStart]);
 
   if (!goal) {
     return (
@@ -60,112 +137,217 @@ export function GoalDetailScreen({ goal }: Props) {
       passed: false,
     },
   };
+
+  const calendarDays = loadedCalendarDays.length > 0 ? loadedCalendarDays : getCalendarFallback(monthDate);
+  const requiredDays = Math.max(Math.ceil((goal.targetDays * goal.minimumSuccessRate) / 100), 1);
+  const remainingDaysLabel =
+    viewModel.daysUntilStart > 0
+      ? `${viewModel.daysUntilStart} ${viewModel.daysUntilStart === 1 ? 'dia' : 'dias'}`
+      : `${viewModel.remainingDays} ${viewModel.remainingDays === 1 ? 'dia' : 'dias'}`;
+  const remainingDaysTitle = viewModel.daysUntilStart > 0 ? 'Empieza en' : 'Restantes';
+  const monthLabel = formatCalendarMonthLabel(monthDate);
+
+  const handleCalendarSwipe = (direction: 'left' | 'right') => {
+    setMonthOffset((current) => (direction === 'left' ? current + 1 : current - 1));
+  };
+
   return (
     <ScreenContainer
       title={goal.title}
       subtitle={goalSubtitle}
-      overlay={
+      action={
         <Pressable
           accessibilityHint="Abre la pantalla para editar este objetivo"
           accessibilityLabel="Editar objetivo"
           onPress={() => router.push(appRoutes.editGoal(goal.id))}
-          style={styles.fab}>
-          <MaterialCommunityIcons color={palette.snow} name="square-edit-outline" size={24} />
+          style={styles.headerAction}>
+          <Feather color={palette.primaryDeep} name="edit-2" size={18} />
         </Pressable>
       }>
-      <View style={styles.summary}>
-        <ProgressRing value={viewModel.evaluation.completionRate} size={110} />
-        <View style={styles.summaryCopy}>
-          <Text style={styles.summaryTitle}>Ventana actual</Text>
-          <Text style={styles.summaryText}>
-            {viewModel.evaluation.completedDays}/{viewModel.evaluation.plannedDays} dias completados
-          </Text>
-          <Text style={styles.summaryText}>Minimo exigido: {goal.minimumSuccessRate}%</Text>
-          <Text style={styles.summaryText}>Inicio: {formatLongDate(goal.startDate)}</Text>
+      <View style={styles.heroCard}>
+        <View style={styles.ringWrap}>
+          <ProgressRing
+            helperText={`${viewModel.evaluation.completionRate}% completado`}
+            showDivider
+            size={124}
+            value={viewModel.evaluation.completionRate}
+            valueFontSize={28}
+            valueText={`${viewModel.evaluation.completedDays}/${requiredDays}`}
+          />
+        </View>
+
+        <View style={styles.miniStatsRow}>
+          <SummaryStat icon="fire" label="Racha" tone={palette.accent} value={`${viewModel.currentStreak} dias`} />
+          <SummaryStat icon="trophy-outline" label="Mejor" tone={palette.warning} value={`${viewModel.bestStreak} dias`} />
+          <SummaryStat icon="timer-sand" label={remainingDaysTitle} tone={palette.primary} value={remainingDaysLabel} />
+        </View>
+
+        <View style={styles.infoGrid}>
+          <InfoItem label="Inicio" value={formatCompactDate(goal.startDate)} />
+          <InfoItem label="Fin" value={formatCompactDate(viewModel.deadline)} />
+          <InfoItem label="Duracion" value={`${goal.targetDays} ${goal.targetDays === 1 ? 'dia' : 'dias'}`} />
+          <InfoItem label="Requeridos" value={`${requiredDays} ${requiredDays === 1 ? 'dia' : 'dias'}`} />
+        </View>
+
+        <View style={styles.heroActions}>
+          <Pressable
+            onPress={() => router.push(appRoutes.editGoal(goal.id))}
+            style={[styles.secondaryAction, styles.heroActionButton]}>
+            <Text style={styles.secondaryActionLabel}>Editar</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => {
+              void toggleGoalActive(goal.id);
+            }}
+            style={[styles.primaryAction, styles.heroActionButton]}>
+            <Text style={styles.primaryActionLabel}>{goal.active ? 'Finalizar' : 'Reactivar'}</Text>
+          </Pressable>
         </View>
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Plazo configurado</Text>
-        <Text style={styles.cardText}>Inicio: {formatLongDate(goal.startDate)}</Text>
-        <Text style={styles.cardText}>Duracion: {goal.targetDays} {goal.targetDays === 1 ? 'dia' : 'dias'}</Text>
-        <Text style={styles.cardText}>Fin: {formatLongDate(viewModel.deadline)}</Text>
-        <Text style={styles.scheduleStatus}>{viewModel.scheduleStatus}</Text>
-      </View>
+      <View style={styles.calendarShell}>
+        <View style={styles.calendarHeader}>
+          <Pressable onPress={() => setMonthOffset((current) => current - 1)} style={styles.monthButton}>
+            <Feather color={palette.slate} name="chevron-left" size={18} />
+          </Pressable>
+          <Text style={styles.monthLabel}>{monthLabel}</Text>
+          <Pressable onPress={() => setMonthOffset((current) => current + 1)} style={styles.monthButton}>
+            <Feather color={palette.slate} name="chevron-right" size={18} />
+          </Pressable>
+        </View>
 
-      <View style={styles.statsRow}>
-        <StatisticCard label="Racha actual" value={`${viewModel.currentStreak} d`} tone={palette.success} />
-        <StatisticCard label="Mejor racha" value={`${viewModel.bestStreak} d`} tone={palette.accent} />
-      </View>
+        <FlingGestureHandler direction={Directions.LEFT} onActivated={() => handleCalendarSwipe('left')}>
+          <FlingGestureHandler direction={Directions.RIGHT} onActivated={() => handleCalendarSwipe('right')}>
+            <View style={styles.calendarCard}>
+              <View style={styles.weekRow}>
+                {WEEKDAY_LABELS.map((label) => (
+                  <Text key={label} style={styles.weekday}>
+                    {label}
+                  </Text>
+                ))}
+              </View>
 
-      <View style={styles.actions}>
-        <Pressable
-          onPress={() => {
-            void toggleGoalActive(goal.id);
-          }}
-          style={styles.primaryAction}>
-          <Text style={styles.primaryActionLabel}>{goal.active ? 'Finalizar' : 'Reactivar'}</Text>
-        </Pressable>
-      </View>
+              <View style={styles.calendarGrid}>
+                {calendarDays.map((day) => {
+                  const isToday = day.date === startOfToday();
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Historial reciente</Text>
-        {viewModel.recentCheckins.length === 0 ? (
-          <Text style={styles.cardText}>Todavia no hay registros.</Text>
-        ) : (
-          viewModel.recentCheckins.map((checkin) => (
-            <View key={checkin.id} style={styles.historyRow}>
-              <Text style={styles.cardText}>{formatShortDate(checkin.date)}</Text>
-              <Text style={[styles.badge, checkin.status === 'completed' ? styles.badgeSuccess : styles.badgeDanger]}>
-                {checkin.status === 'completed' ? 'Cumplido' : 'Fallado'}
-              </Text>
+                  return (
+                    <View key={day.date} style={styles.dayCell}>
+                      <View
+                        style={[
+                          styles.dayBubble,
+                          day.status === 'completed' ? styles.dayCompleted : null,
+                          day.status === 'missed' ? styles.dayMissed : null,
+                          !day.inMonth ? styles.dayOutsideMonth : null,
+                          isToday ? styles.dayToday : null,
+                        ]}>
+                        <Text
+                          style={[
+                            styles.dayLabel,
+                            day.status === 'completed' || day.status === 'missed' ? styles.dayLabelActive : null,
+                            !day.inMonth ? styles.dayLabelOutsideMonth : null,
+                          ]}>
+                          {day.dayNumber}
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
             </View>
-          ))
-        )}
+          </FlingGestureHandler>
+        </FlingGestureHandler>
       </View>
-
-      <View style={styles.fabOffset} />
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  summary: {
-    padding: spacing.lg,
-    borderRadius: 22,
+  headerAction: {
+    width: 42,
+    height: 42,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: palette.line,
+    backgroundColor: palette.snow,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroCard: {
+    padding: spacing.md,
+    borderRadius: 32,
     backgroundColor: palette.snow,
     borderWidth: 1,
     borderColor: palette.line,
     gap: spacing.md,
-    alignItems: 'center',
     ...shadows.card,
   },
-  summaryCopy: {
-    gap: spacing.xs,
+  ringWrap: {
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
   },
-  summaryTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: palette.ink,
-  },
-  summaryText: {
-    color: palette.slate,
-  },
-  scheduleStatus: {
-    color: palette.primaryDeep,
-    fontWeight: '700',
-    lineHeight: 21,
-  },
-  statsRow: {
+  miniStatsRow: {
     flexDirection: 'row',
     gap: spacing.sm,
   },
-  actions: {
+  miniStatCard: {
+    flex: 1,
+    minWidth: 0,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.md,
+    borderRadius: 16,
+    backgroundColor: '#FAFBFE',
+    borderWidth: 1,
+    borderColor: palette.line,
+    gap: spacing.xs,
+    ...shadows.card,
+  },
+  miniStatHeader: {
     flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  miniStatLabel: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '700',
+    color: palette.slate,
+  },
+  miniStatValue: {
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  infoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    rowGap: spacing.md,
+  },
+  infoItem: {
+    width: '50%',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.sm,
+  },
+  infoLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: palette.ink,
+  },
+  infoValue: {
+    textAlign: 'center',
+    fontSize: 14,
+    lineHeight: 20,
+    color: palette.slate,
+  },
+  heroActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  heroActionButton: {
+    flex: 1,
   },
   primaryAction: {
-    flex: 1,
     paddingVertical: 14,
     borderRadius: radius.pill,
     alignItems: 'center',
@@ -175,59 +357,108 @@ const styles = StyleSheet.create({
     color: palette.snow,
     fontWeight: '800',
   },
-  card: {
-    padding: spacing.md,
-    borderRadius: 20,
+  secondaryAction: {
+    paddingVertical: 14,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: palette.line,
+    backgroundColor: palette.snow,
+  },
+  secondaryActionLabel: {
+    color: palette.ink,
+    fontWeight: '800',
+  },
+  calendarShell: {
+    padding: spacing.sm,
+    borderRadius: 30,
     backgroundColor: palette.snow,
     borderWidth: 1,
     borderColor: palette.line,
     gap: spacing.sm,
     ...shadows.card,
   },
-  cardTitle: {
+  calendarHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.xs,
+  },
+  monthButton: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  monthLabel: {
+    flex: 1,
+    textAlign: 'center',
     fontSize: 18,
     fontWeight: '800',
     color: palette.ink,
   },
-  cardText: {
-    fontSize: 14,
-    color: palette.slate,
+  calendarCard: {
+    padding: spacing.md,
+    borderRadius: 24,
+    backgroundColor: '#FAFBFE',
+    borderWidth: 1,
+    borderColor: '#E6EDF8',
+    gap: spacing.sm,
   },
-  historyRow: {
+  weekRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
   },
-  badge: {
-    overflow: 'hidden',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: radius.pill,
+  weekday: {
+    flex: 1,
+    textAlign: 'center',
     fontSize: 12,
     fontWeight: '700',
+    color: palette.slate,
   },
-  badgeSuccess: {
-    backgroundColor: '#EAFBF1',
-    color: palette.success,
+  calendarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    rowGap: spacing.sm,
   },
-  badgeDanger: {
-    backgroundColor: '#FFF1F1',
-    color: palette.danger,
+  dayCell: {
+    width: '14.2857%',
+    alignItems: 'center',
   },
-  fabOffset: {
-    height: 76,
-  },
-  fab: {
-    position: 'absolute',
-    right: spacing.md,
-    bottom: 20,
-    minWidth: 56,
-    height: 56,
-    paddingHorizontal: spacing.md,
+  dayBubble: {
+    width: 36,
+    height: 36,
     borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: '#DFE6F1',
+    backgroundColor: palette.snow,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: palette.primary,
-    ...shadows.card,
+  },
+  dayCompleted: {
+    backgroundColor: '#EAFBF1',
+    borderColor: '#86EFAC',
+  },
+  dayMissed: {
+    backgroundColor: '#FFF1F1',
+    borderColor: '#FDA4AF',
+  },
+  dayToday: {
+    borderColor: '#AFC4EE',
+  },
+  dayOutsideMonth: {
+    opacity: 0.45,
+  },
+  dayLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: palette.ink,
+  },
+  dayLabelActive: {
+    color: palette.ink,
+  },
+  dayLabelOutsideMonth: {
+    color: palette.slate,
   },
 });
