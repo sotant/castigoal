@@ -1,5 +1,5 @@
 import { Feather } from '@expo/vector-icons';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { palette, radius, shadows, spacing } from '@/src/constants/theme';
@@ -24,6 +24,23 @@ export function ObjectiveActionsMenu({
   onDelete,
 }: Props) {
   const insets = useSafeAreaInsets();
+  const swipeToCloseResponder = PanResponder.create({
+    onMoveShouldSetPanResponder: (_, gestureState) => {
+      const isVerticalSwipe = Math.abs(gestureState.dy) > Math.abs(gestureState.dx) * 1.25;
+
+      return isVerticalSwipe && gestureState.dy > 16;
+    },
+    onPanResponderRelease: (_, gestureState) => {
+      const isDismissSwipe =
+        gestureState.dy > 48 &&
+        gestureState.vy > 0 &&
+        Math.abs(gestureState.dy) > Math.abs(gestureState.dx);
+
+      if (isDismissSwipe) {
+        onClose();
+      }
+    },
+  });
 
   return (
     <Modal
@@ -32,7 +49,9 @@ export function ObjectiveActionsMenu({
       presentationStyle="overFullScreen"
       transparent
       visible={visible}>
-      <View style={styles.root}>
+      <View
+        {...swipeToCloseResponder.panHandlers}
+        style={styles.root}>
         <Pressable
           accessibilityLabel="Cerrar menu de acciones"
           onPress={onClose}
