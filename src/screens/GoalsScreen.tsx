@@ -56,11 +56,12 @@ type GoalListEntry =
 
 export function GoalsScreen() {
   const today = startOfToday();
-  const { deleteGoal, goals, homeSummary } = useAppStore(
+  const { deleteGoal, goals, homeSummary, toggleGoalActive } = useAppStore(
     useShallow((state) => ({
       deleteGoal: state.deleteGoal,
       goals: state.goals,
       homeSummary: state.homeSummary,
+      toggleGoalActive: state.toggleGoalActive,
     })),
   );
   const tabBarHeight = useBottomTabBarHeight();
@@ -201,6 +202,24 @@ export function GoalsScreen() {
     );
   };
 
+  const handleFinalize = (goal: Goal) => {
+    closeMenu();
+    Alert.alert(
+      'Finalizar objetivo',
+      'El objetivo dejara de estar activo y saldra de esta seccion. Podras seguir consultandolo despues.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Finalizar',
+          onPress: () => {
+            void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            void toggleGoalActive(goal.id);
+          },
+        },
+      ],
+    );
+  };
+
   const renderGoal: ListRenderItem<GoalListEntry> = ({ item }) => {
     if (item.type === 'section') {
       const isActiveSection = item.key === 'section-active';
@@ -299,6 +318,11 @@ export function GoalsScreen() {
       <ObjectiveActionsMenu
         goalTitle={activeMenuGoal?.title ?? ''}
         onClose={closeMenu}
+        onFinalize={() => {
+          if (activeMenuGoal) {
+            handleFinalize(activeMenuGoal);
+          }
+        }}
         onDelete={() => {
           if (activeMenuGoal) {
             handleDelete(activeMenuGoal);
@@ -313,6 +337,7 @@ export function GoalsScreen() {
           closeMenu();
           router.push(appRoutes.editGoal(goalId));
         }}
+        showFinalize={Boolean(activeMenuGoal?.active)}
         visible={Boolean(activeMenuGoal)}
       />
     </ScreenContainer>

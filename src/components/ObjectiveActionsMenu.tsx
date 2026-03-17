@@ -1,21 +1,35 @@
 import { Feather } from '@expo/vector-icons';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { palette, radius, shadows, spacing } from '@/src/constants/theme';
 
 type Props = {
   visible: boolean;
   goalTitle: string;
+  showFinalize?: boolean;
   onClose: () => void;
+  onFinalize: () => void;
   onEdit: () => void;
   onDelete: () => void;
 };
 
-export function ObjectiveActionsMenu({ visible, goalTitle, onClose, onEdit, onDelete }: Props) {
+export function ObjectiveActionsMenu({
+  visible,
+  goalTitle,
+  showFinalize = false,
+  onClose,
+  onFinalize,
+  onEdit,
+  onDelete,
+}: Props) {
+  const insets = useSafeAreaInsets();
+
   return (
     <Modal
       animationType="fade"
       onRequestClose={onClose}
+      presentationStyle="overFullScreen"
       transparent
       visible={visible}>
       <View style={styles.root}>
@@ -24,12 +38,28 @@ export function ObjectiveActionsMenu({ visible, goalTitle, onClose, onEdit, onDe
           onPress={onClose}
           style={styles.backdrop}
         />
-        <View style={styles.sheet}>
+        <View style={[styles.sheet, { paddingBottom: spacing.lg + insets.bottom }]}>
           <View style={styles.handle} />
-          <Text style={styles.eyebrow}>Acciones del objetivo</Text>
+          <Text style={styles.eyebrow}>Acciones</Text>
           <Text numberOfLines={2} style={styles.title}>
             {goalTitle}
           </Text>
+
+          {showFinalize ? (
+            <Pressable
+              accessibilityHint="Finaliza este objetivo y lo saca de la lista de activos"
+              accessibilityRole="button"
+              onPress={onFinalize}
+              style={styles.actionButton}>
+              <View style={[styles.actionIcon, styles.successIcon]}>
+                <Feather color="#16A34A" name="check-circle" size={18} />
+              </View>
+              <View style={styles.actionCopy}>
+                <Text style={styles.actionTitle}>Finalizar</Text>
+                <Text style={styles.actionSubtitle}>Finaliza antes de que termine su plazo.</Text>
+              </View>
+            </Pressable>
+          ) : null}
 
           <Pressable
             accessibilityHint="Abre la pantalla para editar este objetivo"
@@ -84,7 +114,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     backgroundColor: palette.snow,
-    gap: spacing.sm,
+    gap: 4,
     ...shadows.card,
   },
   handle: {
@@ -110,14 +140,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    padding: spacing.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 8,
     borderRadius: radius.md,
     backgroundColor: '#F7F9FD',
   },
   actionIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
+    width: 38,
+    height: 38,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#E8F0FF',
@@ -125,12 +156,15 @@ const styles = StyleSheet.create({
   dangerIcon: {
     backgroundColor: '#FFF0F0',
   },
+  successIcon: {
+    backgroundColor: '#ECFDF3',
+  },
   actionCopy: {
     flex: 1,
     gap: 2,
   },
   actionTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
     color: palette.ink,
   },
@@ -138,8 +172,8 @@ const styles = StyleSheet.create({
     color: '#B42318',
   },
   actionSubtitle: {
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 12,
+    lineHeight: 16,
     color: palette.slate,
   },
   cancelButton: {
