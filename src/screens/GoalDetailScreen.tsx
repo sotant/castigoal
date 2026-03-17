@@ -1,3 +1,4 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
@@ -21,6 +22,7 @@ export function GoalDetailScreen({ goal }: Props) {
   const loadGoalDetail = useAppStore((state) => state.loadGoalDetail);
   const toggleGoalActive = useAppStore((state) => state.toggleGoalActive);
   const evaluation = useAppStore((state) => (goal ? state.goalEvaluations[goal.id] : undefined));
+  const goalSubtitle = goal?.description?.trim() || undefined;
 
   useEffect(() => {
     if (!goal) {
@@ -61,9 +63,14 @@ export function GoalDetailScreen({ goal }: Props) {
   return (
     <ScreenContainer
       title={goal.title}
+      subtitle={goalSubtitle}
       overlay={
-        <Pressable onPress={() => router.push(appRoutes.editGoal(goal.id))} style={styles.fab}>
-          <Text style={styles.fabLabel}>Editar</Text>
+        <Pressable
+          accessibilityHint="Abre la pantalla para editar este objetivo"
+          accessibilityLabel="Editar objetivo"
+          onPress={() => router.push(appRoutes.editGoal(goal.id))}
+          style={styles.fab}>
+          <MaterialCommunityIcons color={palette.snow} name="square-edit-outline" size={24} />
         </Pressable>
       }>
       <View style={styles.summary}>
@@ -222,10 +229,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: palette.primary,
     ...shadows.card,
-  },
-  fabLabel: {
-    color: palette.snow,
-    fontSize: 16,
-    fontWeight: '800',
   },
 });
