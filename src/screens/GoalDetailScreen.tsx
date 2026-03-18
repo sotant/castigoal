@@ -1,4 +1,4 @@
-import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Feather, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -140,6 +140,7 @@ export function GoalDetailScreen({ goal }: Props) {
 
   const calendarDays = loadedCalendarDays.length > 0 ? loadedCalendarDays : getCalendarFallback(monthDate);
   const requiredDays = Math.max(Math.ceil((goal.targetDays * goal.minimumSuccessRate) / 100), 1);
+  const approvalProgress = Math.min(Math.round((viewModel.evaluation.completedDays / requiredDays) * 100), 100);
   const remainingDaysLabel =
     viewModel.daysUntilStart > 0
       ? `${viewModel.daysUntilStart} ${viewModel.daysUntilStart === 1 ? 'dia' : 'dias'}`
@@ -167,10 +168,10 @@ export function GoalDetailScreen({ goal }: Props) {
       <View style={styles.heroCard}>
         <View style={styles.ringWrap}>
           <ProgressRing
-            helperText={`${viewModel.evaluation.completionRate}% completado`}
+            helperText={`${approvalProgress}% completado`}
             showDivider
             size={124}
-            value={viewModel.evaluation.completionRate}
+            value={approvalProgress}
             valueFontSize={28}
             valueText={`${viewModel.evaluation.completedDays}/${requiredDays}`}
           />
@@ -229,7 +230,8 @@ export function GoalDetailScreen({ goal }: Props) {
 
               <View style={styles.calendarGrid}>
                 {calendarDays.map((day) => {
-                  const isToday = day.date === startOfToday();
+                  const isStart = day.date === goal.startDate;
+                  const isDeadline = day.date === viewModel.deadline;
 
                   return (
                     <View key={day.date} style={styles.dayCell}>
@@ -239,7 +241,6 @@ export function GoalDetailScreen({ goal }: Props) {
                           day.status === 'completed' ? styles.dayCompleted : null,
                           day.status === 'missed' ? styles.dayMissed : null,
                           !day.inMonth ? styles.dayOutsideMonth : null,
-                          isToday ? styles.dayToday : null,
                         ]}>
                         <Text
                           style={[
@@ -249,6 +250,16 @@ export function GoalDetailScreen({ goal }: Props) {
                           ]}>
                           {day.dayNumber}
                         </Text>
+                        {isStart ? (
+                          <View style={styles.dayMarker}>
+                            <MaterialIcons color={palette.snow} name="play-arrow" size={10} />
+                          </View>
+                        ) : null}
+                        {isDeadline ? (
+                          <View style={styles.dayMarker}>
+                            <MaterialCommunityIcons color={palette.snow} name="flag-checkered" size={10} />
+                          </View>
+                        ) : null}
                       </View>
                     </View>
                   );
@@ -427,6 +438,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   dayBubble: {
+    position: 'relative',
     width: 36,
     height: 36,
     borderRadius: radius.pill,
@@ -444,9 +456,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF1F1',
     borderColor: '#FDA4AF',
   },
-  dayToday: {
-    borderColor: '#AFC4EE',
-  },
   dayOutsideMonth: {
     opacity: 0.45,
   },
@@ -460,5 +469,16 @@ const styles = StyleSheet.create({
   },
   dayLabelOutsideMonth: {
     color: palette.slate,
+  },
+  dayMarker: {
+    position: 'absolute',
+    right: -2,
+    bottom: -2,
+    width: 14,
+    height: 14,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: palette.primary,
   },
 });
