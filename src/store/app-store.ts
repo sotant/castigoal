@@ -125,6 +125,7 @@ const defaultStatsSummary: StatsSummary = {
   completionRatio: 0,
   goalsActiveCount: 0,
   completedPunishments: 0,
+  totalCheckins: 0,
 };
 
 const EMPTY_CALENDAR_DAYS: GoalCalendarDay[] = [];

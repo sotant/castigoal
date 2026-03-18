@@ -66,6 +66,7 @@ export interface StatsSummary {
   completionRatio: number;
   goalsActiveCount: number;
   completedPunishments: number;
+  totalCheckins: number;
 }
 
 export interface GoalCalendarDay {

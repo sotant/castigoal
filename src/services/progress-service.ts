@@ -456,6 +456,7 @@ function buildStatsSummary(goals: Goal[], checkins: Checkin[], completedHistory:
     completedPunishments: completedHistory.length,
     completionRatio: totalCheckins ? Math.round((completedCheckins / totalCheckins) * 100) : 0,
     goalsActiveCount: goals.filter((goal) => goal.active).length,
+    totalCheckins,
   };
 }
 

@@ -96,6 +96,7 @@ type StatsSummaryRow = {
   completion_ratio: number;
   goals_active_count: number;
   completed_punishments: number;
+  total_checkins?: number | null;
 };
 
 type GoalCalendarDayRow = {
@@ -334,6 +335,7 @@ function mapStatsSummary(row: StatsSummaryRow): StatsSummary {
     completionRatio: row.completion_ratio,
     goalsActiveCount: row.goals_active_count,
     completedPunishments: row.completed_punishments,
+    totalCheckins: row.total_checkins ?? 0,
   };
 }
 

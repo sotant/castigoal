@@ -18,6 +18,7 @@ export function useStatsOverview() {
       completionRatio: statsSummary.completionRatio,
       goals,
       goalsActiveCount: statsSummary.goalsActiveCount,
+      totalCheckins: statsSummary.totalCheckins,
     }),
     [goals, statsSummary],
   );
