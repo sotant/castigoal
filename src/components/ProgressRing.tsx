@@ -10,6 +10,7 @@ type Props = {
   helperText?: string;
   showDivider?: boolean;
   valueFontSize?: number;
+  toneColor?: string;
 };
 
 export function ProgressRing({
@@ -20,8 +21,9 @@ export function ProgressRing({
   helperText,
   showDivider = false,
   valueFontSize = 18,
+  toneColor,
 }: Props) {
-  const tone = value >= 80 ? palette.success : value >= 40 ? palette.primary : palette.warning;
+  const tone = toneColor ?? (value >= 80 ? palette.success : value >= 40 ? palette.primary : palette.warning);
 
   return (
     <View style={[styles.outer, { width: size, height: size, borderColor: tone }]}>

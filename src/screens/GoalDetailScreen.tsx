@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Directions, FlingGestureHandler } from 'react-native-gesture-handler';
 
 import { EmptyState } from '@/src/components/EmptyState';
+import { GoalActionConfirmationModal } from '@/src/components/GoalActionConfirmationModal';
 import { ProgressRing } from '@/src/components/ProgressRing';
 import { ScreenContainer } from '@/src/components/ScreenContainer';
 import { palette, radius, shadows, spacing } from '@/src/constants/theme';
@@ -19,37 +20,18 @@ type Props = {
   goal?: Goal;
 };
 
-type SummaryStatProps = {
-  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+type DetailStatProps = {
   label: string;
   value: string;
-  tone: string;
+  tone?: string;
 };
 
-type InfoItemProps = {
-  label: string;
-  value: string;
-};
-
-function SummaryStat({ icon, label, value, tone }: SummaryStatProps) {
+function DetailStat({ label, value, tone = palette.primary }: DetailStatProps) {
   return (
-    <View style={styles.miniStatCard}>
-      <View style={styles.miniStatHeader}>
-        <MaterialCommunityIcons color={tone} name={icon} size={14} />
-        <Text numberOfLines={1} style={styles.miniStatLabel}>
-          {label}
-        </Text>
-      </View>
-      <Text style={[styles.miniStatValue, { color: tone }]}>{value}</Text>
-    </View>
-  );
-}
-
-function InfoItem({ label, value }: InfoItemProps) {
-  return (
-    <View style={styles.infoItem}>
-      <Text style={styles.infoLabel}>{label}</Text>
-      <Text style={styles.infoValue}>{value}</Text>
+    <View style={styles.statCard}>
+      <Text style={styles.statLabel}>{label}</Text>
+      <View style={[styles.statAccent, { backgroundColor: tone }]} />
+      <Text style={[styles.statValue, { color: tone }]}>{value}</Text>
     </View>
   );
 }
@@ -68,7 +50,6 @@ function formatCalendarMonthLabel(date: Date) {
     month: 'long',
     year: 'numeric',
   }).formatToParts(date);
-
   const month = parts.find((part) => part.type === 'month')?.value ?? '';
   const year = parts.find((part) => part.type === 'year')?.value ?? '';
 
@@ -83,6 +64,7 @@ export function GoalDetailScreen({ goal }: Props) {
   const evaluation = useAppStore((state) => (goal ? state.goalEvaluations[goal.id] : undefined));
   const goalSubtitle = goal?.description?.trim() || undefined;
   const [monthOffset, setMonthOffset] = useState(0);
+  const [showFinalizeConfirmation, setShowFinalizeConfirmation] = useState(false);
 
   const monthDate = useMemo(() => {
     const today = startOfToday();
@@ -141,80 +123,96 @@ export function GoalDetailScreen({ goal }: Props) {
   const calendarDays = loadedCalendarDays.length > 0 ? loadedCalendarDays : getCalendarFallback(monthDate);
   const requiredDays = Math.max(Math.ceil((goal.targetDays * goal.minimumSuccessRate) / 100), 1);
   const approvalProgress = Math.min(Math.round((viewModel.evaluation.completedDays / requiredDays) * 100), 100);
+  const pendingRequiredDays = Math.max(requiredDays - viewModel.evaluation.completedDays, 0);
+  const isFinalizedAndFailed = !goal.active && viewModel.evaluation.completedDays < requiredDays;
+  const isCompleted = approvalProgress >= 100;
+  const progressTone = isFinalizedAndFailed ? palette.danger : approvalProgress >= 100 ? palette.success : palette.primary;
+  const showFinalizeAction = goal.active && viewModel.daysUntilStart === 0 && pendingRequiredDays > viewModel.remainingDays;
   const remainingDaysLabel =
     viewModel.daysUntilStart > 0
-      ? `${viewModel.daysUntilStart} ${viewModel.daysUntilStart === 1 ? 'dia' : 'dias'}`
-      : `${viewModel.remainingDays} ${viewModel.remainingDays === 1 ? 'dia' : 'dias'}`;
-  const remainingDaysTitle = viewModel.daysUntilStart > 0 ? 'Empieza en' : 'Restantes';
+      ? `${viewModel.daysUntilStart} d`
+      : `${viewModel.remainingDays} d`;
+  const remainingDaysTitle = viewModel.daysUntilStart > 0 ? 'Empieza en' : 'Acaba en';
   const monthLabel = formatCalendarMonthLabel(monthDate);
+  const progressHint = isFinalizedAndFailed
+    ? 'Este objetivo no se cumplio'
+    : showFinalizeAction
+      ? `Objetivo no alcanzable\nNecesitas ${pendingRequiredDays} ${pendingRequiredDays === 1 ? 'dia cumplido' : 'dias cumplidos'} y solo quedan ${viewModel.remainingDays}`
+      : approvalProgress < 25
+        ? 'Los inicios cuestan pero tu puedes'
+        : approvalProgress < 50
+          ? 'Vas por buen camino Sigue asi!'
+          : approvalProgress < 75
+            ? 'Animo! Ya has completado la mitad'
+            : approvalProgress < 100
+              ? `Ya casi esta! Solo quedan ${pendingRequiredDays} ${pendingRequiredDays === 1 ? 'dia' : 'dias'}`
+              : 'Genial! Has cumplido el objetivo';
 
   const handleCalendarSwipe = (direction: 'left' | 'right') => {
     setMonthOffset((current) => (direction === 'left' ? current + 1 : current - 1));
   };
 
   return (
-    <ScreenContainer
-      title={goal.title}
-      subtitle={goalSubtitle}
-      action={
-        <Pressable
-          accessibilityHint="Abre la pantalla para editar este objetivo"
-          accessibilityLabel="Editar objetivo"
-          onPress={() => router.push(appRoutes.editGoal(goal.id))}
-          style={styles.headerAction}>
-          <Feather color={palette.primaryDeep} name="edit-2" size={18} />
-        </Pressable>
-      }>
-      <View style={styles.heroCard}>
-        <View style={styles.ringWrap}>
-          <ProgressRing
-            helperText={`${approvalProgress}% completado`}
-            showDivider
-            size={124}
-            value={approvalProgress}
-            valueFontSize={28}
-            valueText={`${viewModel.evaluation.completedDays}/${requiredDays}`}
-          />
-        </View>
-
-        <View style={styles.miniStatsRow}>
-          <SummaryStat icon="fire" label="Racha" tone={palette.accent} value={`${viewModel.currentStreak} dias`} />
-          <SummaryStat icon="trophy-outline" label="Mejor" tone={palette.warning} value={`${viewModel.bestStreak} dias`} />
-          <SummaryStat icon="timer-sand" label={remainingDaysTitle} tone={palette.primary} value={remainingDaysLabel} />
-        </View>
-
-        <View style={styles.infoGrid}>
-          <InfoItem label="Inicio" value={formatCompactDate(goal.startDate)} />
-          <InfoItem label="Fin" value={formatCompactDate(viewModel.deadline)} />
-          <InfoItem label="Duracion" value={`${goal.targetDays} ${goal.targetDays === 1 ? 'dia' : 'dias'}`} />
-          <InfoItem label="Requeridos" value={`${requiredDays} ${requiredDays === 1 ? 'dia' : 'dias'}`} />
-        </View>
-
-        <View style={styles.heroActions}>
-          <Pressable
-            onPress={() => router.push(appRoutes.editGoal(goal.id))}
-            style={[styles.secondaryAction, styles.heroActionButton]}>
-            <Text style={styles.secondaryActionLabel}>Editar</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => {
-              void toggleGoalActive(goal.id);
-            }}
-            style={[styles.primaryAction, styles.heroActionButton]}>
-            <Text style={styles.primaryActionLabel}>{goal.active ? 'Finalizar' : 'Reactivar'}</Text>
-          </Pressable>
-        </View>
+    <ScreenContainer title={goal.title} subtitle={goalSubtitle}>
+      <View style={styles.progressCard}>
+        <ProgressRing
+          helperText={`${approvalProgress}% completado`}
+          showDivider
+          size={124}
+          toneColor={progressTone}
+          value={approvalProgress}
+          valueFontSize={28}
+          valueText={`${viewModel.evaluation.completedDays}/${requiredDays}`}
+        />
+        <Text
+          style={[
+            styles.progressHint,
+            isFinalizedAndFailed ? styles.progressHintDanger : null,
+            isCompleted && !isFinalizedAndFailed ? styles.progressHintSuccess : null,
+          ]}>
+          {progressHint}
+        </Text>
+        {showFinalizeAction ? (
+          <View style={styles.actionRow}>
+            <Pressable onPress={() => router.push(appRoutes.editGoal(goal.id))} style={styles.extendButton}>
+              <Text style={styles.extendButtonLabel}>Extender</Text>
+            </Pressable>
+            <Pressable onPress={() => setShowFinalizeConfirmation(true)} style={styles.finalizeButton}>
+              <Text style={styles.finalizeButtonLabel}>Finalizar</Text>
+            </Pressable>
+          </View>
+        ) : null}
       </View>
 
-      <View style={styles.calendarShell}>
+      <View style={styles.statsRow}>
+        <DetailStat label="Racha actual" tone={palette.accent} value={`${viewModel.currentStreak} d`} />
+        <DetailStat label="Mejor racha" tone={palette.warning} value={`${viewModel.bestStreak} d`} />
+        <DetailStat label={remainingDaysTitle} tone={palette.primary} value={remainingDaysLabel} />
+      </View>
+
+      <View style={styles.infoCard}>
+        <Text style={styles.infoText}>Inicio: {formatCompactDate(goal.startDate)}</Text>
+        <Text style={styles.infoText}>Fin: {formatCompactDate(viewModel.deadline)}</Text>
+        <Text style={styles.infoText}>
+          Duracion: {goal.targetDays} {goal.targetDays === 1 ? 'dia' : 'dias'}
+        </Text>
+        <Text style={styles.infoText}>
+          Requeridos: {requiredDays} {requiredDays === 1 ? 'dia' : 'dias'}
+        </Text>
+      </View>
+
+      <View style={styles.calendarSection}>
         <View style={styles.calendarHeader}>
-          <Pressable onPress={() => setMonthOffset((current) => current - 1)} style={styles.monthButton}>
-            <Feather color={palette.slate} name="chevron-left" size={18} />
-          </Pressable>
-          <Text style={styles.monthLabel}>{monthLabel}</Text>
-          <Pressable onPress={() => setMonthOffset((current) => current + 1)} style={styles.monthButton}>
-            <Feather color={palette.slate} name="chevron-right" size={18} />
-          </Pressable>
+          <Text style={styles.sectionTitle}>Calendario</Text>
+          <View style={styles.monthSwitcher}>
+            <Pressable onPress={() => setMonthOffset((current) => current - 1)} style={styles.monthButton}>
+              <Feather color={palette.primaryDeep} name="chevron-left" size={18} />
+            </Pressable>
+            <Text style={styles.monthLabel}>{monthLabel}</Text>
+            <Pressable onPress={() => setMonthOffset((current) => current + 1)} style={styles.monthButton}>
+              <Feather color={palette.primaryDeep} name="chevron-right" size={18} />
+            </Pressable>
+          </View>
         </View>
 
         <FlingGestureHandler direction={Directions.LEFT} onActivated={() => handleCalendarSwipe('left')}>
@@ -239,17 +237,10 @@ export function GoalDetailScreen({ goal }: Props) {
                         style={[
                           styles.dayBubble,
                           day.status === 'completed' ? styles.dayCompleted : null,
-                          day.status === 'missed' ? styles.dayMissed : null,
+                          day.status === 'missed' ? styles.dayMissed : styles.dayEmpty,
                           !day.inMonth ? styles.dayOutsideMonth : null,
                         ]}>
-                        <Text
-                          style={[
-                            styles.dayLabel,
-                            day.status === 'completed' || day.status === 'missed' ? styles.dayLabelActive : null,
-                            !day.inMonth ? styles.dayLabelOutsideMonth : null,
-                          ]}>
-                          {day.dayNumber}
-                        </Text>
+                        <Text style={[styles.dayLabel, !day.inMonth ? styles.dayLabelOutsideMonth : null]}>{day.dayNumber}</Text>
                         {isStart ? (
                           <View style={styles.dayMarker}>
                             <MaterialIcons color={palette.snow} name="play-arrow" size={10} />
@@ -269,137 +260,143 @@ export function GoalDetailScreen({ goal }: Props) {
           </FlingGestureHandler>
         </FlingGestureHandler>
       </View>
+      <GoalActionConfirmationModal
+        confirmLabel="Finalizar"
+        description="El objetivo dejara de estar activo y saldra de esta seccion. Podras seguir consultandolo despues."
+        eyebrow="Cerrar ciclo"
+        onCancel={() => setShowFinalizeConfirmation(false)}
+        onConfirm={() => {
+          setShowFinalizeConfirmation(false);
+          void toggleGoalActive(goal.id);
+        }}
+        title="Finalizar objetivo"
+        visible={showFinalizeConfirmation}
+      />
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  headerAction: {
-    width: 42,
-    height: 42,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: palette.line,
-    backgroundColor: palette.snow,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  heroCard: {
-    padding: spacing.md,
-    borderRadius: 32,
-    backgroundColor: palette.snow,
-    borderWidth: 1,
-    borderColor: palette.line,
-    gap: spacing.md,
-    ...shadows.card,
-  },
-  ringWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.sm,
-  },
-  miniStatsRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  miniStatCard: {
-    flex: 1,
-    minWidth: 0,
-    paddingHorizontal: spacing.sm,
+  progressCard: {
     paddingVertical: spacing.md,
-    borderRadius: 16,
-    backgroundColor: '#FAFBFE',
+    paddingHorizontal: spacing.sm,
+    borderRadius: 24,
     borderWidth: 1,
     borderColor: palette.line,
-    gap: spacing.xs,
+    backgroundColor: palette.snow,
+    alignItems: 'center',
+    gap: spacing.sm,
     ...shadows.card,
   },
-  miniStatHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  miniStatLabel: {
-    flex: 1,
-    fontSize: 12,
-    fontWeight: '700',
-    color: palette.slate,
-  },
-  miniStatValue: {
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  infoGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    rowGap: spacing.md,
-  },
-  infoItem: {
-    width: '50%',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: spacing.sm,
-  },
-  infoLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: palette.ink,
-  },
-  infoValue: {
+  progressHint: {
     textAlign: 'center',
     fontSize: 14,
     lineHeight: 20,
-    color: palette.slate,
+    fontWeight: '700',
+    color: palette.ink,
   },
-  heroActions: {
+  progressHintDanger: {
+    color: palette.danger,
+  },
+  progressHintSuccess: {
+    color: palette.success,
+  },
+  actionRow: {
     flexDirection: 'row',
     gap: spacing.sm,
+    alignSelf: 'stretch',
   },
-  heroActionButton: {
+  extendButton: {
     flex: 1,
-  },
-  primaryAction: {
-    paddingVertical: 14,
-    borderRadius: radius.pill,
+    paddingVertical: 10,
+    borderRadius: 18,
     alignItems: 'center',
     backgroundColor: palette.primary,
   },
-  primaryActionLabel: {
+  extendButtonLabel: {
+    fontSize: 15,
+    fontWeight: '800',
     color: palette.snow,
-    fontWeight: '800',
   },
-  secondaryAction: {
-    paddingVertical: 14,
-    borderRadius: radius.pill,
+  finalizeButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 18,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: palette.line,
-    backgroundColor: palette.snow,
+    backgroundColor: palette.primary,
   },
-  secondaryActionLabel: {
-    color: palette.ink,
+  finalizeButtonLabel: {
+    fontSize: 15,
     fontWeight: '800',
+    color: palette.snow,
   },
-  calendarShell: {
-    padding: spacing.sm,
-    borderRadius: 30,
+  statsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  statCard: {
+    flex: 1,
+    minWidth: 0,
+    padding: spacing.md,
+    borderRadius: 18,
     backgroundColor: palette.snow,
     borderWidth: 1,
     borderColor: palette.line,
     gap: spacing.sm,
     ...shadows.card,
   },
+  statLabel: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: palette.slate,
+  },
+  statAccent: {
+    width: 28,
+    height: 4,
+    borderRadius: radius.pill,
+  },
+  statValue: {
+    fontSize: 24,
+    fontWeight: '800',
+  },
+  infoCard: {
+    padding: spacing.md,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: palette.line,
+    backgroundColor: palette.snow,
+    gap: spacing.xs,
+    ...shadows.card,
+  },
+  infoText: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: palette.ink,
+  },
+  calendarSection: {
+    gap: spacing.sm,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: palette.ink,
+  },
   calendarHeader: {
+    gap: spacing.sm,
+  },
+  monthSwitcher: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.sm,
-    paddingHorizontal: spacing.xs,
   },
   monthButton: {
-    width: 36,
-    height: 36,
+    width: 40,
+    height: 40,
     borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: palette.line,
+    backgroundColor: palette.snow,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -412,11 +409,12 @@ const styles = StyleSheet.create({
   },
   calendarCard: {
     padding: spacing.md,
-    borderRadius: 24,
-    backgroundColor: '#FAFBFE',
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#E6EDF8',
+    borderColor: palette.line,
+    backgroundColor: palette.snow,
     gap: spacing.sm,
+    ...shadows.card,
   },
   weekRow: {
     flexDirection: 'row',
@@ -439,12 +437,11 @@ const styles = StyleSheet.create({
   },
   dayBubble: {
     position: 'relative',
-    width: 36,
-    height: 36,
+    width: 38,
+    height: 38,
     borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: '#DFE6F1',
-    backgroundColor: palette.snow,
+    borderColor: palette.line,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -454,17 +451,17 @@ const styles = StyleSheet.create({
   },
   dayMissed: {
     backgroundColor: '#FFF1F1',
-    borderColor: '#FDA4AF',
+    borderColor: '#FCA5A5',
+  },
+  dayEmpty: {
+    backgroundColor: palette.snow,
   },
   dayOutsideMonth: {
-    opacity: 0.45,
+    opacity: 0.35,
   },
   dayLabel: {
     fontSize: 14,
     fontWeight: '700',
-    color: palette.ink,
-  },
-  dayLabelActive: {
     color: palette.ink,
   },
   dayLabelOutsideMonth: {
