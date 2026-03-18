@@ -12,8 +12,12 @@ export function getMonthStart(date: Date) {
 }
 
 export function formatMonthLabel(date: Date) {
-  return new Intl.DateTimeFormat('es-ES', {
+  const month = new Intl.DateTimeFormat('es-ES', {
     month: 'long',
+  }).format(date);
+  const year = new Intl.DateTimeFormat('es-ES', {
     year: 'numeric',
   }).format(date);
+
+  return `${month} ${year}`;
 }
