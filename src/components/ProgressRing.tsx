@@ -11,6 +11,8 @@ type Props = {
   showDivider?: boolean;
   valueFontSize?: number;
   toneColor?: string;
+  valueColor?: string;
+  helperColor?: string;
 };
 
 export function ProgressRing({
@@ -22,15 +24,19 @@ export function ProgressRing({
   showDivider = false,
   valueFontSize = 18,
   toneColor,
+  valueColor,
+  helperColor,
 }: Props) {
   const tone = toneColor ?? (value >= 80 ? palette.success : value >= 40 ? palette.primary : palette.warning);
 
   return (
     <View style={[styles.outer, { width: size, height: size, borderColor: tone }]}>
       <View style={styles.inner}>
-        <Text style={[styles.value, { fontSize: valueFontSize }]}>{valueText ?? `${value}%`}</Text>
+        <Text style={[styles.value, { color: valueColor ?? styles.value.color, fontSize: valueFontSize }]}>
+          {valueText ?? `${value}%`}
+        </Text>
         {showDivider ? <View style={[styles.divider, { backgroundColor: tone }]} /> : null}
-        <Text style={styles.label}>{helperText ?? label}</Text>
+        <Text style={[styles.label, helperColor ? { color: helperColor } : null]}>{helperText ?? label}</Text>
       </View>
     </View>
   );

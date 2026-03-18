@@ -1,6 +1,6 @@
 import { Feather, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { type ComponentProps, useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Directions, FlingGestureHandler } from 'react-native-gesture-handler';
 
@@ -21,17 +21,23 @@ type Props = {
 };
 
 type DetailStatProps = {
-  label: string;
   value: string;
-  tone?: string;
+  iconColor: string;
+  iconName: string;
+  iconFamily?: 'material-community' | 'feather';
 };
 
-function DetailStat({ label, value, tone = palette.primary }: DetailStatProps) {
+function DetailStat({ value, iconColor, iconName, iconFamily = 'material-community' }: DetailStatProps) {
   return (
     <View style={styles.statCard}>
-      <Text style={styles.statLabel}>{label}</Text>
-      <View style={[styles.statAccent, { backgroundColor: tone }]} />
-      <Text style={[styles.statValue, { color: tone }]}>{value}</Text>
+      <View style={styles.statContent}>
+        {iconFamily === 'feather' ? (
+          <Feather color={iconColor} name={iconName as ComponentProps<typeof Feather>['name']} size={18} />
+        ) : (
+          <MaterialCommunityIcons color={iconColor} name={iconName} size={18} />
+        )}
+        <Text style={styles.statValue}>{value}</Text>
+      </View>
     </View>
   );
 }
@@ -128,11 +134,6 @@ export function GoalDetailScreen({ goal }: Props) {
   const isCompleted = approvalProgress >= 100;
   const progressTone = isFinalizedAndFailed ? palette.danger : approvalProgress >= 100 ? palette.success : palette.primary;
   const showFinalizeAction = goal.active && viewModel.daysUntilStart === 0 && pendingRequiredDays > viewModel.remainingDays;
-  const remainingDaysLabel =
-    viewModel.daysUntilStart > 0
-      ? `${viewModel.daysUntilStart} d`
-      : `${viewModel.remainingDays} d`;
-  const remainingDaysTitle = viewModel.daysUntilStart > 0 ? 'Empieza en' : 'Acaba en';
   const monthLabel = formatCalendarMonthLabel(monthDate);
   const progressHint = isFinalizedAndFailed
     ? 'Este objetivo no se cumplio'
@@ -157,10 +158,12 @@ export function GoalDetailScreen({ goal }: Props) {
       <View style={styles.progressCard}>
         <ProgressRing
           helperText={`${approvalProgress}% completado`}
+          helperColor={palette.slate}
           showDivider
           size={124}
           toneColor={progressTone}
           value={approvalProgress}
+          valueColor={palette.slate}
           valueFontSize={28}
           valueText={`${viewModel.evaluation.completedDays}/${requiredDays}`}
         />
@@ -184,10 +187,18 @@ export function GoalDetailScreen({ goal }: Props) {
         ) : null}
       </View>
 
-      <View style={styles.statsRow}>
-        <DetailStat label="Racha actual" tone={palette.accent} value={`${viewModel.currentStreak} d`} />
-        <DetailStat label="Mejor racha" tone={palette.warning} value={`${viewModel.bestStreak} d`} />
-        <DetailStat label={remainingDaysTitle} tone={palette.primary} value={remainingDaysLabel} />
+      <View style={styles.statsSection}>
+        <View style={styles.statsLegend}>
+          <Text style={styles.legendText}>Racha actual</Text>
+          <Text style={styles.legendText}>Mejor racha</Text>
+          <Text style={styles.legendText}>{viewModel.daysUntilStart > 0 ? 'Dias para empezar' : 'Dias restantes'}</Text>
+        </View>
+
+        <View style={styles.statsRow}>
+          <DetailStat iconColor="#F97316" iconName="fire" value={`${viewModel.currentStreak}`} />
+          <DetailStat iconColor="#B45309" iconFamily="feather" iconName="award" value={`${viewModel.bestStreak}`} />
+          <DetailStat iconColor={palette.ink} iconName="flag-checkered" value={viewModel.daysUntilStart > 0 ? `${viewModel.daysUntilStart}` : `${viewModel.remainingDays}`} />
+        </View>
       </View>
 
       <View style={styles.infoCard}>
@@ -293,7 +304,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     fontWeight: '700',
-    color: palette.ink,
+    color: palette.slate,
   },
   progressHintDanger: {
     color: palette.danger,
@@ -330,34 +341,45 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: palette.snow,
   },
+  statsSection: {
+    gap: 4,
+  },
   statsRow: {
     flexDirection: 'row',
     gap: spacing.sm,
   },
+  statsLegend: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  legendText: {
+    flex: 1,
+    fontSize: 11,
+    lineHeight: 14,
+    textAlign: 'center',
+    color: palette.slate,
+  },
   statCard: {
     flex: 1,
     minWidth: 0,
-    padding: spacing.md,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
     borderRadius: 18,
     backgroundColor: palette.snow,
     borderWidth: 1,
     borderColor: palette.line,
-    gap: spacing.sm,
     ...shadows.card,
   },
-  statLabel: {
-    fontSize: 13,
-    lineHeight: 18,
-    color: palette.slate,
-  },
-  statAccent: {
-    width: 28,
-    height: 4,
-    borderRadius: radius.pill,
+  statContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
   },
   statValue: {
-    fontSize: 24,
+    fontSize: 19,
     fontWeight: '800',
+    color: palette.slate,
   },
   infoCard: {
     padding: spacing.md,
