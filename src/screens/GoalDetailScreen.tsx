@@ -27,6 +27,14 @@ type DetailStatProps = {
   iconFamily?: 'material-community' | 'feather';
 };
 
+type InfoItemProps = {
+  label: string;
+  value: string;
+  iconName: ComponentProps<typeof MaterialCommunityIcons>['name'];
+  iconColor: string;
+  iconBackgroundColor: string;
+};
+
 function DetailStat({ value, iconColor, iconName, iconFamily = 'material-community' }: DetailStatProps) {
   return (
     <View style={styles.statCard}>
@@ -38,6 +46,20 @@ function DetailStat({ value, iconColor, iconName, iconFamily = 'material-communi
         )}
         <Text style={styles.statValue}>{value}</Text>
       </View>
+    </View>
+  );
+}
+
+function InfoItem({ label, value, iconName, iconColor, iconBackgroundColor }: InfoItemProps) {
+  return (
+    <View style={styles.infoItem}>
+      <View style={styles.infoItemHeader}>
+        <View style={[styles.infoIconWrap, { backgroundColor: iconBackgroundColor }]}>
+          <MaterialCommunityIcons color={iconColor} name={iconName} size={18} />
+        </View>
+        <Text style={styles.infoItemLabel}>{label}</Text>
+      </View>
+      <Text style={styles.infoItemValue}>{value}</Text>
     </View>
   );
 }
@@ -202,14 +224,37 @@ export function GoalDetailScreen({ goal }: Props) {
       </View>
 
       <View style={styles.infoCard}>
-        <Text style={styles.infoText}>Inicio: {formatCompactDate(goal.startDate)}</Text>
-        <Text style={styles.infoText}>Fin: {formatCompactDate(viewModel.deadline)}</Text>
-        <Text style={styles.infoText}>
-          Duracion: {goal.targetDays} {goal.targetDays === 1 ? 'dia' : 'dias'}
-        </Text>
-        <Text style={styles.infoText}>
-          Requeridos: {requiredDays} {requiredDays === 1 ? 'dia' : 'dias'}
-        </Text>
+        <Text style={styles.infoTitle}>Información</Text>
+        <View style={styles.infoGrid}>
+          <InfoItem
+            iconBackgroundColor="#E8F1FF"
+            iconColor={palette.primaryDeep}
+            iconName="calendar-start"
+            label="Inicio"
+            value={formatCompactDate(goal.startDate)}
+          />
+          <InfoItem
+            iconBackgroundColor="#FFF2E7"
+            iconColor={palette.accent}
+            iconName="calendar-end"
+            label="Fin"
+            value={formatCompactDate(viewModel.deadline)}
+          />
+          <InfoItem
+            iconBackgroundColor="#EEF8F0"
+            iconColor={palette.success}
+            iconName="timer-sand"
+            label="Duración"
+            value={`${goal.targetDays} ${goal.targetDays === 1 ? 'día' : 'días'}`}
+          />
+          <InfoItem
+            iconBackgroundColor="#FFF6E5"
+            iconColor={palette.warning}
+            iconName="check-decagram"
+            label="Mínimo"
+            value={`${requiredDays} ${requiredDays === 1 ? 'día' : 'días'}`}
+          />
+        </View>
       </View>
 
       <View style={styles.calendarSection}>
@@ -387,13 +432,57 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: palette.line,
     backgroundColor: palette.snow,
-    gap: spacing.xs,
+    gap: spacing.sm,
     ...shadows.card,
   },
-  infoText: {
+  infoTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#000000',
+  },
+  infoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 2,
+  },
+  infoItem: {
+    width: '49.5%',
+    minWidth: 0,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E6ECF5',
+    backgroundColor: '#F8FBFF',
+    gap: 3,
+    justifyContent: 'center',
+  },
+  infoItemHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  infoIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  infoItemLabel: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '700',
+    color: palette.slate,
+  },
+  infoItemValue: {
+    textAlign: 'center',
     fontSize: 15,
-    lineHeight: 22,
-    color: palette.ink,
+    lineHeight: 18,
+    fontWeight: '800',
+    color: palette.slate,
   },
   calendarSection: {
     gap: spacing.sm,
@@ -498,6 +587,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: palette.primary,
+    backgroundColor: '#000000',
   },
 });
