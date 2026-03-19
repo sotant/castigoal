@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
+import { Feather } from '@expo/vector-icons';
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
 
-import { EmptyState } from '@/src/components/EmptyState';
 import { ScreenContainer } from '@/src/components/ScreenContainer';
 import { palette, radius, spacing } from '@/src/constants/theme';
 import { useAuth } from '@/src/hooks/use-auth';
@@ -20,20 +22,21 @@ type ComboOption = {
 
 export function SettingsScreen() {
   const { deleteAccount, signOut, session } = useAuth();
-  const { resetApp, retrySync, sessionState, settings, updateSettings, user } = useAppStore(
+  const { retrySync, sessionState, settings, updateSettings } = useAppStore(
     useShallow((state) => ({
-      resetApp: state.resetApp,
       retrySync: state.retrySync,
       sessionState: state.sessionState,
       settings: state.userSettings,
       updateSettings: state.updateSettings,
-      user: state.user,
     })),
   );
   const [openField, setOpenField] = useState<TimeField | null>(null);
   const [accountAction, setAccountAction] = useState<'delete' | 'signout' | null>(null);
   const [deleteAccountModalVisible, setDeleteAccountModalVisible] = useState(false);
   const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
+  const [isPrivacySectionOpen, setIsPrivacySectionOpen] = useState(false);
+  const tabBarHeight = useBottomTabBarHeight();
+  const insets = useSafeAreaInsets();
 
   const hourOptions = useMemo<ComboOption[]>(
     () =>
@@ -103,9 +106,13 @@ export function SettingsScreen() {
   const isAuthenticated = sessionState.mode === 'authenticated' && Boolean(session);
   const isSyncing = sessionState.syncStatus === 'syncing';
   const hasSyncError = sessionState.syncStatus === 'error' && Boolean(sessionState.syncError);
+  const linkedEmail = session?.user.email || 'tu email';
 
   return (
-    <ScreenContainer title="Ajustes" subtitle="Cuenta, recordatorios y mantenimiento con el nuevo look visual.">
+    <ScreenContainer
+      bodyStyle={styles.screenBody}
+      title="Ajustes"
+      scroll={false}>
       <Modal
         animationType="fade"
         transparent
@@ -147,81 +154,138 @@ export function SettingsScreen() {
         </View>
       </Modal>
 
-      {!isAuthenticated ? (
-        <View style={styles.ctaCard}>
-          <Text style={styles.sectionTitle}>Guardar tu progreso</Text>
-          <Text style={styles.helperText}>
-            Crea una cuenta para guardar tu progreso y recuperarlo cuando quieras. Mientras tanto, todo sigue
-            guardado en este dispositivo.
-          </Text>
-          <Pressable
-            onPress={() => router.push({ pathname: appRoutes.auth, params: { returnTo: appRoutes.settings } })}
-            style={styles.primaryButton}>
-            <Text style={styles.primaryLabel}>Crear cuenta</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => router.push({ pathname: appRoutes.auth, params: { returnTo: appRoutes.settings } })}
-            style={styles.secondaryButton}>
-            <Text style={styles.secondaryLabel}>Login</Text>
-          </Pressable>
-        </View>
-      ) : (
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Cuenta activa</Text>
-          <Text style={styles.helperText}>
-            Tu progreso esta vinculado a {user.name || session?.user.email || 'tu cuenta'}.
-          </Text>
-          {isSyncing ? <Text style={styles.syncInfo}>Estamos guardando tu progreso en tu cuenta...</Text> : null}
-          {sessionState.syncStatus === 'idle' ? (
-            <Text style={styles.syncSuccess}>Tu progreso se ha guardado correctamente.</Text>
-          ) : null}
-          {hasSyncError ? (
-            <>
-              <Text style={styles.syncError}>
-                No pudimos completar la sincronizacion. Tus datos siguen en este dispositivo y volveremos a intentarlo.
+      <View style={styles.contentSurface}>
+        <ScrollView
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: tabBarHeight + insets.bottom + spacing.xl },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}>
+          {!isAuthenticated ? (
+            <View style={styles.ctaCard}>
+              <Text style={styles.sectionTitle}>Guardar tu progreso</Text>
+              <Text style={styles.helperText}>
+                Crea una cuenta para guardar tu progreso y recuperarlo cuando quieras.
               </Text>
-              <Pressable onPress={() => void retrySync()} style={styles.secondaryButton}>
-                <Text style={styles.secondaryLabel}>Reintentar sincronizacion</Text>
+              <Pressable
+                onPress={() => router.push({ pathname: appRoutes.auth, params: { returnTo: appRoutes.settings } })}
+                style={styles.primaryButton}>
+                <Text style={styles.primaryLabel}>Crear cuenta</Text>
               </Pressable>
-            </>
-          ) : null}
-        </View>
-      )}
+              <Pressable
+                onPress={() => router.push({ pathname: appRoutes.auth, params: { returnTo: appRoutes.settings } })}
+                style={styles.compactSecondaryButton}>
+                <Text style={styles.secondaryLabel}>Login</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Cuenta activa</Text>
+              <Text style={styles.helperText}>Progreso vinculado a {linkedEmail}</Text>
+              {isSyncing ? <Text style={styles.syncInfo}>Estamos guardando tu progreso en tu cuenta...</Text> : null}
+              {hasSyncError ? (
+                <>
+                  <Text style={styles.syncError}>
+                    No pudimos completar la sincronizacion. Tus datos siguen en este dispositivo y volveremos a intentarlo.
+                  </Text>
+                  <Pressable onPress={() => void retrySync()} style={styles.secondaryButton}>
+                    <Text style={styles.secondaryLabel}>Reintentar sincronizacion</Text>
+                  </Pressable>
+                </>
+              ) : null}
+              <Pressable
+                disabled={accountAction === 'signout'}
+                onPress={async () => {
+                  try {
+                    setAccountAction('signout');
+                    await signOut();
+                  } catch (error) {
+                    Alert.alert('No se pudo cerrar sesion', error instanceof Error ? error.message : 'Error desconocido');
+                  } finally {
+                    setAccountAction(null);
+                  }
+                }}
+                style={[styles.compactPrimaryButton, accountAction === 'signout' && styles.disabled]}>
+                <Text style={styles.compactPrimaryLabel}>
+                  {accountAction === 'signout' ? 'Cerrando sesion...' : 'Cerrar sesion'}
+                </Text>
+              </Pressable>
+            </View>
+          )}
 
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Recordatorios</Text>
-        <View style={styles.settingRow}>
-          <Text style={styles.label}>Notificaciones diarias</Text>
-          <Switch
-            value={settings.remindersEnabled}
-            onValueChange={(value) => {
-              void updateSettings({ remindersEnabled: value });
-            }}
-          />
-        </View>
-        <View style={styles.settingRow}>
-          <Text style={styles.label}>Recordatorio de castigo pendiente</Text>
-          <Switch
-            value={settings.pendingPunishmentReminderEnabled}
-            onValueChange={(value) => {
-              void updateSettings({ pendingPunishmentReminderEnabled: value });
-            }}
-          />
-        </View>
-        <View style={styles.row}>
-          <View style={styles.half}>
-            <Text style={styles.comboLabel}>Hora</Text>
-            <Pressable onPress={() => setOpenField('hour')} style={styles.comboButton}>
-              <Text style={styles.comboValue}>{String(selectedHour).padStart(2, '0')}</Text>
-            </Pressable>
+          <View style={[styles.card, styles.remindersCard]}>
+            <Text style={styles.sectionTitle}>Recordatorios</Text>
+            <View style={styles.settingRow}>
+              <Text style={styles.label}>Notificaciones diarias</Text>
+              <Switch
+                value={settings.remindersEnabled}
+                onValueChange={(value) => {
+                  void updateSettings({ remindersEnabled: value });
+                }}
+              />
+            </View>
+            <View style={styles.settingRow}>
+              <Text style={styles.label}>Recordatorio de castigo pendiente</Text>
+              <Switch
+                value={settings.pendingPunishmentReminderEnabled}
+                onValueChange={(value) => {
+                  void updateSettings({ pendingPunishmentReminderEnabled: value });
+                }}
+              />
+            </View>
+            <View style={styles.timeRow}>
+              <Text style={styles.timeRowLabel}>Hora</Text>
+              <View style={styles.timeInputs}>
+                <Pressable onPress={() => setOpenField('hour')} style={styles.timeInputButton}>
+                  <Text style={styles.comboValue}>{String(selectedHour).padStart(2, '0')}</Text>
+                </Pressable>
+                <Text style={styles.timeSeparator}>:</Text>
+                <Pressable onPress={() => setOpenField('minute')} style={styles.timeInputButton}>
+                  <Text style={styles.comboValue}>{String(selectedMinute).padStart(2, '0')}</Text>
+                </Pressable>
+              </View>
+            </View>
           </View>
-          <View style={styles.half}>
-            <Text style={styles.comboLabel}>Minuto</Text>
-            <Pressable onPress={() => setOpenField('minute')} style={styles.comboButton}>
-              <Text style={styles.comboValue}>{String(selectedMinute).padStart(2, '0')}</Text>
+
+          <View style={[styles.card, !isPrivacySectionOpen && styles.collapsedCard]}>
+            <Pressable
+              onPress={() => setIsPrivacySectionOpen((current) => !current)}
+              style={({ pressed }) => [styles.collapsibleHeader, pressed && styles.collapsibleHeaderPressed]}>
+              <Text style={styles.sectionTitle}>Privacidad y cuenta</Text>
+              <Feather
+                color={palette.primaryDeep}
+                name={isPrivacySectionOpen ? 'chevron-up' : 'chevron-down'}
+                size={20}
+              />
             </Pressable>
+
+            {isPrivacySectionOpen ? (
+              <>
+                <Text style={styles.helperText}>
+                  {isAuthenticated
+                    ? 'Revisa la politica de privacidad o elimina tu cuenta.'
+                    : 'Revisa la politica de privacidad.'}
+                </Text>
+
+                <Pressable onPress={() => router.push(appRoutes.privacy)} style={styles.compactSectionPrimaryButton}>
+                  <Text style={styles.primaryLabel}>Ver politica de privacidad</Text>
+                </Pressable>
+
+                {isAuthenticated ? (
+                  <Pressable
+                    disabled={accountAction === 'delete'}
+                    onPress={handleDeleteAccount}
+                    style={[styles.compactDangerButton, accountAction === 'delete' && styles.disabled]}>
+                    <Text style={styles.dangerLabel}>
+                      {accountAction === 'delete' ? 'Borrando cuenta...' : 'Eliminar cuenta'}
+                    </Text>
+                  </Pressable>
+                ) : null}
+              </>
+            ) : null}
           </View>
-        </View>
+        </ScrollView>
       </View>
 
       <Modal animationType="slide" transparent visible={openField !== null} onRequestClose={() => setOpenField(null)}>
@@ -255,62 +319,20 @@ export function SettingsScreen() {
           </View>
         </View>
       </Modal>
-
-      <EmptyState
-        title="Reset de demo"
-        message="Borra objetivos, check-ins y castigos del contenedor local actual. Si tienes cuenta, la sincronizacion replicara el reset."
-        actionLabel="Vaciar datos"
-        onAction={() => {
-          void resetApp();
-        }}
-      />
-
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Privacidad y cuenta</Text>
-        <Text style={styles.helperText}>
-          Desde aqui puedes revisar la politica de privacidad y eliminar la cuenta completa para cumplir con Google Play.
-        </Text>
-
-        <Pressable onPress={() => router.push(appRoutes.privacy)} style={styles.secondaryButton}>
-          <Text style={styles.secondaryLabel}>Ver politica de privacidad</Text>
-        </Pressable>
-
-        {isAuthenticated ? (
-          <Pressable
-            disabled={accountAction === 'delete'}
-            onPress={handleDeleteAccount}
-            style={[styles.dangerButton, accountAction === 'delete' && styles.disabled]}>
-            <Text style={styles.dangerLabel}>
-              {accountAction === 'delete' ? 'Borrando cuenta...' : 'Eliminar cuenta'}
-            </Text>
-          </Pressable>
-        ) : null}
-      </View>
-
-      {isAuthenticated ? (
-        <Pressable
-          disabled={accountAction === 'signout'}
-          onPress={async () => {
-            try {
-              setAccountAction('signout');
-              await signOut();
-            } catch (error) {
-              Alert.alert('No se pudo cerrar sesion', error instanceof Error ? error.message : 'Error desconocido');
-            } finally {
-              setAccountAction(null);
-            }
-          }}
-          style={[styles.secondaryButton, accountAction === 'signout' && styles.disabled]}>
-          <Text style={styles.secondaryLabel}>
-            {accountAction === 'signout' ? 'Cerrando sesion...' : 'Cerrar sesion'}
-          </Text>
-        </Pressable>
-      ) : null}
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
+  screenBody: {
+    paddingBottom: 0,
+  },
+  contentSurface: {
+    flex: 1,
+  },
+  scrollContent: {
+    gap: 6,
+  },
   card: {
     padding: spacing.md,
     borderRadius: 20,
@@ -319,8 +341,14 @@ const styles = StyleSheet.create({
     borderColor: palette.line,
     gap: spacing.sm,
   },
+  collapsedCard: {
+    paddingVertical: 10,
+  },
+  remindersCard: {
+    gap: 4,
+  },
   ctaCard: {
-    padding: spacing.lg,
+    padding: spacing.md,
     borderRadius: 22,
     backgroundColor: '#EEF4FF',
     borderWidth: 1,
@@ -331,6 +359,15 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
     color: palette.ink,
+  },
+  collapsibleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  collapsibleHeaderPressed: {
+    opacity: 0.85,
   },
   settingRow: {
     flexDirection: 'row',
@@ -347,32 +384,41 @@ const styles = StyleSheet.create({
     color: palette.slate,
     lineHeight: 21,
   },
-  row: {
+  timeRow: {
     flexDirection: 'row',
-    gap: spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
   },
-  half: {
-    flex: 1,
+  timeRowLabel: {
+    color: palette.ink,
+    fontWeight: '600',
   },
-  comboLabel: {
-    marginBottom: spacing.xs,
-    color: palette.slate,
-    fontSize: 13,
-    fontWeight: '700',
-    textTransform: 'uppercase',
+  timeInputs: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
-  comboButton: {
+  timeInputButton: {
+    minWidth: 72,
     paddingHorizontal: spacing.md,
-    paddingVertical: 14,
+    paddingVertical: 8,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: palette.line,
     backgroundColor: '#F7F9FD',
   },
+  timeSeparator: {
+    color: palette.ink,
+    fontSize: 22,
+    fontWeight: '800',
+    lineHeight: 22,
+  },
   comboValue: {
     color: palette.ink,
     fontSize: 16,
     fontWeight: '700',
+    textAlign: 'center',
   },
   overlay: {
     flex: 1,
@@ -498,7 +544,7 @@ const styles = StyleSheet.create({
     backgroundColor: palette.snow,
   },
   primaryButton: {
-    paddingVertical: 14,
+    paddingVertical: 10,
     borderRadius: radius.pill,
     alignItems: 'center',
     backgroundColor: palette.primary,
@@ -507,17 +553,37 @@ const styles = StyleSheet.create({
     color: palette.snow,
     fontWeight: '800',
   },
+  compactPrimaryButton: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    backgroundColor: palette.primary,
+  },
+  compactSectionPrimaryButton: {
+    paddingVertical: 10,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    backgroundColor: palette.primary,
+  },
+  compactPrimaryLabel: {
+    color: palette.snow,
+    fontWeight: '800',
+  },
   secondaryLabel: {
     color: palette.ink,
     fontWeight: '800',
   },
+  compactSecondaryButton: {
+    paddingVertical: 10,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: palette.line,
+    backgroundColor: palette.snow,
+  },
   syncInfo: {
     color: palette.primaryDeep,
-    fontWeight: '700',
-    lineHeight: 21,
-  },
-  syncSuccess: {
-    color: palette.success,
     fontWeight: '700',
     lineHeight: 21,
   },
@@ -528,6 +594,12 @@ const styles = StyleSheet.create({
   },
   dangerButton: {
     paddingVertical: 14,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    backgroundColor: '#B91C1C',
+  },
+  compactDangerButton: {
+    paddingVertical: 10,
     borderRadius: radius.pill,
     alignItems: 'center',
     backgroundColor: '#B91C1C',
