@@ -526,7 +526,7 @@ function getPendingPunishmentSummaries(
   const punishmentsById = new Map(punishments.map((punishment) => [punishment.id, punishment]));
 
   return assignedPunishments
-    .filter((assigned) => assigned.status === 'pending')
+    .filter((assigned) => assigned.status === 'pending' && !assigned.completedAt)
     .map((assigned) => {
       const goal = goalsById.get(assigned.goalId);
       const punishment = punishmentsById.get(assigned.punishmentId);
@@ -856,6 +856,9 @@ function mapCheckinRow(row: Tables<'checkins'>): SyncRecord<Checkin> {
 }
 
 function mapAssignedPunishmentRow(row: Tables<'assigned_punishments'>): SyncRecord<AssignedPunishment> {
+  const normalizedStatus =
+    row.completed_at !== null ? ('completed' as AssignedPunishment['status']) : (row.status as AssignedPunishment['status']);
+
   return {
     data: {
       assignedAt: row.assigned_at,
@@ -865,7 +868,7 @@ function mapAssignedPunishmentRow(row: Tables<'assigned_punishments'>): SyncReco
       id: row.id,
       periodKey: row.period_key,
       punishmentId: row.punishment_id,
-      status: row.status as AssignedPunishment['status'],
+      status: normalizedStatus,
     },
     meta: {
       lastModifiedAt: row.completed_at ?? row.assigned_at,
