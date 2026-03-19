@@ -1,4 +1,6 @@
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Linking from 'expo-linking';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Keyboard,
@@ -11,7 +13,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
 
 import { ScreenContainer } from '@/src/components/ScreenContainer';
 import { palette, radius, shadows, spacing } from '@/src/constants/theme';
@@ -57,14 +58,87 @@ function getFriendlyAuthMessage(message: string) {
   return `No se pudo continuar: ${message}`;
 }
 
-type AuthMode = 'access' | 'recovery';
+type AuthMode = 'signin' | 'signup' | 'recovery';
+
+type InputRowProps = {
+  icon: keyof typeof Feather.glyphMap;
+  value: string;
+  placeholder: string;
+  onChangeText: (text: string) => void;
+  onFocus: () => void;
+  onBlur: () => void;
+  focused: boolean;
+  editable: boolean;
+  keyboardType?: 'default' | 'email-address';
+  returnKeyType?: 'next' | 'go';
+  secureTextEntry?: boolean;
+  onSubmitEditing?: () => void;
+};
 
 const ACCESS_CONTROL_HEIGHT = 40;
 
+function InputRow({
+  icon,
+  value,
+  placeholder,
+  onChangeText,
+  onFocus,
+  onBlur,
+  focused,
+  editable,
+  keyboardType,
+  returnKeyType,
+  secureTextEntry,
+  onSubmitEditing,
+}: InputRowProps) {
+  return (
+    <View style={[styles.inputShell, focused && styles.inputShellFocused]}>
+      <Feather color={focused ? palette.primaryDeep : '#97A3BC'} name={icon} size={18} />
+      <TextInput
+        autoCapitalize="none"
+        autoCorrect={false}
+        editable={editable}
+        keyboardType={keyboardType}
+        onBlur={onBlur}
+        onChangeText={onChangeText}
+        onFocus={onFocus}
+        onSubmitEditing={onSubmitEditing}
+        placeholder={placeholder}
+        placeholderTextColor="#98A2B3"
+        returnKeyType={returnKeyType}
+        secureTextEntry={secureTextEntry}
+        style={styles.input}
+        value={value}
+      />
+    </View>
+  );
+}
+
+function HeroArtwork() {
+  return (
+    <View pointerEvents="none" style={styles.heroArtwork}>
+      <View style={styles.heroCloudLarge} />
+      <View style={styles.heroCloudSmall} />
+      <View style={styles.heroSparkLeft} />
+      <View style={styles.heroSparkRight} />
+
+      <View style={styles.clipboardShadow} />
+      <View style={styles.clipboardCard}>
+        <View style={styles.clipboardClip} />
+        <MaterialCommunityIcons color="#6A7FFF" name="clipboard-text-outline" size={58} />
+        <View style={styles.checkBadge}>
+          <Feather color={palette.snow} name="check" size={18} />
+        </View>
+      </View>
+    </View>
+  );
+}
+
 export function AuthScreen() {
-  const params = useLocalSearchParams<{ returnTo?: string }>();
+  const params = useLocalSearchParams<{ returnTo?: string; mode?: string }>();
   const { session } = useAuth();
-  const [mode, setMode] = useState<AuthMode>('access');
+  const initialMode: AuthMode = params.mode === 'signup' ? 'signup' : 'signin';
+  const [mode, setMode] = useState<AuthMode>(initialMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [feedback, setFeedback] = useState<{ kind: 'error' | 'success'; message: string } | null>(null);
@@ -76,6 +150,12 @@ export function AuthScreen() {
   const passwordResetRedirectTo =
     Platform.OS === 'web' ? Linking.createURL(appRoutes.resetPassword) : 'castigoal://reset-password';
   const returnTo = typeof params.returnTo === 'string' ? params.returnTo : appRoutes.settings;
+
+  useEffect(() => {
+    setMode(params.mode === 'signup' ? 'signup' : 'signin');
+    setFeedback(null);
+    setFocusedField(null);
+  }, [params.mode]);
 
   useEffect(() => {
     if (session) {
@@ -183,9 +263,9 @@ export function AuthScreen() {
 
   return (
     <ScreenContainer
-      title="Guardar tu progreso"
-      subtitle="Crea una cuenta o inicia sesion para vincular este dispositivo y recuperar tu progreso en el futuro."
-      scroll={false}>
+      bodyStyle={styles.screenBody}
+      scroll={false}
+      title="Accede a tu progreso">
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
@@ -196,101 +276,103 @@ export function AuthScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
           <Pressable onPress={Keyboard.dismiss} style={styles.shell}>
-            <View style={styles.backdrop} pointerEvents="none">
-              <View style={styles.glowPrimary} />
-              <View style={styles.glowSecondary} />
+            <View pointerEvents="none" style={styles.pageGlow}>
+              <View style={styles.pageGlowTop} />
+              <View style={styles.pageGlowBottom} />
             </View>
 
-            <View style={styles.formCard}>
-              <View style={styles.formHeader}>
-                <Text style={styles.cardTitle}>
-                  {mode === 'access' ? 'Tu espacio, sin distracciones.' : 'Recupera tu acceso.'}
-                </Text>
-                <Text style={styles.cardSubtitle}>
-                  {mode === 'access'
-                    ? 'Entra o crea tu cuenta con email y contrasena para seguir donde lo dejaste.'
-                    : 'Escribe tu email y te enviaremos un enlace para crear una contrasena nueva.'}
-                </Text>
-              </View>
+            <View style={styles.cardWrap}>
+              <View style={styles.formCard}>
+                <HeroArtwork />
 
-              <View style={styles.group}>
-                <Text style={styles.label}>Email</Text>
-                <TextInput
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  editable={!loadingAction}
-                  keyboardType="email-address"
-                  onBlur={() => setFocusedField((current) => (current === 'email' ? null : current))}
-                  onChangeText={setEmail}
-                  onFocus={() => setFocusedField('email')}
-                  placeholder="tu@email.com"
-                  placeholderTextColor="#8A94A6"
-                  returnKeyType={mode === 'access' ? 'next' : 'go'}
-                  style={[styles.input, focusedField === 'email' && styles.inputFocused]}
-                  value={email}
-                />
-              </View>
+                {mode !== 'recovery' ? (
+                  <View style={styles.modeSwitch}>
+                    <Pressable
+                      disabled={!!loadingAction}
+                      onPress={() => switchMode('signin')}
+                      style={[styles.modeChip, mode === 'signin' && styles.modeChipActive]}>
+                      <Text style={[styles.modeChipLabel, mode === 'signin' && styles.modeChipLabelActive]}>
+                        Iniciar sesion
+                      </Text>
+                    </Pressable>
 
-              {mode === 'access' ? (
-                <>
-                  <View style={styles.group}>
-                    <Text style={styles.label}>Contrasena</Text>
-                    <TextInput
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      editable={!loadingAction}
-                      onBlur={() => setFocusedField((current) => (current === 'password' ? null : current))}
-                      onChangeText={setPassword}
-                      onFocus={() => setFocusedField('password')}
-                      onSubmitEditing={() => {
-                        if (canSubmit) {
-                          void submit('signin');
-                        }
-                      }}
-                      placeholder="Minimo 6 caracteres"
-                      placeholderTextColor="#8A94A6"
-                      returnKeyType="go"
-                      secureTextEntry
-                      style={[styles.input, focusedField === 'password' && styles.inputFocused]}
-                      value={password}
-                    />
+                    <Pressable
+                      disabled={!!loadingAction}
+                      onPress={() => switchMode('signup')}
+                      style={[styles.modeChip, mode === 'signup' && styles.modeChipActive]}>
+                      <Text style={[styles.modeChipLabel, mode === 'signup' && styles.modeChipLabelActive]}>
+                        Crear cuenta
+                      </Text>
+                    </Pressable>
                   </View>
+                ) : null}
 
-                  <Pressable disabled={!!loadingAction} hitSlop={8} onPress={() => switchMode('recovery')}>
-                    <Text style={[styles.linkLabel, !!loadingAction && styles.linkDisabled]}>
-                      {loadingAction === 'reset' ? 'Enviando enlace...' : 'Olvidaste tu contrasena?'}
-                    </Text>
-                  </Pressable>
-                </>
-              ) : (
-                <>
-                  <Pressable
-                    disabled={!canRecover || !!loadingAction}
-                    onPress={() => void handlePasswordReset()}
-                    style={[styles.submitPrimary, (!canRecover || !!loadingAction) && styles.buttonDisabled]}>
-                    <Text style={styles.submitPrimaryLabel}>
-                      {loadingAction === 'reset' ? 'Recuperando...' : 'Recuperar'}
-                    </Text>
-                  </Pressable>
-
-                  <Pressable disabled={!!loadingAction} onPress={() => switchMode('access')} style={styles.secondaryLink}>
-                    <Text style={[styles.secondaryLinkLabel, !!loadingAction && styles.linkDisabled]}>
-                      Ir a acceso
-                    </Text>
-                  </Pressable>
-                </>
-              )}
-
-              {feedback ? (
-                <View style={[styles.feedback, feedback.kind === 'error' ? styles.feedbackError : styles.feedbackSuccess]}>
-                  <Text style={feedback.kind === 'error' ? styles.feedbackErrorText : styles.feedbackSuccessText}>
-                    {feedback.message}
-                  </Text>
+                <View style={styles.group}>
+                  <Text style={styles.label}>Email</Text>
+                  <InputRow
+                    editable={!loadingAction}
+                    focused={focusedField === 'email'}
+                    icon="mail"
+                    keyboardType="email-address"
+                    onBlur={() => setFocusedField((current) => (current === 'email' ? null : current))}
+                    onChangeText={setEmail}
+                    onFocus={() => setFocusedField('email')}
+                    placeholder="tu@email.com"
+                    returnKeyType={mode === 'recovery' ? 'go' : 'next'}
+                    value={email}
+                  />
                 </View>
-              ) : null}
 
-              {mode === 'access' ? (
-                <View style={styles.actions}>
+                {mode !== 'recovery' ? (
+                  <>
+                    <View style={styles.group}>
+                      <Text style={styles.label}>Contrasena</Text>
+                      <InputRow
+                        editable={!loadingAction}
+                        focused={focusedField === 'password'}
+                        icon="lock"
+                        onBlur={() => setFocusedField((current) => (current === 'password' ? null : current))}
+                        onChangeText={setPassword}
+                        onFocus={() => setFocusedField('password')}
+                        onSubmitEditing={() => {
+                          if (canSubmit) {
+                            void submit('signin');
+                          }
+                        }}
+                        placeholder="Minimo 6 caracteres"
+                        returnKeyType="go"
+                        secureTextEntry
+                        value={password}
+                      />
+                    </View>
+
+                    {mode === 'signin' ? (
+                      <Pressable
+                        disabled={!!loadingAction}
+                        hitSlop={8}
+                        onPress={() => switchMode('recovery')}
+                        style={styles.compactLinkWrap}>
+                        <Text style={[styles.linkLabel, !!loadingAction && styles.linkDisabled]}>
+                          {loadingAction === 'reset' ? 'Enviando enlace...' : 'Olvidaste tu contrasena?'}
+                        </Text>
+                      </Pressable>
+                    ) : null}
+                  </>
+                ) : (
+                  <Pressable disabled={!!loadingAction} hitSlop={8} onPress={() => switchMode('signin')}>
+                    <Text style={[styles.linkLabel, !!loadingAction && styles.linkDisabled]}>Volver al login</Text>
+                  </Pressable>
+                )}
+
+                {feedback ? (
+                  <View style={[styles.feedback, feedback.kind === 'error' ? styles.feedbackError : styles.feedbackSuccess]}>
+                    <Text style={feedback.kind === 'error' ? styles.feedbackErrorText : styles.feedbackSuccessText}>
+                      {feedback.message}
+                    </Text>
+                  </View>
+                ) : null}
+
+                {mode === 'signin' ? (
                   <Pressable
                     disabled={!canSubmit || !!loadingAction}
                     onPress={() => void submit('signin')}
@@ -299,17 +381,26 @@ export function AuthScreen() {
                       {loadingAction === 'signin' ? 'Cargando...' : 'Iniciar sesion'}
                     </Text>
                   </Pressable>
-
+                ) : mode === 'signup' ? (
                   <Pressable
                     disabled={!canSubmit || !!loadingAction}
                     onPress={() => void submit('signup')}
-                    style={[styles.submitSecondary, (!canSubmit || !!loadingAction) && styles.buttonDisabledSecondary]}>
-                    <Text style={styles.submitSecondaryLabel}>
+                    style={[styles.submitPrimary, (!canSubmit || !!loadingAction) && styles.buttonDisabled]}>
+                    <Text style={styles.submitPrimaryLabel}>
                       {loadingAction === 'signup' ? 'Cargando...' : 'Crear cuenta'}
                     </Text>
                   </Pressable>
-                </View>
-              ) : null}
+                ) : (
+                  <Pressable
+                    disabled={!canRecover || !!loadingAction}
+                    onPress={() => void handlePasswordReset()}
+                    style={[styles.submitPrimary, (!canRecover || !!loadingAction) && styles.buttonDisabled]}>
+                    <Text style={styles.submitPrimaryLabel}>
+                      {loadingAction === 'reset' ? 'Enviando...' : 'Enviar enlace'}
+                    </Text>
+                  </Pressable>
+                )}
+              </View>
             </View>
           </Pressable>
         </ScrollView>
@@ -319,6 +410,10 @@ export function AuthScreen() {
 }
 
 const styles = StyleSheet.create({
+  screenBody: {
+    paddingTop: spacing.xl,
+    backgroundColor: '#F8F7FF',
+  },
   keyboardArea: {
     flex: 1,
   },
@@ -328,101 +423,223 @@ const styles = StyleSheet.create({
   },
   shell: {
     flex: 1,
-    justifyContent: 'center',
-    minHeight: 560,
+    minHeight: 620,
   },
-  backdrop: {
+  pageGlow: {
     ...StyleSheet.absoluteFillObject,
     overflow: 'hidden',
   },
-  glowPrimary: {
+  pageGlowTop: {
+    position: 'absolute',
+    top: 70,
+    right: -60,
+    width: 260,
+    height: 180,
+    borderRadius: 999,
+    backgroundColor: '#D9E4FF',
+    opacity: 0.9,
+    transform: [{ rotate: '-18deg' }],
+  },
+  pageGlowBottom: {
+    position: 'absolute',
+    top: 240,
+    left: -110,
+    width: 250,
+    height: 250,
+    borderRadius: 999,
+    backgroundColor: '#EEF2FF',
+    opacity: 0.85,
+  },
+  cardWrap: {
+    marginTop: 32,
+  },
+  heroArtwork: {
+    alignItems: 'center',
+    marginTop: -10,
+    marginBottom: 12,
+  },
+  heroCloudLarge: {
     position: 'absolute',
     top: 20,
-    right: -20,
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: '#DDE9FF',
-    opacity: 0.9,
+    width: 210,
+    height: 92,
+    borderRadius: 999,
+    backgroundColor: '#DDE5FF',
+    opacity: 0.7,
+    transform: [{ rotate: '-9deg' }],
   },
-  glowSecondary: {
+  heroCloudSmall: {
     position: 'absolute',
-    bottom: 40,
-    left: -30,
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: '#FFEBD8',
-    opacity: 0.75,
+    top: 34,
+    left: '50%',
+    marginLeft: -44,
+    width: 88,
+    height: 48,
+    borderRadius: 999,
+    backgroundColor: '#EDF1FF',
+    opacity: 0.95,
+  },
+  heroSparkLeft: {
+    position: 'absolute',
+    top: 48,
+    left: '50%',
+    marginLeft: -88,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#B7C5FF',
+  },
+  heroSparkRight: {
+    position: 'absolute',
+    top: 64,
+    right: '50%',
+    marginRight: -96,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#D4DCFF',
+  },
+  clipboardShadow: {
+    position: 'absolute',
+    top: 44,
+    width: 96,
+    height: 20,
+    borderRadius: 999,
+    backgroundColor: 'rgba(92, 115, 214, 0.18)',
+    transform: [{ scaleX: 1.08 }],
+  },
+  clipboardCard: {
+    marginTop: 8,
+    width: 98,
+    height: 98,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 3,
+    borderColor: '#92A7FF',
+    shadowColor: '#728BFF',
+    shadowOpacity: 0.2,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 4,
+  },
+  clipboardClip: {
+    position: 'absolute',
+    top: -8,
+    width: 24,
+    height: 14,
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
+    borderBottomLeftRadius: 5,
+    borderBottomRightRadius: 5,
+    borderWidth: 3,
+    borderColor: '#A5B4FF',
+    backgroundColor: '#EFF2FF',
+  },
+  checkBadge: {
+    position: 'absolute',
+    right: -8,
+    bottom: 6,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFC86C',
+    borderWidth: 3,
+    borderColor: '#FFF2D8',
   },
   formCard: {
-    gap: spacing.lg,
-    padding: spacing.lg,
-    borderRadius: 30,
+    gap: 12,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.lg,
+    borderRadius: 34,
     borderWidth: 1,
-    borderColor: '#E6ECF2',
+    borderColor: '#EEF1FA',
     backgroundColor: 'rgba(255,255,255,0.96)',
     ...shadows.card,
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 14 },
+    elevation: 5,
   },
-  formHeader: {
-    gap: spacing.xs,
+  modeSwitch: {
+    flexDirection: 'row',
+    minHeight: ACCESS_CONTROL_HEIGHT,
+    padding: 2,
+    borderRadius: radius.pill,
+    backgroundColor: '#EEF3FF',
+    gap: 4,
   },
-  cardTitle: {
-    color: '#0F172A',
-    fontSize: 26,
-    lineHeight: 30,
-    fontWeight: '900',
+  modeChip: {
+    flex: 1,
+    minHeight: ACCESS_CONTROL_HEIGHT - 4,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  cardSubtitle: {
-    color: '#5B6577',
-    fontSize: 15,
-    lineHeight: 22,
+  modeChipActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#A6BAFF',
+    shadowOpacity: 0.14,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+  modeChipLabel: {
+    color: '#6F7D95',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  modeChipLabelActive: {
+    color: palette.primaryDeep,
   },
   group: {
-    gap: spacing.sm,
+    gap: 6,
   },
   label: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#334155',
-    letterSpacing: 0.2,
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#24314F',
   },
-  input: {
+  inputShell: {
     minHeight: ACCESS_CONTROL_HEIGHT,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
     paddingHorizontal: spacing.md,
-    paddingVertical: 10,
     borderWidth: 1,
-    borderColor: '#D5DEE8',
-    borderRadius: 18,
-    backgroundColor: '#F8FAFC',
-    fontSize: 16,
-    color: '#0F172A',
-    textAlignVertical: 'center',
+    borderColor: '#D8DFED',
+    borderRadius: radius.pill,
+    backgroundColor: '#F8FAFF',
   },
-  inputFocused: {
-    borderColor: palette.primary,
+  inputShellFocused: {
+    borderColor: '#8FB0FF',
     backgroundColor: palette.snow,
-    shadowColor: palette.primary,
-    shadowOpacity: 0.12,
+    shadowColor: '#A6BAFF',
+    shadowOpacity: 0.18,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },
     elevation: 2,
+  },
+  input: {
+    flex: 1,
+    minHeight: ACCESS_CONTROL_HEIGHT,
+    fontSize: 15,
+    color: '#334155',
   },
   linkLabel: {
     color: palette.primaryDeep,
     fontSize: 14,
     fontWeight: '700',
   },
-  secondaryLink: {
-    alignItems: 'center',
-  },
-  secondaryLinkLabel: {
-    color: '#475569',
-    fontSize: 14,
-    fontWeight: '700',
-  },
   linkDisabled: {
     opacity: 0.45,
+  },
+  compactLinkWrap: {
+    marginTop: -4,
   },
   feedback: {
     paddingHorizontal: spacing.md,
@@ -441,13 +658,12 @@ const styles = StyleSheet.create({
   feedbackErrorText: {
     color: '#9F1239',
     lineHeight: 20,
+    textAlign: 'center',
   },
   feedbackSuccessText: {
     color: '#065F46',
     lineHeight: 20,
-  },
-  actions: {
-    gap: spacing.sm,
+    textAlign: 'center',
   },
   submitPrimary: {
     minHeight: ACCESS_CONTROL_HEIGHT,
@@ -455,32 +671,21 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: palette.primary,
+    backgroundColor: '#4B7CFF',
+    shadowColor: '#4B7CFF',
+    shadowOpacity: 0.24,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 4,
   },
   submitPrimaryLabel: {
     color: palette.snow,
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  submitSecondary: {
-    minHeight: ACCESS_CONTROL_HEIGHT,
-    paddingVertical: 10,
-    borderRadius: radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#D5DEE8',
-    backgroundColor: '#F8FAFC',
-  },
-  submitSecondaryLabel: {
-    color: '#0F172A',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
   },
   buttonDisabled: {
-    backgroundColor: '#9CA3AF',
-  },
-  buttonDisabledSecondary: {
-    opacity: 0.5,
+    backgroundColor: '#A8B4CF',
+    shadowOpacity: 0,
+    elevation: 0,
   },
 });

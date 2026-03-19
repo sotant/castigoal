@@ -171,14 +171,14 @@ export function SettingsScreen() {
                 Crea una cuenta para guardar tu progreso y recuperarlo cuando quieras.
               </Text>
               <Pressable
-                onPress={() => router.push({ pathname: appRoutes.auth, params: { returnTo: appRoutes.settings } })}
+                onPress={() => router.push({ pathname: appRoutes.auth, params: { returnTo: appRoutes.settings, mode: 'signup' } })}
                 style={styles.primaryButton}>
                 <Text style={styles.primaryLabel}>Crear cuenta</Text>
               </Pressable>
               <Pressable
-                onPress={() => router.push({ pathname: appRoutes.auth, params: { returnTo: appRoutes.settings } })}
+                onPress={() => router.push({ pathname: appRoutes.auth, params: { returnTo: appRoutes.settings, mode: 'signin' } })}
                 style={styles.compactSecondaryButton}>
-                <Text style={styles.secondaryLabel}>Login</Text>
+                <Text style={styles.secondaryLabel}>Iniciar sesion</Text>
               </Pressable>
             </View>
           ) : (
