@@ -87,14 +87,16 @@ export function ObjectiveListItem({ goal, summary, showCompletionFlag = false, o
 
       <View style={styles.footer}>
         <View style={styles.streakRow}>
-          <View style={styles.streakBadge}>
-            <View style={styles.diamond}>
-              <View style={styles.diamondInner}>
-                <MaterialCommunityIcons color="#F97316" name="fire" size={16} />
+          {!showCompletionFlag ? (
+            <View style={styles.streakBadge}>
+              <View style={styles.diamond}>
+                <View style={styles.diamondInner}>
+                  <MaterialCommunityIcons color="#F97316" name="fire" size={16} />
+                </View>
               </View>
+              <Text style={styles.streakValue}>{summary.currentStreak}</Text>
             </View>
-            <Text style={styles.streakValue}>{summary.currentStreak}</Text>
-          </View>
+          ) : null}
           <View style={styles.streakBadge}>
             <View style={styles.diamond}>
               <View style={styles.diamondInner}>
@@ -103,6 +105,16 @@ export function ObjectiveListItem({ goal, summary, showCompletionFlag = false, o
             </View>
             <Text style={styles.streakValue}>{summary.bestStreak}</Text>
           </View>
+          {!showCompletionFlag ? (
+            <View style={styles.streakBadge}>
+              <View style={styles.diamond}>
+                <View style={styles.diamondInner}>
+                  <MaterialCommunityIcons color={palette.ink} name="flag-checkered" size={16} />
+                </View>
+              </View>
+              <Text style={styles.streakValue}>{summary.remainingDays}</Text>
+            </View>
+          ) : null}
         </View>
 
         <View style={styles.actions}>

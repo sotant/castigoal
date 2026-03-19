@@ -28,6 +28,29 @@ function canReactivateGoal(goal: Goal, today: string) {
   return !goal.active && today <= deadline;
 }
 
+function getGoalDeadline(goal: Goal) {
+  return addDays(goal.startDate, Math.max(goal.targetDays - 1, 0));
+}
+
+function compareGoalsByDeadline(left: Goal, right: Goal) {
+  const leftDeadline = getGoalDeadline(left);
+  const rightDeadline = getGoalDeadline(right);
+
+  if (leftDeadline !== rightDeadline) {
+    return leftDeadline.localeCompare(rightDeadline);
+  }
+
+  if (left.startDate !== right.startDate) {
+    return left.startDate.localeCompare(right.startDate);
+  }
+
+  if (left.createdAt !== right.createdAt) {
+    return left.createdAt.localeCompare(right.createdAt);
+  }
+
+  return left.id.localeCompare(right.id);
+}
+
 type HistoricalGoalEntry = {
   goal: Goal;
   summary: HomeGoalSummary;
@@ -130,7 +153,7 @@ export function GoalsScreen() {
           return [];
         }
 
-        const deadline = addDays(goal.startDate, Math.max(goal.targetDays - 1, 0));
+        const deadline = getGoalDeadline(goal);
 
         return [
           {
@@ -141,8 +164,9 @@ export function GoalsScreen() {
         ];
       })
       .sort((left, right) => {
-        if (left.goal.active !== right.goal.active) {
-          return left.goal.active ? 1 : -1;
+        const byDeadline = compareGoalsByDeadline(left.goal, right.goal);
+        if (byDeadline !== 0) {
+          return byDeadline;
         }
 
         return left.daysSinceEnd - right.daysSinceEnd;
@@ -169,7 +193,7 @@ export function GoalsScreen() {
       }
 
       return [{ goal, summary }];
-    }),
+    }).sort((left, right) => compareGoalsByDeadline(left.goal, right.goal)),
     [historicalGoalIds, summariesByGoalId, visibleGoals],
   );
   const listData = useMemo<GoalListEntry[]>(() => {
@@ -317,7 +341,11 @@ export function GoalsScreen() {
 
             setShowFinishedGoals((current) => !current);
           }}
-          style={({ pressed }) => [styles.sectionHeader, pressed && styles.sectionHeaderPressed]}>
+          style={({ pressed }) => [
+            styles.sectionHeader,
+            !isActiveSection && styles.sectionHeaderFinished,
+            pressed && styles.sectionHeaderPressed,
+          ]}>
           <View style={styles.sectionHeaderCopy}>
             <Text style={styles.sectionTitle}>{item.title}</Text>
             <Text style={styles.sectionMeta}>{item.count}</Text>
@@ -475,6 +503,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.sm,
+  },
+  sectionHeaderFinished: {
+    marginTop: spacing.lg,
   },
   sectionHeaderPressed: {
     opacity: 0.86,
