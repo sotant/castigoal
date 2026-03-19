@@ -20,6 +20,8 @@ type ComboOption = {
   value: number;
 };
 
+const ACCOUNT_BUTTON_HEIGHT = 40;
+
 export function SettingsScreen() {
   const { deleteAccount, signOut, session } = useAuth();
   const { retrySync, sessionState, settings, updateSettings } = useAppStore(
@@ -544,9 +546,11 @@ const styles = StyleSheet.create({
     backgroundColor: palette.snow,
   },
   primaryButton: {
+    minHeight: ACCOUNT_BUTTON_HEIGHT,
     paddingVertical: 10,
     borderRadius: radius.pill,
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: palette.primary,
   },
   primaryLabel: {
@@ -554,16 +558,20 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   compactPrimaryButton: {
+    minHeight: ACCOUNT_BUTTON_HEIGHT,
     paddingHorizontal: spacing.md,
     paddingVertical: 10,
     borderRadius: radius.pill,
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: palette.primary,
   },
   compactSectionPrimaryButton: {
+    minHeight: ACCOUNT_BUTTON_HEIGHT,
     paddingVertical: 10,
     borderRadius: radius.pill,
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: palette.primary,
   },
   compactPrimaryLabel: {
@@ -575,9 +583,11 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   compactSecondaryButton: {
+    minHeight: ACCOUNT_BUTTON_HEIGHT,
     paddingVertical: 10,
     borderRadius: radius.pill,
     alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: palette.line,
     backgroundColor: palette.snow,
@@ -599,9 +609,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#B91C1C',
   },
   compactDangerButton: {
+    minHeight: ACCOUNT_BUTTON_HEIGHT,
     paddingVertical: 10,
     borderRadius: radius.pill,
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: '#B91C1C',
   },
   dangerLabel: {

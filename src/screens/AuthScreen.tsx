@@ -59,6 +59,8 @@ function getFriendlyAuthMessage(message: string) {
 
 type AuthMode = 'access' | 'recovery';
 
+const ACCESS_CONTROL_HEIGHT = 40;
+
 export function AuthScreen() {
   const params = useLocalSearchParams<{ returnTo?: string }>();
   const { session } = useAuth();
@@ -386,14 +388,16 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
   input: {
+    minHeight: ACCESS_CONTROL_HEIGHT,
     paddingHorizontal: spacing.md,
-    paddingVertical: 16,
+    paddingVertical: 10,
     borderWidth: 1,
     borderColor: '#D5DEE8',
     borderRadius: 18,
     backgroundColor: '#F8FAFC',
     fontSize: 16,
     color: '#0F172A',
+    textAlignVertical: 'center',
   },
   inputFocused: {
     borderColor: palette.primary,
@@ -446,9 +450,11 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   submitPrimary: {
-    paddingVertical: 16,
+    minHeight: ACCESS_CONTROL_HEIGHT,
+    paddingVertical: 10,
     borderRadius: radius.pill,
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: palette.primary,
   },
   submitPrimaryLabel: {
@@ -457,9 +463,11 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   submitSecondary: {
-    paddingVertical: 16,
+    minHeight: ACCESS_CONTROL_HEIGHT,
+    paddingVertical: 10,
     borderRadius: radius.pill,
     alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#D5DEE8',
     backgroundColor: '#F8FAFC',
