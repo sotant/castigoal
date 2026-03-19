@@ -18,6 +18,8 @@ type OverviewCard = {
   value: number;
 };
 
+type GoalFilter = 'active' | 'completed';
+
 export function StatsScreen() {
   const goals = useAppStore((state) => state.goals);
   const homeSummary = useAppStore((state) => state.homeSummary);
@@ -28,6 +30,7 @@ export function StatsScreen() {
   const [selectedGoalId, setSelectedGoalId] = useState<string | null>(goals[0]?.id ?? null);
   const [monthOffset, setMonthOffset] = useState(0);
   const [isGoalDropdownOpen, setIsGoalDropdownOpen] = useState(false);
+  const [goalFilter, setGoalFilter] = useState<GoalFilter>('active');
   const tabBarHeight = useBottomTabBarHeight();
   const insets = useSafeAreaInsets();
 
@@ -37,21 +40,26 @@ export function StatsScreen() {
     }
   }, [refreshStatsSummary, statsLoaded]);
 
-  useEffect(() => {
-    if (!selectedGoalId || !goals.some((goal) => goal.id === selectedGoalId)) {
-      setSelectedGoalId(goals[0]?.id ?? null);
-    }
-  }, [goals, selectedGoalId]);
+  const filteredGoals = useMemo(
+    () => goals.filter((goal) => (goalFilter === 'active' ? goal.active : !goal.active)),
+    [goalFilter, goals],
+  );
+  const hasGoals = goals.length > 0;
+  const hasFilteredGoals = filteredGoals.length > 0;
+  const hasMultipleFilteredGoals = filteredGoals.length > 1;
+  const selectedGoal = filteredGoals.find((goal) => goal.id === selectedGoalId) ?? filteredGoals[0] ?? null;
 
   useEffect(() => {
-    if (goals.length <= 1) {
+    if (!selectedGoalId || !filteredGoals.some((goal) => goal.id === selectedGoalId)) {
+      setSelectedGoalId(filteredGoals[0]?.id ?? null);
+    }
+  }, [filteredGoals, selectedGoalId]);
+
+  useEffect(() => {
+    if (filteredGoals.length <= 1) {
       setIsGoalDropdownOpen(false);
     }
-  }, [goals.length]);
-
-  const hasGoals = goals.length > 0;
-  const hasMultipleGoals = goals.length > 1;
-  const selectedGoal = goals.find((goal) => goal.id === selectedGoalId) ?? goals[0] ?? null;
+  }, [filteredGoals.length]);
   const monthDate = getMonthDate(monthOffset);
   const monthLabel = formatMonthLabel(monthDate);
   const monthStart = useMemo(() => getMonthStart(monthDate), [monthDate]);
@@ -178,72 +186,131 @@ export function StatsScreen() {
                       message="Todavia no tienes objetivos registrados. Crea uno para ver su progreso en estadisticas."
                     />
                   </View>
-                ) : hasMultipleGoals ? (
-                  <View style={styles.dropdownArea}>
-                    <Pressable
-                      onPress={() => setIsGoalDropdownOpen((current) => !current)}
-                      style={[styles.goalButton, isGoalDropdownOpen && styles.goalButtonSelected]}>
-                      <View style={styles.goalButtonRow}>
-                        <View style={styles.goalCopy}>
-                          <View style={styles.goalTitleRow}>
-                            <Feather
-                              color={isGoalDropdownOpen ? palette.primaryDeep : palette.slate}
-                              name={selectedGoal?.active ? 'play' : 'flag'}
-                              size={14}
-                            />
-                            <Text style={[styles.goalButtonTitle, isGoalDropdownOpen && styles.goalButtonTitleSelected]}>
-                              {selectedGoal?.title}
-                            </Text>
-                          </View>
-                        </View>
-                        <Feather
-                          color={isGoalDropdownOpen ? palette.primaryDeep : palette.slate}
-                          name={isGoalDropdownOpen ? 'chevron-up' : 'chevron-down'}
-                          size={18}
-                        />
-                      </View>
-                    </Pressable>
-
-                    {isGoalDropdownOpen ? (
-                      <View style={styles.dropdownMenu}>
-                        {goals.map((goal) => {
-                          const isSelected = goal.id === selectedGoal?.id;
-
-                          return (
-                            <Pressable
-                              key={goal.id}
-                              onPress={() => {
-                                setSelectedGoalId(goal.id);
-                                setIsGoalDropdownOpen(false);
-                              }}
-                              style={[styles.dropdownOption, isSelected && styles.dropdownOptionSelected]}>
-                              <View style={styles.goalTitleRow}>
-                                <Feather
-                                  color={isSelected ? palette.primaryDeep : palette.slate}
-                                  name={goal.active ? 'play' : 'flag'}
-                                  size={14}
-                                />
-                                <Text style={[styles.dropdownOptionTitle, isSelected && styles.dropdownOptionTitleSelected]}>
-                                  {goal.title}
-                                </Text>
-                              </View>
-                            </Pressable>
-                          );
-                        })}
-                      </View>
-                    ) : null}
-                  </View>
                 ) : (
-                  <View style={[styles.goalButton, styles.goalButtonSelected]}>
-                    <View style={styles.goalButtonRow}>
-                      <View style={styles.goalCopy}>
-                        <View style={styles.goalTitleRow}>
-                          <Feather color={palette.primaryDeep} name={selectedGoal?.active ? 'play' : 'flag'} size={14} />
-                          <Text style={[styles.goalButtonTitle, styles.goalButtonTitleSelected]}>{selectedGoal?.title}</Text>
-                        </View>
+                  <>
+                    <View style={styles.goalFilterSection}>
+                      <Text style={styles.goalFilterTitle}>¿Qué objetivos quieres consultar?</Text>
+                      <View style={styles.goalFilterButtons}>
+                        <Pressable
+                          onPress={() => {
+                            setGoalFilter('active');
+                            setIsGoalDropdownOpen(false);
+                          }}
+                          style={[styles.goalFilterButton, goalFilter === 'active' && styles.goalFilterButtonSelected]}>
+                          <Text
+                            style={[
+                              styles.goalFilterButtonText,
+                              goalFilter === 'active' && styles.goalFilterButtonTextSelected,
+                            ]}>
+                            Activos
+                          </Text>
+                        </Pressable>
+                        <Pressable
+                          onPress={() => {
+                            setGoalFilter('completed');
+                            setIsGoalDropdownOpen(false);
+                          }}
+                          style={[styles.goalFilterButton, goalFilter === 'completed' && styles.goalFilterButtonSelected]}>
+                          <Text
+                            style={[
+                              styles.goalFilterButtonText,
+                              goalFilter === 'completed' && styles.goalFilterButtonTextSelected,
+                            ]}>
+                            Finalizados
+                          </Text>
+                        </Pressable>
                       </View>
                     </View>
-                  </View>
+
+                    {!hasFilteredGoals ? (
+                      <View style={styles.goalEmptyCard}>
+                        <EmptyState
+                          title={goalFilter === 'active' ? 'Sin objetivos activos' : 'Sin objetivos finalizados'}
+                          message={
+                            goalFilter === 'active'
+                              ? 'No hay objetivos activos para mostrar en el calendario.'
+                              : 'No hay objetivos finalizados para consultar en el calendario.'
+                          }
+                        />
+                      </View>
+                    ) : hasMultipleFilteredGoals ? (
+                      <View style={styles.dropdownArea}>
+                        {isGoalDropdownOpen ? (
+                          <Pressable onPress={() => setIsGoalDropdownOpen(false)} style={styles.dropdownDismissArea} />
+                        ) : null}
+
+                        <Pressable
+                          onPress={() => setIsGoalDropdownOpen((current) => !current)}
+                          style={[styles.goalButton, isGoalDropdownOpen && styles.goalButtonSelected]}>
+                          <View style={styles.goalButtonRow}>
+                            <View style={styles.goalCopy}>
+                              <View style={styles.goalTitleRow}>
+                                <Feather
+                                  color={isGoalDropdownOpen ? palette.primaryDeep : palette.slate}
+                                  name={selectedGoal?.active ? 'play' : 'flag'}
+                                  size={14}
+                                />
+                                <Text style={[styles.goalButtonTitle, isGoalDropdownOpen && styles.goalButtonTitleSelected]}>
+                                  {selectedGoal?.title}
+                                </Text>
+                              </View>
+                            </View>
+                            <Feather
+                              color={isGoalDropdownOpen ? palette.primaryDeep : palette.slate}
+                              name={isGoalDropdownOpen ? 'chevron-up' : 'chevron-down'}
+                              size={18}
+                            />
+                          </View>
+                        </Pressable>
+
+                        {isGoalDropdownOpen ? (
+                          <View style={styles.dropdownMenu}>
+                            <ScrollView
+                              contentContainerStyle={styles.dropdownMenuContent}
+                              keyboardShouldPersistTaps="handled"
+                              nestedScrollEnabled
+                              showsVerticalScrollIndicator={false}>
+                              {filteredGoals.map((goal) => {
+                                const isSelected = goal.id === selectedGoal?.id;
+
+                                return (
+                                  <Pressable
+                                    key={goal.id}
+                                    onPress={() => {
+                                      setSelectedGoalId(goal.id);
+                                      setIsGoalDropdownOpen(false);
+                                    }}
+                                    style={[styles.dropdownOption, isSelected && styles.dropdownOptionSelected]}>
+                                    <View style={styles.goalTitleRow}>
+                                      <Feather
+                                        color={isSelected ? palette.primaryDeep : palette.slate}
+                                        name={goal.active ? 'play' : 'flag'}
+                                        size={14}
+                                      />
+                                      <Text style={[styles.dropdownOptionTitle, isSelected && styles.dropdownOptionTitleSelected]}>
+                                        {goal.title}
+                                      </Text>
+                                    </View>
+                                  </Pressable>
+                                );
+                              })}
+                            </ScrollView>
+                          </View>
+                        ) : null}
+                      </View>
+                    ) : (
+                      <View style={[styles.goalButton, styles.goalButtonSelected]}>
+                        <View style={styles.goalButtonRow}>
+                          <View style={styles.goalCopy}>
+                            <View style={styles.goalTitleRow}>
+                              <Feather color={palette.primaryDeep} name={selectedGoal?.active ? 'play' : 'flag'} size={14} />
+                              <Text style={[styles.goalButtonTitle, styles.goalButtonTitleSelected]}>{selectedGoal?.title}</Text>
+                            </View>
+                          </View>
+                        </View>
+                      </View>
+                    )}
+                  </>
                 )}
 
                 {selectedGoal ? (
@@ -509,6 +576,51 @@ const styles = StyleSheet.create({
   dropdownArea: {
     position: 'relative',
   },
+  goalFilterSection: {
+    gap: spacing.sm,
+  },
+  goalFilterTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: palette.ink,
+    textAlign: 'center',
+  },
+  goalFilterButtons: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  goalFilterButton: {
+    flex: 1,
+    paddingVertical: 9,
+    paddingHorizontal: spacing.sm,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: palette.line,
+    backgroundColor: palette.snow,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  goalFilterButtonSelected: {
+    borderColor: '#CFE0FF',
+    backgroundColor: '#EEF4FF',
+    ...shadows.card,
+  },
+  goalFilterButtonText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: palette.slate,
+  },
+  goalFilterButtonTextSelected: {
+    color: palette.primaryDeep,
+  },
+  dropdownDismissArea: {
+    position: 'absolute',
+    top: -1200,
+    right: -1200,
+    bottom: -1200,
+    left: -1200,
+    zIndex: 25,
+  },
   calendarSection: {
     padding: spacing.sm,
     borderRadius: 22,
@@ -565,9 +677,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: palette.line,
     backgroundColor: palette.snow,
-    gap: spacing.xs,
+    maxHeight: 240,
     zIndex: 30,
     ...shadows.card,
+  },
+  dropdownMenuContent: {
+    gap: spacing.xs,
   },
   dropdownOption: {
     paddingHorizontal: spacing.sm,
@@ -636,13 +751,12 @@ const styles = StyleSheet.create({
     color: palette.slate,
   },
   calendarCard: {
-    padding: spacing.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: 2,
     borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#D8E4F4',
-    backgroundColor: '#FFFFFFE8',
+    borderWidth: 0,
+    backgroundColor: 'transparent',
     gap: spacing.sm,
-    ...shadows.card,
   },
   weekRow: {
     flexDirection: 'row',
@@ -664,8 +778,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   dayBubble: {
-    width: 38,
-    height: 38,
+    width: 32,
+    height: 32,
     borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: palette.line,
@@ -687,7 +801,7 @@ const styles = StyleSheet.create({
     opacity: 0.35,
   },
   dayLabel: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '700',
     color: palette.ink,
   },
