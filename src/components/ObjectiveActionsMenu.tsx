@@ -8,8 +8,11 @@ type Props = {
   visible: boolean;
   goalTitle: string;
   showFinalize?: boolean;
+  showReactivate?: boolean;
+  showEdit?: boolean;
   onClose: () => void;
   onFinalize: () => void;
+  onReactivate: () => void;
   onEdit: () => void;
   onDelete: () => void;
 };
@@ -18,8 +21,11 @@ export function ObjectiveActionsMenu({
   visible,
   goalTitle,
   showFinalize = false,
+  showReactivate = false,
+  showEdit = true,
   onClose,
   onFinalize,
+  onReactivate,
   onEdit,
   onDelete,
 }: Props) {
@@ -80,19 +86,37 @@ export function ObjectiveActionsMenu({
             </Pressable>
           ) : null}
 
-          <Pressable
-            accessibilityHint="Abre la pantalla para editar este objetivo"
-            accessibilityRole="button"
-            onPress={onEdit}
-            style={styles.actionButton}>
-            <View style={styles.actionIcon}>
-              <Feather color={palette.primaryDeep} name="edit-2" size={18} />
-            </View>
-            <View style={styles.actionCopy}>
-              <Text style={styles.actionTitle}>Editar</Text>
-              <Text style={styles.actionSubtitle}>Modifica nombre, descripcion y reglas.</Text>
-            </View>
-          </Pressable>
+          {showReactivate ? (
+            <Pressable
+              accessibilityHint="Reactiva este objetivo para devolverlo a la lista de activos"
+              accessibilityRole="button"
+              onPress={onReactivate}
+              style={styles.actionButton}>
+              <View style={[styles.actionIcon, styles.reactivateIcon]}>
+                <Feather color={palette.primaryDeep} name="rotate-ccw" size={18} />
+              </View>
+              <View style={styles.actionCopy}>
+                <Text style={styles.actionTitle}>Reactivar</Text>
+                <Text style={styles.actionSubtitle}>Reactiva porque no se ha llegado a la fecha fin</Text>
+              </View>
+            </Pressable>
+          ) : null}
+
+          {showEdit ? (
+            <Pressable
+              accessibilityHint="Abre la pantalla para editar este objetivo"
+              accessibilityRole="button"
+              onPress={onEdit}
+              style={styles.actionButton}>
+              <View style={styles.actionIcon}>
+                <Feather color={palette.primaryDeep} name="edit-2" size={18} />
+              </View>
+              <View style={styles.actionCopy}>
+                <Text style={styles.actionTitle}>Editar</Text>
+                <Text style={styles.actionSubtitle}>Modifica nombre, descripcion y reglas.</Text>
+              </View>
+            </Pressable>
+          ) : null}
 
           <Pressable
             accessibilityHint="Solicita confirmacion antes de eliminar el objetivo"
@@ -177,6 +201,9 @@ const styles = StyleSheet.create({
   },
   successIcon: {
     backgroundColor: '#ECFDF3',
+  },
+  reactivateIcon: {
+    backgroundColor: '#E8F0FF',
   },
   actionCopy: {
     flex: 1,

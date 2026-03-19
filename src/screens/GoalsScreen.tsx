@@ -23,8 +23,9 @@ function isHistoricalGoal(summary: HomeGoalSummary) {
   return summary.daysUntilStart === 0 && summary.remainingDays === 0;
 }
 
-function isFinishedGoal(summary: HomeGoalSummary) {
-  return !summary.active || isHistoricalGoal(summary);
+function canReactivateGoal(goal: Goal, today: string) {
+  const deadline = addDays(goal.startDate, Math.max(goal.targetDays - 1, 0));
+  return !goal.active && today <= deadline;
 }
 
 type HistoricalGoalEntry = {
@@ -61,14 +62,14 @@ type GoalListEntry =
 
 type PendingGoalAction =
   | {
-      type: 'delete' | 'finalize';
+      type: 'delete' | 'finalize' | 'reactivate';
       goal: Goal;
     }
   | null;
 
 type ProcessingGoalAction =
   | {
-      type: 'delete' | 'finalize';
+      type: 'delete' | 'finalize' | 'reactivate';
       goalId: string;
     }
   | null;
@@ -113,7 +114,7 @@ export function GoalsScreen() {
       goal.id === processingAction.goalId
         ? {
             ...goal,
-            active: false,
+            active: processingAction.type === 'reactivate',
           }
         : goal,
     );
@@ -122,11 +123,10 @@ export function GoalsScreen() {
     const goalById = new Map(visibleGoals.map((goal) => [goal.id, goal]));
 
     return homeSummary.goalSummaries
-      .filter(isFinishedGoal)
       .flatMap((summary) => {
         const goal = goalById.get(summary.goalId);
 
-        if (!goal) {
+        if (!goal || (goal.active && !isHistoricalGoal(summary))) {
           return [];
         }
 
@@ -141,8 +141,8 @@ export function GoalsScreen() {
         ];
       })
       .sort((left, right) => {
-        if (left.summary.active !== right.summary.active) {
-          return left.summary.active ? 1 : -1;
+        if (left.goal.active !== right.goal.active) {
+          return left.goal.active ? 1 : -1;
         }
 
         return left.daysSinceEnd - right.daysSinceEnd;
@@ -244,6 +244,11 @@ export function GoalsScreen() {
     setPendingAction({ type: 'finalize', goal });
   };
 
+  const handleReactivate = (goal: Goal) => {
+    closeMenu();
+    setPendingAction({ type: 'reactivate', goal });
+  };
+
   const closeConfirmationModal = () => setPendingAction(null);
 
   const confirmPendingAction = async () => {
@@ -285,10 +290,13 @@ export function GoalsScreen() {
     }
 
     return {
-      eyebrow: 'Cerrar ciclo',
-      title: 'Finalizar objetivo',
-      description: 'El objetivo dejara de estar activo y saldra de esta seccion. Podras seguir consultandolo despues.',
-      confirmLabel: 'Finalizar',
+      eyebrow: pendingAction.type === 'reactivate' ? 'Reabrir ciclo' : 'Cerrar ciclo',
+      title: pendingAction.type === 'reactivate' ? 'Reactivar objetivo' : 'Finalizar objetivo',
+      description:
+        pendingAction.type === 'reactivate'
+          ? 'El objetivo volvera a la lista de activos para que puedas seguir registrando avances hasta su fecha limite.'
+          : 'El objetivo dejara de estar activo y saldra de esta seccion. Podras seguir consultandolo despues.',
+      confirmLabel: pendingAction.type === 'reactivate' ? 'Reactivar' : 'Finalizar',
       tone: 'default' as const,
     };
   }, [pendingAction]);
@@ -397,6 +405,11 @@ export function GoalsScreen() {
             handleFinalize(activeMenuGoal);
           }
         }}
+        onReactivate={() => {
+          if (activeMenuGoal) {
+            handleReactivate(activeMenuGoal);
+          }
+        }}
         onDelete={() => {
           if (activeMenuGoal) {
             handleDelete(activeMenuGoal);
@@ -412,6 +425,8 @@ export function GoalsScreen() {
           router.push(appRoutes.editGoal(goalId));
         }}
         showFinalize={Boolean(activeMenuGoal?.active)}
+        showReactivate={Boolean(activeMenuGoal && canReactivateGoal(activeMenuGoal, today))}
+        showEdit={Boolean(activeMenuGoal?.active)}
         visible={Boolean(activeMenuGoal)}
       />
       {confirmationCopy ? (
