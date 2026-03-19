@@ -1,6 +1,7 @@
-import { PropsWithChildren, ReactNode } from 'react';
+import { PropsWithChildren, ReactNode, useCallback, useRef } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { Directions, FlingGestureHandler } from 'react-native-gesture-handler';
+import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, usePathname } from 'expo-router';
 
@@ -15,6 +16,7 @@ type Props = PropsWithChildren<{
   scroll?: boolean;
   enableTabSwipe?: boolean;
   bodyStyle?: StyleProp<ViewStyle>;
+  resetScrollOnFocus?: boolean;
 }>;
 
 export function ScreenContainer({
@@ -25,10 +27,24 @@ export function ScreenContainer({
   scroll = true,
   enableTabSwipe,
   bodyStyle,
+  resetScrollOnFocus = false,
   children,
 }: Props) {
   const pathname = usePathname();
+  const scrollViewRef = useRef<ScrollView>(null);
   const shouldEnableTabSwipe = enableTabSwipe ?? isMainTabPath(pathname);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!scroll || !resetScrollOnFocus) {
+        return;
+      }
+
+      requestAnimationFrame(() => {
+        scrollViewRef.current?.scrollTo({ x: 0, y: 0, animated: false });
+      });
+    }, [resetScrollOnFocus, scroll]),
+  );
 
   const handleTabSwipe = (direction: 'left' | 'right') => {
     if (!shouldEnableTabSwipe) {
@@ -65,6 +81,7 @@ export function ScreenContainer({
             style={styles.keyboardArea}>
             {scroll ? (
               <ScrollView
+                ref={scrollViewRef}
                 contentContainerStyle={styles.scroll}
                 keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
                 keyboardShouldPersistTaps="handled">

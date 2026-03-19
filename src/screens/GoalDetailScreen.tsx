@@ -176,7 +176,7 @@ export function GoalDetailScreen({ goal }: Props) {
   };
 
   return (
-    <ScreenContainer title={goal.title} subtitle={goalSubtitle}>
+    <ScreenContainer resetScrollOnFocus title={goal.title} subtitle={goalSubtitle}>
       <View style={styles.progressCard}>
         <ProgressRing
           helperText={`${approvalProgress}% completado`}
