@@ -4,7 +4,6 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Keyboard,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
@@ -60,59 +59,7 @@ function getFriendlyAuthMessage(message: string) {
 
 type AuthMode = 'signin' | 'signup' | 'recovery';
 
-type InputRowProps = {
-  icon: keyof typeof Feather.glyphMap;
-  value: string;
-  placeholder: string;
-  onChangeText: (text: string) => void;
-  onFocus: () => void;
-  onBlur: () => void;
-  focused: boolean;
-  editable: boolean;
-  keyboardType?: 'default' | 'email-address';
-  returnKeyType?: 'next' | 'go';
-  secureTextEntry?: boolean;
-  onSubmitEditing?: () => void;
-};
-
 const ACCESS_CONTROL_HEIGHT = 40;
-
-function InputRow({
-  icon,
-  value,
-  placeholder,
-  onChangeText,
-  onFocus,
-  onBlur,
-  focused,
-  editable,
-  keyboardType,
-  returnKeyType,
-  secureTextEntry,
-  onSubmitEditing,
-}: InputRowProps) {
-  return (
-    <View style={[styles.inputShell, focused && styles.inputShellFocused]}>
-      <Feather color={focused ? palette.primaryDeep : '#97A3BC'} name={icon} size={18} />
-      <TextInput
-        autoCapitalize="none"
-        autoCorrect={false}
-        editable={editable}
-        keyboardType={keyboardType}
-        onBlur={onBlur}
-        onChangeText={onChangeText}
-        onFocus={onFocus}
-        onSubmitEditing={onSubmitEditing}
-        placeholder={placeholder}
-        placeholderTextColor="#98A2B3"
-        returnKeyType={returnKeyType}
-        secureTextEntry={secureTextEntry}
-        style={styles.input}
-        value={value}
-      />
-    </View>
-  );
-}
 
 function HeroArtwork() {
   return (
@@ -141,9 +88,9 @@ export function AuthScreen() {
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [feedback, setFeedback] = useState<{ kind: 'error' | 'success'; message: string } | null>(null);
   const [loadingAction, setLoadingAction] = useState<'signin' | 'signup' | 'reset' | null>(null);
-  const [focusedField, setFocusedField] = useState<'email' | 'password' | null>(null);
   const inFlightRef = useRef(false);
   const canSubmit = email.trim().length > 0 && password.trim().length >= 6;
   const canRecover = useMemo(() => /\S+@\S+\.\S+/.test(email.trim()), [email]);
@@ -154,7 +101,6 @@ export function AuthScreen() {
   useEffect(() => {
     setMode(params.mode === 'signup' ? 'signup' : 'signin');
     setFeedback(null);
-    setFocusedField(null);
   }, [params.mode]);
 
   useEffect(() => {
@@ -170,7 +116,6 @@ export function AuthScreen() {
   const switchMode = (nextMode: AuthMode) => {
     setMode(nextMode);
     setFeedback(null);
-    setFocusedField(null);
   };
 
   const submit = async (action: 'signin' | 'signup') => {
@@ -266,16 +211,13 @@ export function AuthScreen() {
       bodyStyle={styles.screenBody}
       scroll={false}
       title="Accede a tu progreso">
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
-        style={styles.keyboardArea}>
+      <View style={styles.keyboardArea}>
         <ScrollView
           bounces={false}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
-          <Pressable onPress={Keyboard.dismiss} style={styles.shell}>
+          <View style={styles.shell}>
             <View pointerEvents="none" style={styles.pageGlow}>
               <View style={styles.pageGlowTop} />
               <View style={styles.pageGlowBottom} />
@@ -309,41 +251,58 @@ export function AuthScreen() {
 
                 <View style={styles.group}>
                   <Text style={styles.label}>Email</Text>
-                  <InputRow
-                    editable={!loadingAction}
-                    focused={focusedField === 'email'}
-                    icon="mail"
-                    keyboardType="email-address"
-                    onBlur={() => setFocusedField((current) => (current === 'email' ? null : current))}
-                    onChangeText={setEmail}
-                    onFocus={() => setFocusedField('email')}
-                    placeholder="tu@email.com"
-                    returnKeyType={mode === 'recovery' ? 'go' : 'next'}
-                    value={email}
-                  />
+                  <View style={styles.inputField}>
+                    <Feather color="#97A3BC" name="mail" size={18} style={styles.inputIcon} />
+                    <TextInput
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      editable={!loadingAction}
+                      keyboardType="email-address"
+                      placeholder="tu@email.com"
+                      placeholderTextColor="#98A2B3"
+                      returnKeyType={mode === 'recovery' ? 'go' : 'next'}
+                      style={styles.input}
+                      value={email}
+                      onChangeText={setEmail}
+                    />
+                  </View>
                 </View>
 
                 {mode !== 'recovery' ? (
                   <>
                     <View style={styles.group}>
                       <Text style={styles.label}>Contrasena</Text>
-                      <InputRow
-                        editable={!loadingAction}
-                        focused={focusedField === 'password'}
-                        icon="lock"
-                        onBlur={() => setFocusedField((current) => (current === 'password' ? null : current))}
-                        onChangeText={setPassword}
-                        onFocus={() => setFocusedField('password')}
-                        onSubmitEditing={() => {
-                          if (canSubmit) {
-                            void submit('signin');
-                          }
-                        }}
-                        placeholder="Minimo 6 caracteres"
-                        returnKeyType="go"
-                        secureTextEntry
-                        value={password}
-                      />
+                      <View style={styles.inputField}>
+                        <Feather color="#97A3BC" name="lock" size={18} style={styles.inputIcon} />
+                        <TextInput
+                          autoCapitalize="none"
+                          autoCorrect={false}
+                          editable={!loadingAction}
+                          placeholder="Minimo 6 caracteres"
+                          placeholderTextColor="#98A2B3"
+                          returnKeyType="go"
+                          secureTextEntry={!isPasswordVisible}
+                          style={styles.passwordInput}
+                          value={password}
+                          onChangeText={setPassword}
+                          onSubmitEditing={() => {
+                            if (mode === 'signin' && canSubmit) {
+                              void submit('signin');
+                            }
+                          }}
+                        />
+                        <Pressable
+                          disabled={!!loadingAction}
+                          hitSlop={8}
+                          onPress={() => setIsPasswordVisible((current) => !current)}
+                          style={styles.passwordToggle}>
+                          <Feather
+                            color={loadingAction ? '#C0C8D8' : '#7C8798'}
+                            name={isPasswordVisible ? 'eye-off' : 'eye'}
+                            size={18}
+                          />
+                        </Pressable>
+                      </View>
                     </View>
 
                     {mode === 'signin' ? (
@@ -402,9 +361,9 @@ export function AuthScreen() {
                 )}
               </View>
             </View>
-          </Pressable>
+          </View>
         </ScrollView>
-      </KeyboardAvoidingView>
+      </View>
     </ScreenContainer>
   );
 }
@@ -604,31 +563,40 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#24314F',
   },
-  inputShell: {
+  inputField: {
     minHeight: ACCESS_CONTROL_HEIGHT,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
+    justifyContent: 'center',
+    paddingLeft: 42,
+    paddingRight: spacing.md,
     borderWidth: 1,
     borderColor: '#D8DFED',
     borderRadius: radius.pill,
     backgroundColor: '#F8FAFF',
   },
-  inputShellFocused: {
-    borderColor: '#8FB0FF',
-    backgroundColor: palette.snow,
-    shadowColor: '#A6BAFF',
-    shadowOpacity: 0.18,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 2,
+  inputIcon: {
+    position: 'absolute',
+    left: spacing.md,
+    top: 11,
   },
   input: {
-    flex: 1,
     minHeight: ACCESS_CONTROL_HEIGHT,
     fontSize: 15,
     color: '#334155',
+    paddingVertical: 0,
+  },
+  passwordInput: {
+    minHeight: ACCESS_CONTROL_HEIGHT,
+    paddingRight: 36,
+    fontSize: 15,
+    color: '#334155',
+    paddingVertical: 0,
+  },
+  passwordToggle: {
+    position: 'absolute',
+    right: spacing.md,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
   },
   linkLabel: {
     color: palette.primaryDeep,

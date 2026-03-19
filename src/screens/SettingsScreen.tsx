@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Feather } from '@expo/vector-icons';
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
@@ -98,6 +98,8 @@ export function SettingsScreen() {
       setAccountAction('delete');
       setDeleteAccountError(null);
       await deleteAccount();
+      setDeleteAccountModalVisible(false);
+      setDeleteAccountError(null);
     } catch (error) {
       setDeleteAccountError(getErrorMessage(error));
     } finally {
@@ -109,6 +111,13 @@ export function SettingsScreen() {
   const isSyncing = sessionState.syncStatus === 'syncing';
   const hasSyncError = sessionState.syncStatus === 'error' && Boolean(sessionState.syncError);
   const linkedEmail = session?.user.email || 'tu email';
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setDeleteAccountModalVisible(false);
+      setDeleteAccountError(null);
+    }
+  }, [isAuthenticated]);
 
   return (
     <ScreenContainer
@@ -473,18 +482,22 @@ const styles = StyleSheet.create({
   },
   modalSecondaryButton: {
     flex: 1,
-    paddingVertical: 14,
+    minHeight: 40,
+    paddingVertical: 10,
     borderRadius: radius.pill,
     alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: palette.line,
     backgroundColor: palette.snow,
   },
   modalDangerButton: {
     flex: 1,
-    paddingVertical: 14,
+    minHeight: 40,
+    paddingVertical: 10,
     borderRadius: radius.pill,
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: '#B91C1C',
   },
   modalDangerLabel: {
