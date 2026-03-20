@@ -9,6 +9,7 @@ export const appRoutes = {
   stats: '/stats',
   settings: '/settings',
   createGoal: '/goals/create',
+  createPunishment: '/punishments/create',
   goalDetail: (goalId: string) => `/goal-detail/${goalId}` as const,
   editGoal: (goalId: string) => `/goals/edit/${goalId}` as const,
   punishment: (assignedId: string) => `/punishments/${assignedId}` as const,

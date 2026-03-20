@@ -6,13 +6,20 @@ import { palette, radius, shadows, spacing } from '@/src/constants/theme';
 type Props = {
   bottomOffset: number;
   onPress: () => void;
+  accessibilityHint?: string;
+  accessibilityLabel?: string;
 };
 
-export function FloatingAddButton({ bottomOffset, onPress }: Props) {
+export function FloatingAddButton({
+  bottomOffset,
+  onPress,
+  accessibilityHint = 'Crea un nuevo elemento',
+  accessibilityLabel = 'Agregar elemento',
+}: Props) {
   return (
     <Pressable
-      accessibilityHint="Crea un nuevo objetivo"
-      accessibilityLabel="Agregar objetivo"
+      accessibilityHint={accessibilityHint}
+      accessibilityLabel={accessibilityLabel}
       accessibilityRole="button"
       onPress={onPress}
       style={({ pressed }) => [

@@ -98,6 +98,7 @@ function RootNavigator() {
         <Stack.Screen name="goals/create" />
         <Stack.Screen name="goals/[id]" />
         <Stack.Screen name="goals/edit/[id]" />
+        <Stack.Screen name="punishments/create" />
         <Stack.Screen name="punishments/[id]" />
       </Stack>
       <StatusBar style="dark" />
