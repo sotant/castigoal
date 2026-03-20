@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 
 import {
   PUNISHMENT_CATEGORY_OPTIONS,
@@ -27,6 +28,14 @@ export function PunishmentFormScreen() {
   const selectedDifficulty =
     PUNISHMENT_DIFFICULTY_OPTIONS.find((option) => option.value === difficulty) ?? PUNISHMENT_DIFFICULTY_OPTIONS[0];
 
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        Keyboard.dismiss();
+      };
+    }, []),
+  );
+
   const handleSubmit = async () => {
     const normalizedTitle = title.trim();
     const normalizedDescription = description.trim();
@@ -44,12 +53,18 @@ export function PunishmentFormScreen() {
         category,
         difficulty,
       });
+      Keyboard.dismiss();
       router.replace({ pathname: appRoutes.punishments, params: { tab: 'library' } });
     } catch {
       return;
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleBack = () => {
+    Keyboard.dismiss();
+    router.back();
   };
 
   return (
@@ -94,7 +109,6 @@ export function PunishmentFormScreen() {
           <View style={styles.field}>
             <Text style={styles.label}>Titulo del castigo</Text>
             <TextInput
-              autoFocus
               editable={!saving}
               onChangeText={setTitle}
               onSubmitEditing={() => {
@@ -231,7 +245,7 @@ export function PunishmentFormScreen() {
       <View style={styles.actionsRow}>
         <Pressable
           disabled={saving}
-          onPress={() => router.back()}
+          onPress={handleBack}
           style={[styles.secondaryButton, saving && styles.disabled]}>
           <Text style={styles.secondaryLabel}>Cancelar</Text>
         </Pressable>

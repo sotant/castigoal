@@ -33,6 +33,7 @@ export function ScreenContainer({
   const pathname = usePathname();
   const scrollViewRef = useRef<ScrollView>(null);
   const shouldEnableTabSwipe = enableTabSwipe ?? isMainTabPath(pathname);
+  const shouldUseKeyboardAvoidingView = Platform.OS === 'ios';
 
   useFocusEffect(
     useCallback(() => {
@@ -71,27 +72,34 @@ export function ScreenContainer({
     </View>
   );
 
+  const keyboardContent = (
+    <>
+      {scroll ? (
+        <ScrollView
+          ref={scrollViewRef}
+          contentContainerStyle={styles.scroll}
+          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+          keyboardShouldPersistTaps="handled">
+          {content}
+        </ScrollView>
+      ) : (
+        content
+      )}
+      {overlay}
+    </>
+  );
+
   return (
     <FlingGestureHandler direction={Directions.LEFT} onActivated={() => handleTabSwipe('left')}>
       <FlingGestureHandler direction={Directions.RIGHT} onActivated={() => handleTabSwipe('right')}>
         <SafeAreaView edges={['top']} style={styles.safe}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? spacing.md : 0}
-            style={styles.keyboardArea}>
-            {scroll ? (
-              <ScrollView
-                ref={scrollViewRef}
-                contentContainerStyle={styles.scroll}
-                keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
-                keyboardShouldPersistTaps="handled">
-                {content}
-              </ScrollView>
-            ) : (
-              content
-            )}
-            {overlay}
-          </KeyboardAvoidingView>
+          {shouldUseKeyboardAvoidingView ? (
+            <KeyboardAvoidingView behavior="padding" keyboardVerticalOffset={spacing.md} style={styles.keyboardArea}>
+              {keyboardContent}
+            </KeyboardAvoidingView>
+          ) : (
+            <View style={styles.keyboardArea}>{keyboardContent}</View>
+          )}
         </SafeAreaView>
       </FlingGestureHandler>
     </FlingGestureHandler>
