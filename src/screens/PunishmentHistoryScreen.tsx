@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router, usePathname } from 'expo-router';
+import { router, useLocalSearchParams, usePathname } from 'expo-router';
 import { ComponentProps, ReactNode, useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
@@ -65,13 +65,24 @@ function PendingPunishmentCard({
   );
 }
 
-function CompletedHistoryCard({ entry }: { entry: CompletedPunishmentHistoryEntry }) {
+function CompletedHistoryCard({
+  entry,
+  onShowInfo,
+}: {
+  entry: CompletedPunishmentHistoryEntry;
+  onShowInfo: () => void;
+}) {
   return (
     <View style={styles.historyCard}>
-      <Text style={styles.historyTitle}>{entry.punishmentTitle}</Text>
-      <Text style={styles.historyDescription}>{entry.punishmentDescription}</Text>
-      <Text style={styles.historyMeta}>Cumplido el {formatLongDate(toISODate(entry.completedAt))}</Text>
-      {entry.goalTitle ? <Text style={styles.historyMeta}>Objetivo relacionado: {entry.goalTitle}</Text> : null}
+      <View style={styles.historyCardHeader}>
+        <View style={styles.historyCardCopy}>
+          <Text style={styles.historyTitle}>{entry.punishmentTitle}</Text>
+          <Text style={styles.historyMeta}>Cumplido el {formatLongDate(toISODate(entry.completedAt))}</Text>
+        </View>
+        <Pressable accessibilityLabel="Ver informacion del castigo cumplido" onPress={onShowInfo} style={styles.historyInfoButton}>
+          <Ionicons color={palette.primaryDeep} name="information-circle-outline" size={22} />
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -102,6 +113,7 @@ const PRIMARY_TABS = SECONDARY_NAV_ITEMS.filter((item): item is Extract<Secondar
 
 export function PunishmentHistoryScreen() {
   const pathname = usePathname();
+  const params = useLocalSearchParams<{ tab?: PrimaryTabKey }>();
   const {
     personalPunishments,
     basePunishments,
@@ -117,7 +129,7 @@ export function PunishmentHistoryScreen() {
   const refreshPunishmentHistory = useAppStore((state) => state.refreshPunishmentHistory);
   const tabBarHeight = useBottomTabBarHeight();
   const insets = useSafeAreaInsets();
-  const [activePrimaryTab, setActivePrimaryTab] = useState<PrimaryTabKey>('mine');
+  const [activePrimaryTab, setActivePrimaryTab] = useState<PrimaryTabKey>(params.tab === 'library' ? 'library' : 'mine');
   const [editingPunishmentId, setEditingPunishmentId] = useState<string | null>(null);
   const [editingPunishmentTitle, setEditingPunishmentTitle] = useState('');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -125,6 +137,8 @@ export function PunishmentHistoryScreen() {
   const [completingAssignedId, setCompletingAssignedId] = useState<string | null>(null);
   const [pendingCompletion, setPendingCompletion] = useState<PendingAssignedPunishmentSummary | null>(null);
   const [infoPunishment, setInfoPunishment] = useState<PendingAssignedPunishmentSummary | null>(null);
+  const [infoCompletedEntry, setInfoCompletedEntry] = useState<CompletedPunishmentHistoryEntry | null>(null);
+  const [isCompletedHistoryOpen, setIsCompletedHistoryOpen] = useState(false);
 
   useEffect(() => {
     const tasks: Promise<unknown>[] = [];
@@ -143,6 +157,12 @@ export function PunishmentHistoryScreen() {
       });
     }
   }, [punishmentHistoryLoaded, punishmentsLoaded, refreshPunishmentCatalog, refreshPunishmentHistory]);
+
+  useEffect(() => {
+    if (params.tab === 'library' || params.tab === 'mine') {
+      setActivePrimaryTab(params.tab);
+    }
+  }, [params.tab]);
 
   const startEditing = (punishment: Punishment) => {
     setEditingPunishmentId(punishment.id);
@@ -230,16 +250,26 @@ export function PunishmentHistoryScreen() {
 
   const renderHistoryView = () => (
     <View style={styles.contentSection}>
-      <View style={styles.contentSectionHeader}>
+      <Pressable
+        accessibilityHint={`${isCompletedHistoryOpen ? 'Oculta' : 'Muestra'} la seccion de castigos cumplidos`}
+        accessibilityLabel="Alternar castigos cumplidos"
+        accessibilityRole="button"
+        onPress={() => setIsCompletedHistoryOpen((current) => !current)}
+        style={({ pressed }) => [styles.contentSectionHeader, styles.collapsibleSectionHeader, pressed && styles.secondaryNavPressed]}>
         <View style={styles.sectionHeaderCopy}>
           <Text style={styles.sectionTitle}>Castigos cumplidos</Text>
         </View>
-        <View style={[styles.countBadge, styles.historyCountBadge]}>
-          <Text style={[styles.countBadgeLabel, styles.historyCountBadgeLabel]}>{completedPunishmentHistory.length}</Text>
+        <View style={styles.historyHeaderActions}>
+          <View style={[styles.countBadge, styles.historyCountBadge]}>
+            <Text style={[styles.countBadgeLabel, styles.historyCountBadgeLabel]}>{completedPunishmentHistory.length}</Text>
+          </View>
+          <View style={styles.historyChevron}>
+            <Ionicons color={palette.primaryDeep} name={isCompletedHistoryOpen ? 'chevron-up' : 'chevron-down'} size={18} />
+          </View>
         </View>
-      </View>
+      </Pressable>
 
-      {completedPunishmentHistory.length === 0 ? (
+      {!isCompletedHistoryOpen ? null : completedPunishmentHistory.length === 0 ? (
         <View style={styles.inlineEmpty}>
           <EmptyState
             title="Sin castigos cumplidos"
@@ -247,7 +277,9 @@ export function PunishmentHistoryScreen() {
           />
         </View>
       ) : (
-        completedPunishmentHistory.map((entry) => <CompletedHistoryCard key={entry.id} entry={entry} />)
+        completedPunishmentHistory.map((entry) => (
+          <CompletedHistoryCard key={entry.id} entry={entry} onShowInfo={() => setInfoCompletedEntry(entry)} />
+        ))
       )}
     </View>
   );
@@ -370,20 +402,15 @@ export function PunishmentHistoryScreen() {
   const renderLibraryView = () => (
     <View style={styles.pageContent}>
       <View style={[styles.summaryCard, styles.librarySummaryCard]}>
-        <Text style={styles.summaryEyebrow}>Biblioteca</Text>
-        <Text style={styles.summaryTitle}>Predeterminados y personalizados</Text>
-        <Text style={styles.summaryDescription}>
-          Guarda tus propios castigos, consulta los predeterminados de la app y manten tu biblioteca ordenada en un solo sitio.
-        </Text>
         <View style={styles.summaryStats}>
           <View style={styles.summaryStat}>
-            <Text style={styles.summaryStatValue}>{basePunishments.length}</Text>
-            <Text style={styles.summaryStatLabel}>Predeterminados</Text>
+            <Text style={styles.summaryStatLabel}>Mis castigos</Text>
+            <Text style={styles.summaryStatValue}>{personalPunishments.length}</Text>
           </View>
           <View style={styles.summaryStatDivider} />
           <View style={styles.summaryStat}>
-            <Text style={styles.summaryStatValue}>{personalPunishments.length}</Text>
-            <Text style={styles.summaryStatLabel}>Mios</Text>
+            <Text style={styles.summaryStatLabel}>Estándar</Text>
+            <Text style={styles.summaryStatValue}>{basePunishments.length}</Text>
           </View>
         </View>
       </View>
@@ -448,6 +475,50 @@ export function PunishmentHistoryScreen() {
 
   return (
     <ScreenContainer title="Castigos" scroll={false} enableTabSwipe={false}>
+      <Modal
+        animationType="fade"
+        transparent
+        visible={infoCompletedEntry !== null}
+        onRequestClose={() => setInfoCompletedEntry(null)}>
+        <View style={styles.modalOverlay}>
+          <Pressable style={styles.modalBackdrop} onPress={() => setInfoCompletedEntry(null)} />
+
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Detalle del castigo</Text>
+
+            <View style={styles.infoDetailGroup}>
+              <Text style={styles.infoDetailLabel}>Titulo</Text>
+              <Text style={styles.infoDetailValue}>{infoCompletedEntry?.punishmentTitle}</Text>
+            </View>
+
+            <View style={styles.infoDetailGroup}>
+              <Text style={styles.infoDetailLabel}>Descripcion</Text>
+              <Text style={styles.infoDetailValue}>
+                {infoCompletedEntry?.punishmentDescription || 'Sin descripcion disponible.'}
+              </Text>
+            </View>
+
+            <View style={styles.infoDetailGroup}>
+              <Text style={styles.infoDetailLabel}>Fecha</Text>
+              <Text style={styles.infoDetailValue}>
+                {infoCompletedEntry ? formatLongDate(toISODate(infoCompletedEntry.completedAt)) : ''}
+              </Text>
+            </View>
+
+            <View style={styles.infoDetailGroup}>
+              <Text style={styles.infoDetailLabel}>Objetivo relacionado</Text>
+              <Text style={styles.infoDetailValue}>{infoCompletedEntry?.goalTitle || 'Sin objetivo relacionado'}</Text>
+            </View>
+
+            <View style={styles.modalActions}>
+              <Pressable onPress={() => setInfoCompletedEntry(null)} style={styles.secondaryButton}>
+                <Text style={styles.secondaryLabel}>Cerrar</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <Modal
         animationType="fade"
         transparent
@@ -629,6 +700,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   librarySummaryCard: {
+    padding: spacing.sm,
     backgroundColor: '#F4F8FF',
     borderColor: '#D8E6FF',
   },
@@ -640,8 +712,8 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   summaryTitle: {
-    fontSize: 25,
-    fontWeight: '900',
+    fontSize: 20,
+    fontWeight: '800',
     color: palette.ink,
   },
   summaryDescription: {
@@ -652,10 +724,13 @@ const styles = StyleSheet.create({
   summaryStats: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: spacing.md,
   },
   summaryStat: {
     flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
     gap: 2,
   },
   summaryStatDivider: {
@@ -666,12 +741,13 @@ const styles = StyleSheet.create({
   summaryStatValue: {
     fontSize: 26,
     fontWeight: '900',
-    color: palette.ink,
+    color: palette.slate,
   },
   summaryStatLabel: {
     fontSize: 13,
     fontWeight: '700',
-    color: palette.slate,
+    color: palette.ink,
+    textAlign: 'center',
   },
   summaryPendingList: {
     gap: 2,
@@ -707,6 +783,22 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: spacing.md,
+  },
+  collapsibleSectionHeader: {
+    alignItems: 'center',
+  },
+  historyHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  historyChevron: {
+    width: 30,
+    height: 30,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EEF3FB',
   },
   sectionHeaderCopy: {
     flex: 1,
@@ -826,6 +918,21 @@ const styles = StyleSheet.create({
     color: palette.ink,
     textAlign: 'center',
   },
+  infoDetailGroup: {
+    gap: 4,
+  },
+  infoDetailLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+    color: palette.primaryDeep,
+  },
+  infoDetailValue: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: palette.ink,
+  },
   input: {
     paddingHorizontal: spacing.md,
     paddingVertical: 14,
@@ -857,25 +964,41 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   historyCard: {
-    padding: spacing.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
     borderRadius: radius.lg,
     backgroundColor: '#F9FBFF',
     borderWidth: 1,
     borderColor: '#E1EAF5',
-    gap: spacing.xs,
+  },
+  historyCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  historyCardCopy: {
+    flex: 1,
+    gap: 2,
   },
   historyTitle: {
     fontSize: 18,
     fontWeight: '800',
     color: palette.ink,
   },
-  historyDescription: {
-    color: palette.slate,
-    lineHeight: 21,
-  },
   historyMeta: {
     color: palette.slate,
     fontSize: 13,
+  },
+  historyInfoButton: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E8F0FF',
+    borderWidth: 1,
+    borderColor: '#C8DAFF',
   },
   cardHeader: {
     flexDirection: 'row',

@@ -113,6 +113,7 @@ type PunishmentCatalogRow = {
   category: Punishment['category'];
   difficulty: Punishment['difficulty'];
   scope: Punishment['scope'];
+  created_at: string;
 };
 
 type PendingAssignedPunishmentRow = {
@@ -186,10 +187,13 @@ function mapPunishmentFromCatalog(row: PunishmentCatalogRow): Punishment {
     category: row.category,
     difficulty: row.difficulty,
     scope: row.scope,
+    createdAt: row.created_at,
   };
 }
 
-function mapPunishmentRow(row: Pick<PunishmentRow, 'id' | 'title' | 'description' | 'category' | 'difficulty' | 'owner_id'>): Punishment {
+function mapPunishmentRow(
+  row: Pick<PunishmentRow, 'id' | 'title' | 'description' | 'category' | 'difficulty' | 'owner_id' | 'created_at'>,
+): Punishment {
   return {
     id: row.id,
     title: row.title,
@@ -197,6 +201,7 @@ function mapPunishmentRow(row: Pick<PunishmentRow, 'id' | 'title' | 'description
     category: row.category as Punishment['category'],
     difficulty: row.difficulty as Punishment['difficulty'],
     scope: row.owner_id ? 'personal' : 'base',
+    createdAt: row.created_at,
   };
 }
 
@@ -229,6 +234,7 @@ function mapPendingAssignedPunishment(row: PendingAssignedPunishmentRow): Pendin
       category: row.punishment_category,
       difficulty: row.punishment_difficulty,
       scope: row.punishment_scope,
+      createdAt: row.assigned_at,
     },
   };
 }
@@ -316,6 +322,7 @@ function mapPendingPunishmentPreview(row: HomeSummaryRow): PendingPunishmentPrev
       category: row.latest_punishment_category as Punishment['category'],
       difficulty: row.latest_punishment_difficulty as Punishment['difficulty'],
       scope: row.latest_punishment_scope,
+      createdAt: row.latest_pending_due_date,
     },
   };
 }
@@ -629,7 +636,7 @@ export async function loadAssignedPunishmentById(assignedId: string) {
 export async function loadPunishmentById(punishmentId: string) {
   const { data, error } = await supabase
     .from('punishments')
-    .select('id, title, description, category, difficulty, owner_id')
+    .select('id, title, description, category, difficulty, owner_id, created_at')
     .eq('id', punishmentId)
     .maybeSingle();
 
@@ -766,7 +773,7 @@ export async function completeAssignedPunishmentRecord(assignedId: string) {
   return mapAssignedPunishment(data);
 }
 
-export async function addCustomPunishmentRecord(input: Omit<Punishment, 'id' | 'scope'>) {
+export async function addCustomPunishmentRecord(input: Omit<Punishment, 'id' | 'scope' | 'createdAt'>) {
   const userId = await getRequiredUserId();
   const { data, error } = await supabase
     .from('punishments')
@@ -778,7 +785,7 @@ export async function addCustomPunishmentRecord(input: Omit<Punishment, 'id' | '
       difficulty: input.difficulty,
       is_custom: true,
     })
-    .select('id, title, description, category, difficulty, owner_id')
+    .select('id, title, description, category, difficulty, owner_id, created_at')
     .single();
 
   if (error) {
@@ -792,7 +799,7 @@ export async function addCustomPunishmentRecord(input: Omit<Punishment, 'id' | '
   return mapPunishmentRow(data);
 }
 
-export async function updateCustomPunishmentRecord(punishmentId: string, input: Omit<Punishment, 'id' | 'scope'>) {
+export async function updateCustomPunishmentRecord(punishmentId: string, input: Omit<Punishment, 'id' | 'scope' | 'createdAt'>) {
   const { data, error } = await supabase
     .from('punishments')
     .update({
@@ -803,7 +810,7 @@ export async function updateCustomPunishmentRecord(punishmentId: string, input: 
     })
     .eq('id', punishmentId)
     .eq('is_custom', true)
-    .select('id, title, description, category, difficulty, owner_id')
+    .select('id, title, description, category, difficulty, owner_id, created_at')
     .single();
 
   if (error) {

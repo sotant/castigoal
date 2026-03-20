@@ -27,7 +27,13 @@ export function usePunishmentCatalog() {
       addCustomPunishment,
       basePunishments: punishments.filter((item) => item.scope === 'base'),
       deleteCustomPunishment,
-      personalPunishments: punishments.filter((item) => item.scope === 'personal'),
+      personalPunishments: punishments
+        .filter((item) => item.scope === 'personal')
+        .sort((left, right) => {
+          const leftCreatedAt = left.createdAt ?? '';
+          const rightCreatedAt = right.createdAt ?? '';
+          return rightCreatedAt.localeCompare(leftCreatedAt) || left.title.localeCompare(right.title, 'es');
+        }),
       punishmentsLoaded,
       refreshPunishmentCatalog,
       updateCustomPunishment,

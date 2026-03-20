@@ -1,5 +1,7 @@
 import { Punishment } from '@/src/models/types';
 
+const DEFAULT_PUNISHMENT_CREATED_AT = '2026-01-01T00:00:00.000Z';
+
 export const defaultPunishments: Punishment[] = [
   {
     id: 'punish-no-social',
@@ -8,6 +10,7 @@ export const defaultPunishments: Punishment[] = [
     category: 'productive',
     difficulty: 1,
     scope: 'base',
+    createdAt: DEFAULT_PUNISHMENT_CREATED_AT,
   },
   {
     id: 'punish-steps',
@@ -16,6 +19,7 @@ export const defaultPunishments: Punishment[] = [
     category: 'physical',
     difficulty: 1,
     scope: 'base',
+    createdAt: DEFAULT_PUNISHMENT_CREATED_AT,
   },
   {
     id: 'punish-desk',
@@ -24,6 +28,7 @@ export const defaultPunishments: Punishment[] = [
     category: 'domestic',
     difficulty: 1,
     scope: 'base',
+    createdAt: DEFAULT_PUNISHMENT_CREATED_AT,
   },
   {
     id: 'punish-read',
@@ -32,6 +37,7 @@ export const defaultPunishments: Punishment[] = [
     category: 'productive',
     difficulty: 1,
     scope: 'base',
+    createdAt: DEFAULT_PUNISHMENT_CREATED_AT,
   },
   {
     id: 'punish-no-screens',
@@ -40,6 +46,7 @@ export const defaultPunishments: Punishment[] = [
     category: 'productive',
     difficulty: 1,
     scope: 'base',
+    createdAt: DEFAULT_PUNISHMENT_CREATED_AT,
   },
   {
     id: 'punish-pushups',
@@ -48,6 +55,7 @@ export const defaultPunishments: Punishment[] = [
     category: 'physical',
     difficulty: 2,
     scope: 'base',
+    createdAt: DEFAULT_PUNISHMENT_CREATED_AT,
   },
   {
     id: 'punish-clean-room',
@@ -56,6 +64,7 @@ export const defaultPunishments: Punishment[] = [
     category: 'domestic',
     difficulty: 2,
     scope: 'base',
+    createdAt: DEFAULT_PUNISHMENT_CREATED_AT,
   },
   {
     id: 'punish-donate-5',
@@ -64,6 +73,7 @@ export const defaultPunishments: Punishment[] = [
     category: 'financial',
     difficulty: 2,
     scope: 'base',
+    createdAt: DEFAULT_PUNISHMENT_CREATED_AT,
   },
   {
     id: 'punish-no-coffee',
@@ -72,6 +82,7 @@ export const defaultPunishments: Punishment[] = [
     category: 'productive',
     difficulty: 2,
     scope: 'base',
+    createdAt: DEFAULT_PUNISHMENT_CREATED_AT,
   },
   {
     id: 'punish-cook',
@@ -80,6 +91,7 @@ export const defaultPunishments: Punishment[] = [
     category: 'domestic',
     difficulty: 2,
     scope: 'base',
+    createdAt: DEFAULT_PUNISHMENT_CREATED_AT,
   },
   {
     id: 'punish-journal',
@@ -88,6 +100,7 @@ export const defaultPunishments: Punishment[] = [
     category: 'productive',
     difficulty: 2,
     scope: 'base',
+    createdAt: DEFAULT_PUNISHMENT_CREATED_AT,
   },
   {
     id: 'punish-plank',
@@ -96,6 +109,7 @@ export const defaultPunishments: Punishment[] = [
     category: 'physical',
     difficulty: 2,
     scope: 'base',
+    createdAt: DEFAULT_PUNISHMENT_CREATED_AT,
   },
   {
     id: 'punish-deep-work',
@@ -104,6 +118,7 @@ export const defaultPunishments: Punishment[] = [
     category: 'productive',
     difficulty: 3,
     scope: 'base',
+    createdAt: DEFAULT_PUNISHMENT_CREATED_AT,
   },
   {
     id: 'punish-run',
@@ -112,6 +127,7 @@ export const defaultPunishments: Punishment[] = [
     category: 'physical',
     difficulty: 3,
     scope: 'base',
+    createdAt: DEFAULT_PUNISHMENT_CREATED_AT,
   },
   {
     id: 'punish-kitchen',
@@ -120,6 +136,7 @@ export const defaultPunishments: Punishment[] = [
     category: 'domestic',
     difficulty: 3,
     scope: 'base',
+    createdAt: DEFAULT_PUNISHMENT_CREATED_AT,
   },
   {
     id: 'punish-donate-15',
@@ -128,6 +145,7 @@ export const defaultPunishments: Punishment[] = [
     category: 'financial',
     difficulty: 3,
     scope: 'base',
+    createdAt: DEFAULT_PUNISHMENT_CREATED_AT,
   },
   {
     id: 'punish-no-streaming',
@@ -136,6 +154,7 @@ export const defaultPunishments: Punishment[] = [
     category: 'productive',
     difficulty: 3,
     scope: 'base',
+    createdAt: DEFAULT_PUNISHMENT_CREATED_AT,
   },
   {
     id: 'punish-mobility',
@@ -144,6 +163,7 @@ export const defaultPunishments: Punishment[] = [
     category: 'physical',
     difficulty: 3,
     scope: 'base',
+    createdAt: DEFAULT_PUNISHMENT_CREATED_AT,
   },
   {
     id: 'punish-inbox-zero',
@@ -152,6 +172,7 @@ export const defaultPunishments: Punishment[] = [
     category: 'productive',
     difficulty: 3,
     scope: 'base',
+    createdAt: DEFAULT_PUNISHMENT_CREATED_AT,
   },
   {
     id: 'punish-laundry',
@@ -160,5 +181,6 @@ export const defaultPunishments: Punishment[] = [
     category: 'domestic',
     difficulty: 2,
     scope: 'base',
+    createdAt: DEFAULT_PUNISHMENT_CREATED_AT,
   },
 ];

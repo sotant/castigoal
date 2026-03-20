@@ -255,7 +255,34 @@ function createContainer(input: {
 }
 
 async function loadContainer(mode: SessionMode, actorId: string) {
-  return readJson<LocalContainer>(ownerKey(mode, actorId));
+  const key = ownerKey(mode, actorId);
+  const container = await readJson<LocalContainer>(key);
+
+  if (!container) {
+    return null;
+  }
+
+  let changed = false;
+
+  for (const record of Object.values(container.records.punishments)) {
+    const punishment = record.data as Punishment & { createdAt?: string };
+
+    if (punishment.createdAt) {
+      continue;
+    }
+
+    record.data = {
+      ...punishment,
+      createdAt: record.meta.lastModifiedAt ?? record.meta.lastSyncedAt ?? container.createdAt,
+    };
+    changed = true;
+  }
+
+  if (changed) {
+    await writeJson(key, container);
+  }
+
+  return container;
 }
 
 async function saveContainer(container: LocalContainer) {
@@ -581,9 +608,21 @@ function getDerivedData(container: LocalContainer, referenceDate = startOfToday(
   const goals = sortGoals(getValues(container.records.goals));
   const checkins = getValues(container.records.checkins);
   const assignedPunishments = getValues(container.records.assignedPunishments);
-  const punishments = getValues(container.records.punishments).sort((left, right) =>
-    left.title.localeCompare(right.title, 'es'),
-  );
+  const punishments = getValues(container.records.punishments).sort((left, right) => {
+    if (left.scope === 'personal' && right.scope === 'personal') {
+      return (right.createdAt ?? '').localeCompare(left.createdAt ?? '');
+    }
+
+    if (left.scope === 'personal') {
+      return -1;
+    }
+
+    if (right.scope === 'personal') {
+      return 1;
+    }
+
+    return left.title.localeCompare(right.title, 'es');
+  });
   const completedHistory = getValues(container.records.punishmentHistory).sort((left, right) =>
     right.completedAt.localeCompare(left.completedAt),
   );
@@ -882,6 +921,7 @@ function mapPunishmentRow(row: Tables<'punishments'>): SyncRecord<Punishment> {
   return {
     data: {
       category: row.category as Punishment['category'],
+      createdAt: row.created_at,
       description: row.description,
       difficulty: row.difficulty as Punishment['difficulty'],
       id: row.id,
@@ -1695,10 +1735,11 @@ export async function completeAssignedPunishmentRecord(assignedId: string) {
   });
 }
 
-export async function addCustomPunishmentRecord(input: Omit<Punishment, 'id' | 'scope'>) {
+export async function addCustomPunishmentRecord(input: Omit<Punishment, 'id' | 'scope' | 'createdAt'>) {
   return withActiveContainer(async (container) => {
     const punishment: Punishment = {
       category: 'custom',
+      createdAt: nowIso(),
       description: input.description.trim(),
       difficulty: input.difficulty,
       id: createUuid(),
@@ -1718,7 +1759,7 @@ export async function addCustomPunishmentRecord(input: Omit<Punishment, 'id' | '
   });
 }
 
-export async function updateCustomPunishmentRecord(punishmentId: string, input: Omit<Punishment, 'id' | 'scope'>) {
+export async function updateCustomPunishmentRecord(punishmentId: string, input: Omit<Punishment, 'id' | 'scope' | 'createdAt'>) {
   return withActiveContainer(async (container) => {
     const current = container.records.punishments[punishmentId]?.data;
     if (!current || current.scope !== 'personal') {

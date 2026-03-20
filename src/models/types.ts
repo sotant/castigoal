@@ -42,6 +42,7 @@ export interface Punishment {
   category: PunishmentCategory;
   difficulty: 1 | 2 | 3;
   scope: PunishmentScope;
+  createdAt: string;
 }
 
 export interface AssignedPunishment {

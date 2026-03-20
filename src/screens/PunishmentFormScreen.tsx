@@ -28,7 +28,7 @@ export function PunishmentFormScreen() {
         category: 'custom',
         difficulty: 1,
       });
-      router.replace(appRoutes.punishments);
+      router.replace({ pathname: appRoutes.punishments, params: { tab: 'library' } });
     } catch {
       return;
     } finally {

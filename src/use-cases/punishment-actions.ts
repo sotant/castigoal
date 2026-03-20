@@ -39,12 +39,12 @@ export async function loadPunishmentHistoryUseCase(): Promise<{
   };
 }
 
-export async function addCustomPunishmentUseCase(input: Omit<Punishment, 'id' | 'scope'>) {
+export async function addCustomPunishmentUseCase(input: Omit<Punishment, 'id' | 'scope' | 'createdAt'>) {
   await addCustomPunishmentRecord(input);
   return loadPunishmentCatalog();
 }
 
-export async function updateCustomPunishmentUseCase(punishmentId: string, input: Omit<Punishment, 'id' | 'scope'>) {
+export async function updateCustomPunishmentUseCase(punishmentId: string, input: Omit<Punishment, 'id' | 'scope' | 'createdAt'>) {
   await updateCustomPunishmentRecord(punishmentId, input);
   return loadPunishmentCatalog();
 }

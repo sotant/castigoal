@@ -91,8 +91,8 @@ interface AppState {
     date?: string;
   }) => Promise<Awaited<ReturnType<typeof clearGoalCheckinUseCase>>>;
   completeAssignedPunishment: (assignedId: string) => Promise<void>;
-  addCustomPunishment: (input: Omit<Punishment, 'id' | 'scope'>) => Promise<void>;
-  updateCustomPunishment: (punishmentId: string, input: Omit<Punishment, 'id' | 'scope'>) => Promise<void>;
+  addCustomPunishment: (input: Omit<Punishment, 'id' | 'scope' | 'createdAt'>) => Promise<void>;
+  updateCustomPunishment: (punishmentId: string, input: Omit<Punishment, 'id' | 'scope' | 'createdAt'>) => Promise<void>;
   deleteCustomPunishment: (punishmentId: string) => Promise<void>;
   updateSettings: (input: Partial<UserSettings>) => Promise<void>;
   hydrateUser: (input: Partial<User> & Pick<User, 'id'>) => void;
