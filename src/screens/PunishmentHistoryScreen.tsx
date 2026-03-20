@@ -35,10 +35,12 @@ function PunishmentCard({ punishment, actions }: { punishment: Punishment; actio
 }
 
 function PendingPunishmentCard({
+  onShowInfo,
   onComplete,
   pendingPunishment,
   working,
 }: {
+  onShowInfo: () => void;
   onComplete: () => void;
   pendingPunishment: PendingAssignedPunishmentSummary;
   working: boolean;
@@ -46,15 +48,19 @@ function PendingPunishmentCard({
   return (
     <View style={styles.pendingItem}>
       <View style={styles.pendingCopy}>
-        <Text style={styles.pendingGoal}>{pendingPunishment.goalTitle}</Text>
         <Text style={styles.pendingTitle}>{pendingPunishment.punishment.title}</Text>
         <Text style={styles.pendingDescription}>{pendingPunishment.punishment.description}</Text>
-        <Text style={styles.pendingMeta}>Vence: {formatLongDate(pendingPunishment.dueDate)}</Text>
       </View>
 
-      <Pressable disabled={working} onPress={onComplete} style={[styles.pendingButton, working && styles.disabled]}>
-        <Text style={styles.pendingButtonLabel}>{working ? 'Guardando...' : 'Cumplido'}</Text>
-      </Pressable>
+      <View style={styles.pendingActionRow}>
+        <Pressable accessibilityLabel="Ver informacion del objetivo" onPress={onShowInfo} style={styles.pendingInfoButton}>
+          <Ionicons color="#92400E" name="information-circle-outline" size={20} />
+        </Pressable>
+        <Pressable disabled={working} onPress={onComplete} style={[styles.pendingCompleteButton, working && styles.disabled]}>
+          <Ionicons color={palette.snow} name="checkmark" size={16} />
+          <Text style={styles.pendingButtonLabel}>{working ? 'Guardando...' : 'Completar'}</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -118,6 +124,7 @@ export function PunishmentHistoryScreen() {
   const [saving, setSaving] = useState(false);
   const [completingAssignedId, setCompletingAssignedId] = useState<string | null>(null);
   const [pendingCompletion, setPendingCompletion] = useState<PendingAssignedPunishmentSummary | null>(null);
+  const [infoPunishment, setInfoPunishment] = useState<PendingAssignedPunishmentSummary | null>(null);
 
   useEffect(() => {
     const tasks: Promise<unknown>[] = [];
@@ -213,6 +220,7 @@ export function PunishmentHistoryScreen() {
             key={pendingPunishment.assignedId}
             pendingPunishment={pendingPunishment}
             working={completingAssignedId === pendingPunishment.assignedId}
+            onShowInfo={() => setInfoPunishment(pendingPunishment)}
             onComplete={() => confirmCompletion(pendingPunishment)}
           />
         ))}
@@ -421,7 +429,16 @@ export function PunishmentHistoryScreen() {
   const renderMineView = () => (
     <View style={styles.pageContent}>
       <View style={[styles.summaryCard, styles.mineSummaryCard]}>
-        <Text style={styles.summaryTitle}>Tienes {pendingPunishments.length} castigos pendientes</Text>
+        <View style={styles.contentSectionHeader}>
+          <View style={styles.sectionHeaderCopy}>
+            <Text style={styles.sectionTitle}>Castigos pendientes</Text>
+          </View>
+          <View style={[styles.countBadge, styles.historyCountBadge, styles.pendingCountBadge]}>
+            <Text style={[styles.countBadgeLabel, styles.historyCountBadgeLabel, styles.pendingCountBadgeLabel]}>
+              {pendingPunishments.length}
+            </Text>
+          </View>
+        </View>
         {renderPendingSummary()}
       </View>
 
@@ -431,6 +448,29 @@ export function PunishmentHistoryScreen() {
 
   return (
     <ScreenContainer title="Castigos" scroll={false} enableTabSwipe={false}>
+      <Modal
+        animationType="fade"
+        transparent
+        visible={infoPunishment !== null}
+        onRequestClose={() => setInfoPunishment(null)}>
+        <View style={styles.modalOverlay}>
+          <Pressable style={styles.modalBackdrop} onPress={() => setInfoPunishment(null)} />
+
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Informacion</Text>
+            <Text style={styles.infoModalMessage}>
+              <Text style={styles.pendingAlertLabel}>No cumpliste: </Text>
+              {infoPunishment?.goalTitle}
+            </Text>
+            <View style={styles.modalActions}>
+              <Pressable onPress={() => setInfoPunishment(null)} style={styles.secondaryButton}>
+                <Text style={styles.secondaryLabel}>Cerrar</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <Modal
         animationType="fade"
         transparent
@@ -583,8 +623,10 @@ const styles = StyleSheet.create({
     ...shadows.card,
   },
   mineSummaryCard: {
+    padding: spacing.md,
     backgroundColor: '#FFF7ED',
     borderColor: '#FED7AA',
+    gap: spacing.xs,
   },
   librarySummaryCard: {
     backgroundColor: '#F4F8FF',
@@ -632,7 +674,7 @@ const styles = StyleSheet.create({
     color: palette.slate,
   },
   summaryPendingList: {
-    gap: spacing.sm,
+    gap: 2,
   },
   summaryEmptyState: {
     borderRadius: radius.lg,
@@ -705,28 +747,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xs,
     paddingVertical: 7,
   },
+  pendingCountBadge: {
+    backgroundColor: '#FDE68A',
+  },
   historyCountBadgeLabel: {
     fontSize: 12,
+  },
+  pendingCountBadgeLabel: {
+    color: '#92400E',
   },
   inlineEmpty: {
     paddingTop: spacing.xs,
   },
   pendingItem: {
-    padding: spacing.md,
+    padding: spacing.sm,
     borderRadius: radius.md,
     backgroundColor: '#FFFBEB',
     borderWidth: 1,
     borderColor: '#FCD34D',
-    gap: spacing.sm,
-  },
-  pendingCopy: {
     gap: spacing.xs,
   },
-  pendingGoal: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#A16207',
-    textTransform: 'uppercase',
+  pendingCopy: {
+    gap: 4,
   },
   pendingTitle: {
     fontSize: 18,
@@ -737,9 +779,26 @@ const styles = StyleSheet.create({
     color: palette.slate,
     lineHeight: 21,
   },
-  pendingMeta: {
+  pendingAlertLabel: {
     color: '#92400E',
     fontWeight: '700',
+  },
+  pendingActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 6,
+  },
+  pendingInfoButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    flexShrink: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FDE68A',
+    borderWidth: 1,
+    borderColor: '#FCD34D',
   },
   pendingButton: {
     flex: 1,
@@ -748,9 +807,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#CA8A04',
   },
+  pendingCompleteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    borderRadius: radius.md,
+    backgroundColor: '#CA8A04',
+  },
   pendingButtonLabel: {
     color: palette.snow,
     fontWeight: '800',
+  },
+  infoModalMessage: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: palette.ink,
+    textAlign: 'center',
   },
   input: {
     paddingHorizontal: spacing.md,
