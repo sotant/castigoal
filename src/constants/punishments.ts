@@ -1,6 +1,90 @@
-import { Punishment } from '@/src/models/types';
+import { Punishment, PunishmentCategory } from '@/src/models/types';
+
+type PunishmentCategoryOption = {
+  value: Exclude<PunishmentCategory, 'custom'>;
+  label: string;
+  description: string;
+  icon: 'barbell-outline' | 'flash-outline' | 'cash-outline' | 'home-outline';
+  accent: string;
+  tint: string;
+};
+
+type PunishmentDifficultyOption = {
+  value: 1 | 2 | 3;
+  label: string;
+  description: string;
+  accent: string;
+  tint: string;
+};
 
 const DEFAULT_PUNISHMENT_CREATED_AT = '2026-01-01T00:00:00.000Z';
+
+export const PUNISHMENT_CATEGORY_OPTIONS: PunishmentCategoryOption[] = [
+  {
+    value: 'productive',
+    label: 'Productividad',
+    description: 'Bloques de foco, orden y disciplina digital.',
+    icon: 'flash-outline',
+    accent: '#2563EB',
+    tint: '#EAF2FF',
+  },
+  {
+    value: 'physical',
+    label: 'Fisico',
+    description: 'Retos de movimiento, ejercicio y energia.',
+    icon: 'barbell-outline',
+    accent: '#D97706',
+    tint: '#FFF4E6',
+  },
+  {
+    value: 'domestic',
+    label: 'Hogar',
+    description: 'Tareas de orden, limpieza y mantenimiento.',
+    icon: 'home-outline',
+    accent: '#059669',
+    tint: '#EAFBF4',
+  },
+  {
+    value: 'financial',
+    label: 'Finanzas',
+    description: 'Penalizaciones economicas o de compromiso.',
+    icon: 'cash-outline',
+    accent: '#7C3AED',
+    tint: '#F2EBFF',
+  },
+];
+
+export const PUNISHMENT_DIFFICULTY_OPTIONS: PunishmentDifficultyOption[] = [
+  {
+    value: 1,
+    label: 'Ligera',
+    description: 'Rapida de cumplir y perfecta para castigos cotidianos.',
+    accent: '#2563EB',
+    tint: '#EDF4FF',
+  },
+  {
+    value: 2,
+    label: 'Media',
+    description: 'Exige esfuerzo real y deja huella durante el dia.',
+    accent: '#D97706',
+    tint: '#FFF4E6',
+  },
+  {
+    value: 3,
+    label: 'Alta',
+    description: 'Mas dura, pensada para fallos importantes.',
+    accent: '#DC2626',
+    tint: '#FEECEC',
+  },
+];
+
+export const punishmentCategoryLabels: Record<PunishmentCategory, string> = {
+  custom: 'Personal',
+  domestic: 'Hogar',
+  financial: 'Finanzas',
+  physical: 'Fisico',
+  productive: 'Productividad',
+};
 
 export const defaultPunishments: Punishment[] = [
   {

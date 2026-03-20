@@ -1738,7 +1738,7 @@ export async function completeAssignedPunishmentRecord(assignedId: string) {
 export async function addCustomPunishmentRecord(input: Omit<Punishment, 'id' | 'scope' | 'createdAt'>) {
   return withActiveContainer(async (container) => {
     const punishment: Punishment = {
-      category: 'custom',
+      category: input.category,
       createdAt: nowIso(),
       description: input.description.trim(),
       difficulty: input.difficulty,
@@ -1768,6 +1768,7 @@ export async function updateCustomPunishmentRecord(punishmentId: string, input: 
 
     const punishment: Punishment = {
       ...current,
+      category: input.category,
       description: input.description.trim(),
       difficulty: input.difficulty,
       title: input.title.trim(),

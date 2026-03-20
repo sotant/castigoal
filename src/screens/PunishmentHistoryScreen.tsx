@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EmptyState } from '@/src/components/EmptyState';
 import { ScreenContainer } from '@/src/components/ScreenContainer';
+import { punishmentCategoryLabels } from '@/src/constants/punishments';
 import { palette, radius, shadows, spacing } from '@/src/constants/theme';
 import { usePunishmentCatalog } from '@/src/features/punishments/selectors';
 import { CompletedPunishmentHistoryEntry, PendingAssignedPunishmentSummary, Punishment } from '@/src/models/types';
@@ -26,7 +27,7 @@ function PunishmentCard({ punishment, actions }: { punishment: Punishment; actio
       </View>
       <Text style={styles.cardDescription}>{punishment.description}</Text>
       <View style={styles.metaRow}>
-        <Text style={styles.metaText}>Categoria: {punishment.category}</Text>
+        <Text style={styles.metaText}>Categoria: {punishmentCategoryLabels[punishment.category]}</Text>
         <Text style={styles.metaText}>Dificultad: {punishment.difficulty}/3</Text>
       </View>
       {actions}
@@ -324,9 +325,9 @@ export function PunishmentHistoryScreen() {
                   try {
                     await updateCustomPunishment(punishment.id, {
                       title: editingPunishmentTitle.trim(),
-                      description: editingPunishmentTitle.trim(),
-                      category: 'custom',
-                      difficulty: 1,
+                      description: punishment.description,
+                      category: punishment.category,
+                      difficulty: punishment.difficulty,
                     });
                     cancelEditing();
                   } catch {
