@@ -131,19 +131,18 @@ export function PunishmentFormScreen() {
                 const isSelected = option.value === difficulty;
 
                 return (
-                  <View
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={saving}
                     key={option.value}
+                    onPress={() => setDifficulty(option.value)}
                     style={[
                       styles.difficultyItem,
                       { backgroundColor: option.tint, borderColor: isSelected ? option.accent : 'transparent' },
                       isSelected && styles.selectedDifficultyCard,
                     ]}>
                     <View style={styles.difficultyCard}>
-                      <Pressable
-                        accessibilityRole="button"
-                        disabled={saving}
-                        onPress={() => setDifficulty(option.value)}
-                        style={styles.difficultyMainAction}>
+                      <View style={styles.difficultyMainAction}>
                         <View
                           style={[
                             styles.difficultyBadge,
@@ -154,13 +153,16 @@ export function PunishmentFormScreen() {
                           </Text>
                         </View>
                         <Text style={[styles.optionTitle, isSelected && { color: option.accent }]}>{option.label}</Text>
-                      </Pressable>
+                      </View>
                       <Pressable
                         accessibilityLabel={`Ver informacion sobre dificultad ${option.label}`}
                         accessibilityRole="button"
                         disabled={saving}
                         hitSlop={8}
-                        onPress={() => setDifficultyInfoValue((current) => (current === option.value ? null : option.value))}
+                        onPress={(event) => {
+                          event.stopPropagation();
+                          setDifficultyInfoValue((current) => (current === option.value ? null : option.value));
+                        }}
                         style={[styles.difficultyInfoButton, { borderColor: option.accent }]}>
                         <Ionicons color={option.accent} name="information-circle-outline" size={18} />
                       </Pressable>
@@ -168,7 +170,7 @@ export function PunishmentFormScreen() {
                     {difficultyInfoValue === option.value ? (
                       <Text style={styles.inlineDifficultyInfoText}>{option.description}</Text>
                     ) : null}
-                  </View>
+                  </Pressable>
                 );
               })}
             </View>
@@ -186,19 +188,18 @@ export function PunishmentFormScreen() {
                 const isSelected = option.value === category;
 
                 return (
-                  <View
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={saving}
                     key={option.value}
+                    onPress={() => setCategory(option.value)}
                     style={[
                       styles.categoryItem,
                       { backgroundColor: option.tint, borderColor: isSelected ? option.accent : 'transparent' },
                       isSelected && styles.selectedDifficultyCard,
                     ]}>
                     <View style={styles.categoryCard}>
-                      <Pressable
-                        accessibilityRole="button"
-                        disabled={saving}
-                        onPress={() => setCategory(option.value)}
-                        style={styles.categoryMainAction}>
+                      <View style={styles.categoryMainAction}>
                         <View
                           style={[
                             styles.categoryIconWrap,
@@ -215,13 +216,16 @@ export function PunishmentFormScreen() {
                           ]}>
                           {option.label}
                         </Text>
-                      </Pressable>
+                      </View>
                       <Pressable
                         accessibilityLabel={`Ver informacion sobre categoria ${option.label}`}
                         accessibilityRole="button"
                         disabled={saving}
                         hitSlop={8}
-                        onPress={() => setCategoryInfoValue((current) => (current === option.value ? null : option.value))}
+                        onPress={(event) => {
+                          event.stopPropagation();
+                          setCategoryInfoValue((current) => (current === option.value ? null : option.value));
+                        }}
                         style={[styles.categoryInfoButton, { borderColor: option.accent }]}>
                         <Ionicons color={option.accent} name="information-circle-outline" size={18} />
                       </Pressable>
@@ -229,7 +233,7 @@ export function PunishmentFormScreen() {
                     {categoryInfoValue === option.value ? (
                       <Text style={styles.inlineCategoryInfoText}>{option.description}</Text>
                     ) : null}
-                  </View>
+                  </Pressable>
                 );
               })}
             </View>
