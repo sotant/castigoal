@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams, usePathname } from 'expo-router';
-import { ComponentProps, ReactNode, useEffect, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ComponentProps, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { Directions, FlingGestureHandler } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,6 +18,37 @@ import { appRoutes, getAdjacentTabHref } from '@/src/navigation/app-routes';
 import { useAppStore } from '@/src/store/app-store';
 import { formatLongDate, toISODate } from '@/src/utils/date';
 
+type PrimaryTabKey = 'mine' | 'library';
+type LibraryOriginFilter = 'all' | 'personal' | 'base';
+
+type SecondaryNavItem =
+  | {
+      type: 'tab';
+      key: PrimaryTabKey;
+      label: string;
+      icon: ComponentProps<typeof Ionicons>['name'];
+    }
+  | {
+      type: 'action';
+      key: 'new';
+      label: string;
+      icon: ComponentProps<typeof Ionicons>['name'];
+    };
+
+const SECONDARY_NAV_ITEMS: SecondaryNavItem[] = [
+  { type: 'tab', key: 'mine', label: 'Mis castigos', icon: 'shield-half' },
+  { type: 'tab', key: 'library', label: 'Biblioteca', icon: 'library' },
+  { type: 'action', key: 'new', label: 'Nuevo', icon: 'add-outline' },
+];
+
+const PRIMARY_TABS = SECONDARY_NAV_ITEMS.filter((item): item is Extract<SecondaryNavItem, { type: 'tab' }> => item.type === 'tab');
+const ORIGIN_FILTER_OPTIONS: { label: string; value: LibraryOriginFilter }[] = [
+  { label: 'Todos', value: 'all' },
+  { label: 'Personal', value: 'personal' },
+  { label: 'Base', value: 'base' },
+];
+const LIBRARY_PAGE_SIZE = 10;
+
 function PunishmentCard({ punishment, actions }: { punishment: Punishment; actions?: ReactNode }) {
   const categoryOption = PUNISHMENT_CATEGORY_OPTIONS.find((option) => option.value === punishment.category) ?? PUNISHMENT_CATEGORY_OPTIONS[0];
   const difficultyOption =
@@ -32,7 +63,11 @@ function PunishmentCard({ punishment, actions }: { punishment: Punishment; actio
         </Text>
       </View>
 
-      {punishment.description ? <Text style={styles.cardDescription}>{punishment.description}</Text> : null}
+      {punishment.description ? (
+        <Text numberOfLines={2} style={styles.cardDescription}>
+          {punishment.description}
+        </Text>
+      ) : null}
 
       <View style={styles.cardFooter}>
         <View style={styles.previewTags}>
@@ -102,40 +137,11 @@ function CompletedHistoryCard({
   );
 }
 
-type PrimaryTabKey = 'mine' | 'library';
-
-type SecondaryNavItem =
-  | {
-      type: 'tab';
-      key: PrimaryTabKey;
-      label: string;
-      icon: ComponentProps<typeof Ionicons>['name'];
-    }
-  | {
-      type: 'action';
-      key: 'new';
-      label: string;
-      icon: ComponentProps<typeof Ionicons>['name'];
-    };
-
-const SECONDARY_NAV_ITEMS: SecondaryNavItem[] = [
-  { type: 'tab', key: 'mine', label: 'Mis castigos', icon: 'shield-half' },
-  { type: 'tab', key: 'library', label: 'Biblioteca', icon: 'library' },
-  { type: 'action', key: 'new', label: 'Nuevo', icon: 'add-outline' },
-];
-
-const PRIMARY_TABS = SECONDARY_NAV_ITEMS.filter((item): item is Extract<SecondaryNavItem, { type: 'tab' }> => item.type === 'tab');
-
 export function PunishmentHistoryScreen() {
   const pathname = usePathname();
   const params = useLocalSearchParams<{ tab?: PrimaryTabKey }>();
-  const {
-    personalPunishments,
-    basePunishments,
-    deleteCustomPunishment,
-    punishmentsLoaded,
-    refreshPunishmentCatalog,
-  } = usePunishmentCatalog();
+  const { personalPunishments, basePunishments, deleteCustomPunishment, punishmentsLoaded, refreshPunishmentCatalog } =
+    usePunishmentCatalog();
   const completedPunishmentHistory = useAppStore((state) => state.completedPunishmentHistory);
   const completeAssignedPunishment = useAppStore((state) => state.completeAssignedPunishment);
   const pendingPunishments = useAppStore((state) => state.pendingPunishments);
@@ -143,6 +149,7 @@ export function PunishmentHistoryScreen() {
   const refreshPunishmentHistory = useAppStore((state) => state.refreshPunishmentHistory);
   const tabBarHeight = useBottomTabBarHeight();
   const insets = useSafeAreaInsets();
+  const scrollRef = useRef<ScrollView>(null);
   const [activePrimaryTab, setActivePrimaryTab] = useState<PrimaryTabKey>(params.tab === 'library' ? 'library' : 'mine');
   const [activeMenuPunishmentId, setActiveMenuPunishmentId] = useState<string | null>(null);
   const [pendingDeletePunishmentId, setPendingDeletePunishmentId] = useState<string | null>(null);
@@ -152,8 +159,87 @@ export function PunishmentHistoryScreen() {
   const [infoPunishment, setInfoPunishment] = useState<PendingAssignedPunishmentSummary | null>(null);
   const [infoCompletedEntry, setInfoCompletedEntry] = useState<CompletedPunishmentHistoryEntry | null>(null);
   const [isCompletedHistoryOpen, setIsCompletedHistoryOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+  const [originFilter, setOriginFilter] = useState<LibraryOriginFilter>('all');
+  const [categoryFilters, setCategoryFilters] = useState<string[]>([]);
+  const [difficultyFilters, setDifficultyFilters] = useState<(1 | 2 | 3)[]>([]);
+  const [libraryPage, setLibraryPage] = useState(1);
+  const [draftOriginFilter, setDraftOriginFilter] = useState<LibraryOriginFilter>('all');
+  const [draftCategoryFilters, setDraftCategoryFilters] = useState<string[]>([]);
+  const [draftDifficultyFilters, setDraftDifficultyFilters] = useState<(1 | 2 | 3)[]>([]);
+  const [librarySectionY, setLibrarySectionY] = useState(0);
+
   const activeMenuPunishment = personalPunishments.find((item) => item.id === activeMenuPunishmentId) ?? null;
   const pendingDeletePunishment = personalPunishments.find((item) => item.id === pendingDeletePunishmentId) ?? null;
+  const allLibraryPunishments = useMemo(() => [...personalPunishments, ...basePunishments], [basePunishments, personalPunishments]);
+  const normalizedSearchQuery = searchQuery.trim().toLocaleLowerCase('es');
+
+  const filteredLibraryPunishments = useMemo(
+    () =>
+      allLibraryPunishments.filter((punishment) => {
+        const matchesOrigin = originFilter === 'all' ? true : punishment.scope === originFilter;
+        const matchesCategory = categoryFilters.length === 0 ? true : categoryFilters.includes(punishment.category);
+        const matchesDifficulty = difficultyFilters.length === 0 ? true : difficultyFilters.includes(punishment.difficulty);
+        const matchesSearch = normalizedSearchQuery
+          ? `${punishment.title} ${punishment.description}`.toLocaleLowerCase('es').includes(normalizedSearchQuery)
+          : true;
+
+        return matchesOrigin && matchesCategory && matchesDifficulty && matchesSearch;
+      }),
+    [allLibraryPunishments, categoryFilters, difficultyFilters, normalizedSearchQuery, originFilter],
+  );
+  const totalLibraryPages = Math.max(1, Math.ceil(filteredLibraryPunishments.length / LIBRARY_PAGE_SIZE));
+  const paginatedLibraryPunishments = useMemo(() => {
+    const startIndex = (libraryPage - 1) * LIBRARY_PAGE_SIZE;
+    return filteredLibraryPunishments.slice(startIndex, startIndex + LIBRARY_PAGE_SIZE);
+  }, [filteredLibraryPunishments, libraryPage]);
+
+  const activeFilterChips = useMemo(() => {
+    const chips: { key: string; label: string; onRemove: () => void }[] = [];
+
+    if (originFilter !== 'all') {
+      chips.push({
+        key: `origin-${originFilter}`,
+        label: originFilter === 'personal' ? 'Personal' : 'Base',
+        onRemove: () => setOriginFilter('all'),
+      });
+    }
+
+    categoryFilters.forEach((value) => {
+      const option = PUNISHMENT_CATEGORY_OPTIONS.find((item) => item.value === value);
+
+      if (option) {
+        chips.push({
+          key: `category-${value}`,
+          label: option.label,
+          onRemove: () => setCategoryFilters((current) => current.filter((item) => item !== value)),
+        });
+      }
+    });
+
+    difficultyFilters.forEach((value) => {
+      const option = PUNISHMENT_DIFFICULTY_OPTIONS.find((item) => item.value === value);
+
+      if (option) {
+        chips.push({
+          key: `difficulty-${value}`,
+          label: option.label,
+          onRemove: () => setDifficultyFilters((current) => current.filter((item) => item !== value)),
+        });
+      }
+    });
+
+    if (searchQuery.trim()) {
+      chips.push({
+        key: 'search',
+        label: `"${searchQuery.trim()}"`,
+        onRemove: () => setSearchQuery(''),
+      });
+    }
+
+    return chips;
+  }, [categoryFilters, difficultyFilters, originFilter, searchQuery]);
 
   useEffect(() => {
     const tasks: Promise<unknown>[] = [];
@@ -178,6 +264,26 @@ export function PunishmentHistoryScreen() {
       setActivePrimaryTab(params.tab);
     }
   }, [params.tab]);
+
+  useEffect(() => {
+    if (!isFiltersOpen) {
+      return;
+    }
+
+    setDraftOriginFilter(originFilter);
+    setDraftCategoryFilters(categoryFilters);
+    setDraftDifficultyFilters(difficultyFilters);
+  }, [categoryFilters, difficultyFilters, isFiltersOpen, originFilter]);
+
+  useEffect(() => {
+    setLibraryPage(1);
+  }, [searchQuery, originFilter, categoryFilters, difficultyFilters]);
+
+  useEffect(() => {
+    if (libraryPage > totalLibraryPages) {
+      setLibraryPage(totalLibraryPages);
+    }
+  }, [libraryPage, totalLibraryPages]);
 
   const confirmCompletion = (pendingPunishment: PendingAssignedPunishmentSummary) => {
     setPendingCompletion(pendingPunishment);
@@ -222,6 +328,37 @@ export function PunishmentHistoryScreen() {
     if (adjacentMainTab) {
       router.navigate(adjacentMainTab);
     }
+  };
+
+  const resetAllFilters = () => {
+    setOriginFilter('all');
+    setCategoryFilters([]);
+    setDifficultyFilters([]);
+    setSearchQuery('');
+    setLibraryPage(1);
+  };
+
+  const toggleDraftCategory = (value: string) => {
+    setDraftCategoryFilters((current) => (current.includes(value) ? current.filter((item) => item !== value) : [...current, value]));
+  };
+
+  const toggleDraftDifficulty = (value: 1 | 2 | 3) => {
+    setDraftDifficultyFilters((current) => (current.includes(value) ? current.filter((item) => item !== value) : [...current, value]));
+  };
+
+  const applyFilters = () => {
+    setOriginFilter(draftOriginFilter);
+    setCategoryFilters(draftCategoryFilters);
+    setDifficultyFilters(draftDifficultyFilters);
+    setLibraryPage(1);
+    setIsFiltersOpen(false);
+  };
+
+  const goToLibraryPage = (page: number) => {
+    setLibraryPage(page);
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollTo({ y: Math.max(0, librarySectionY - spacing.sm), animated: true });
+    });
   };
 
   const renderPendingSummary = () => {
@@ -287,21 +424,39 @@ export function PunishmentHistoryScreen() {
     </View>
   );
 
-  const renderPersonalPunishments = () => {
-    if (personalPunishments.length === 0) {
+  const renderLibraryResults = () => {
+    if (allLibraryPunishments.length === 0) {
       return (
         <View style={styles.inlineEmpty}>
-          <EmptyState title="Sin castigos creados" message="Crea tu primer castigo personalizado y lo veras aqui al momento." />
+          <EmptyState
+            title="No hay castigos todavia"
+            message="Crea tu primer castigo para empezar a construir tu biblioteca."
+            actionLabel="Crear castigo"
+            onAction={() => router.push(appRoutes.createPunishment)}
+          />
         </View>
       );
     }
 
-    return personalPunishments.map((punishment) => {
+    if (filteredLibraryPunishments.length === 0) {
       return (
-        <PunishmentCard
-          key={punishment.id}
-          punishment={punishment}
-          actions={
+        <View style={styles.inlineEmpty}>
+          <EmptyState
+            title="No hay castigos que coincidan con los filtros"
+            message="Prueba con otra combinacion o limpia los filtros activos."
+            actionLabel="Limpiar filtros"
+            onAction={resetAllFilters}
+          />
+        </View>
+      );
+    }
+
+    return paginatedLibraryPunishments.map((punishment) => (
+      <PunishmentCard
+        key={punishment.id}
+        punishment={punishment}
+        actions={
+          punishment.scope === 'personal' ? (
             <Pressable
               accessibilityHint="Muestra mas acciones para este castigo"
               accessibilityLabel={`Abrir menu de ${punishment.title}`}
@@ -314,10 +469,10 @@ export function PunishmentHistoryScreen() {
               style={({ pressed }) => [styles.moreButton, pressed && styles.secondaryNavPressed, saving && styles.disabled]}>
               <Ionicons color={palette.ink} name="ellipsis-horizontal" size={18} />
             </Pressable>
-          }
-        />
-      );
-    });
+          ) : undefined
+        }
+      />
+    ));
   };
 
   const renderLibraryView = () => (
@@ -336,36 +491,79 @@ export function PunishmentHistoryScreen() {
         </View>
       </View>
 
-      <View style={styles.contentSection}>
+      <View
+        onLayout={(event) => {
+          setLibrarySectionY(event.nativeEvent.layout.y);
+        }}
+        style={styles.contentSection}>
         <View style={styles.contentSectionHeader}>
           <View style={styles.sectionHeaderCopy}>
-            <Text style={styles.sectionTitle}>Castigos creados por mi</Text>
+            <Text style={styles.sectionTitle}>Biblioteca</Text>
           </View>
           <View style={[styles.countBadge, styles.historyCountBadge]}>
-            <Text style={[styles.countBadgeLabel, styles.historyCountBadgeLabel]}>{personalPunishments.length}</Text>
+            <Text style={[styles.countBadgeLabel, styles.historyCountBadgeLabel]}>{filteredLibraryPunishments.length}</Text>
           </View>
         </View>
 
-        {renderPersonalPunishments()}
-      </View>
+        <View style={styles.libraryToolbar}>
+          <View style={styles.searchShell}>
+            <Ionicons color="#708198" name="search-outline" size={18} />
+            <TextInput
+              onChangeText={setSearchQuery}
+              placeholder="Nombre o descripción"
+              placeholderTextColor="#8EA0B7"
+              style={styles.searchInput}
+              value={searchQuery}
+            />
+          </View>
 
-      <View style={styles.contentSection}>
-        <View style={styles.contentSectionHeader}>
-          <View style={styles.sectionHeaderCopy}>
-            <Text style={styles.sectionTitle}>Castigos de la app</Text>
-          </View>
-          <View style={[styles.countBadge, styles.historyCountBadge]}>
-            <Text style={[styles.countBadgeLabel, styles.historyCountBadgeLabel]}>{basePunishments.length}</Text>
-          </View>
+          <Pressable onPress={() => setIsFiltersOpen(true)} style={styles.filterButton}>
+            <Ionicons color={palette.primaryDeep} name="options-outline" size={18} />
+            <Text style={styles.filterButtonLabel}>Filtros</Text>
+          </Pressable>
         </View>
 
-        {basePunishments.length === 0 ? (
-          <View style={styles.inlineEmpty}>
-            <EmptyState title="Sin castigos base" message="No hay castigos predeterminados disponibles en este momento." />
+        {activeFilterChips.length > 0 ? (
+          <View style={styles.activeFiltersBlock}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.activeFiltersRow}>
+              {activeFilterChips.map((chip) => (
+                <Pressable key={chip.key} onPress={chip.onRemove} style={styles.activeFilterChip}>
+                  <Text style={styles.activeFilterChipLabel}>{chip.label}</Text>
+                  <Ionicons color={palette.primaryDeep} name="close" size={14} />
+                </Pressable>
+              ))}
+              <Pressable onPress={resetAllFilters} style={styles.clearFiltersChip}>
+                <Text style={styles.clearFiltersChipLabel}>Limpiar filtros</Text>
+              </Pressable>
+            </ScrollView>
           </View>
-        ) : (
-          basePunishments.map((punishment) => <PunishmentCard key={punishment.id} punishment={punishment} />)
-        )}
+        ) : null}
+
+        {renderLibraryResults()}
+
+        {filteredLibraryPunishments.length > LIBRARY_PAGE_SIZE ? (
+          <View style={styles.paginationRow}>
+            <Pressable
+              disabled={libraryPage === 1}
+              onPress={() => goToLibraryPage(Math.max(1, libraryPage - 1))}
+              style={[styles.paginationButton, libraryPage === 1 && styles.disabled]}>
+              <Ionicons color={palette.primaryDeep} name="chevron-back" size={16} />
+              <Text style={styles.paginationButtonLabel}>Anterior</Text>
+            </Pressable>
+
+            <Text style={styles.paginationLabel}>
+              Página {libraryPage} de {totalLibraryPages}
+            </Text>
+
+            <Pressable
+              disabled={libraryPage === totalLibraryPages}
+              onPress={() => goToLibraryPage(Math.min(totalLibraryPages, libraryPage + 1))}
+              style={[styles.paginationButton, libraryPage === totalLibraryPages && styles.disabled]}>
+              <Text style={styles.paginationButtonLabel}>Siguiente</Text>
+              <Ionicons color={palette.primaryDeep} name="chevron-forward" size={16} />
+            </Pressable>
+          </View>
+        ) : null}
       </View>
     </View>
   );
@@ -436,11 +634,7 @@ export function PunishmentHistoryScreen() {
         </View>
       </Modal>
 
-      <Modal
-        animationType="fade"
-        transparent
-        visible={infoPunishment !== null}
-        onRequestClose={() => setInfoPunishment(null)}>
+      <Modal animationType="fade" transparent visible={infoPunishment !== null} onRequestClose={() => setInfoPunishment(null)}>
         <View style={styles.modalOverlay}>
           <Pressable style={styles.modalBackdrop} onPress={() => setInfoPunishment(null)} />
 
@@ -495,6 +689,104 @@ export function PunishmentHistoryScreen() {
                 }}
                 style={[styles.pendingButton, completingAssignedId && styles.disabled]}>
                 <Text style={styles.pendingButtonLabel}>{completingAssignedId ? 'Guardando...' : 'Si'}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal animationType="fade" transparent visible={isFiltersOpen} onRequestClose={() => setIsFiltersOpen(false)}>
+        <View style={styles.filterOverlay}>
+          <Pressable style={styles.modalBackdrop} onPress={() => setIsFiltersOpen(false)} />
+
+          <View style={styles.filterSheet}>
+            <View style={styles.filterHandle} />
+            <View style={styles.filterSheetHeader}>
+              <View>
+                <Text style={styles.filterEyebrow}>Filtros</Text>
+                <Text style={styles.filterTitle}>Refina la biblioteca</Text>
+              </View>
+              <Pressable onPress={() => setIsFiltersOpen(false)} style={styles.filterCloseButton}>
+                <Ionicons color={palette.ink} name="close" size={18} />
+              </Pressable>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.filterSections}>
+              <View style={styles.filterSection}>
+                <Text style={styles.filterSectionTitle}>Origen</Text>
+                <View style={styles.filterOptionWrap}>
+                  {ORIGIN_FILTER_OPTIONS.map((option) => {
+                    const isActive = draftOriginFilter === option.value;
+
+                    return (
+                      <Pressable
+                        key={option.value}
+                        onPress={() => setDraftOriginFilter(option.value)}
+                        style={[styles.filterChip, isActive && styles.filterChipActive]}>
+                        <Text style={[styles.filterChipLabel, isActive && styles.filterChipLabelActive]}>{option.label}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+
+              <View style={styles.filterSection}>
+                <Text style={styles.filterSectionTitle}>Categoria</Text>
+                <View style={styles.filterOptionWrap}>
+                  {PUNISHMENT_CATEGORY_OPTIONS.map((option) => {
+                    const isActive = draftCategoryFilters.includes(option.value);
+
+                    return (
+                      <Pressable
+                        key={option.value}
+                        onPress={() => toggleDraftCategory(option.value)}
+                        style={[
+                          styles.filterChip,
+                          styles.filterColorChip,
+                          { backgroundColor: isActive ? option.accent : option.tint, borderColor: option.accent },
+                        ]}>
+                        <Text style={[styles.filterChipLabel, { color: isActive ? palette.snow : option.accent }]}>{option.label}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+
+              <View style={styles.filterSection}>
+                <Text style={styles.filterSectionTitle}>Dificultad</Text>
+                <View style={styles.filterOptionWrap}>
+                  {PUNISHMENT_DIFFICULTY_OPTIONS.map((option) => {
+                    const isActive = draftDifficultyFilters.includes(option.value);
+
+                    return (
+                      <Pressable
+                        key={option.value}
+                        onPress={() => toggleDraftDifficulty(option.value)}
+                        style={[
+                          styles.filterChip,
+                          styles.filterColorChip,
+                          { backgroundColor: isActive ? option.accent : option.tint, borderColor: option.accent },
+                        ]}>
+                        <Text style={[styles.filterChipLabel, { color: isActive ? palette.snow : option.accent }]}>{option.label}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            </ScrollView>
+
+            <View style={styles.filterActions}>
+              <Pressable
+                onPress={() => {
+                  setDraftOriginFilter('all');
+                  setDraftCategoryFilters([]);
+                  setDraftDifficultyFilters([]);
+                }}
+                style={styles.filterSecondaryButton}>
+                <Text style={styles.filterSecondaryLabel}>Limpiar</Text>
+              </Pressable>
+              <Pressable onPress={applyFilters} style={styles.filterPrimaryButton}>
+                <Text style={styles.filterPrimaryLabel}>Aplicar</Text>
               </Pressable>
             </View>
           </View>
@@ -565,10 +857,8 @@ export function PunishmentHistoryScreen() {
         <FlingGestureHandler direction={Directions.RIGHT} onActivated={() => handlePrimaryTabSwipe('right')}>
           <View style={styles.layout}>
             <ScrollView
-              contentContainerStyle={[
-                styles.contentScroll,
-                { paddingBottom: tabBarHeight + insets.bottom + 88 },
-              ]}
+              ref={scrollRef}
+              contentContainerStyle={[styles.contentScroll, { paddingBottom: tabBarHeight + insets.bottom + 88 }]}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}>
               {activePrimaryTab === 'mine' ? renderMineView() : renderLibraryView()}
@@ -579,7 +869,6 @@ export function PunishmentHistoryScreen() {
                 {SECONDARY_NAV_ITEMS.map((item, index) => {
                   const isTab = item.type === 'tab';
                   const isActive = isTab && item.key === activePrimaryTab;
-                  const iconName = isActive ? item.icon : item.icon;
                   const iconColor = isActive ? palette.primaryDeep : '#708198';
                   const handlePress = () => {
                     if (item.type === 'tab') {
@@ -603,7 +892,7 @@ export function PunishmentHistoryScreen() {
                           pressed && styles.secondaryNavPressed,
                         ]}>
                         <View style={[styles.secondaryNavIconShell, isActive && styles.secondaryNavIconShellActive]}>
-                          <Ionicons color={iconColor} name={iconName} size={17} />
+                          <Ionicons color={iconColor} name={item.icon} size={17} />
                         </View>
                         <Text
                           minimumFontScale={0.9}
@@ -643,6 +932,11 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     backgroundColor: 'rgba(11, 23, 38, 0.45)',
   },
+  filterOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(11, 23, 38, 0.45)',
+  },
   modalBackdrop: {
     ...StyleSheet.absoluteFillObject,
   },
@@ -652,6 +946,122 @@ const styles = StyleSheet.create({
     backgroundColor: palette.snow,
     gap: spacing.md,
     ...shadows.card,
+  },
+  filterSheet: {
+    paddingTop: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.lg,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    backgroundColor: palette.snow,
+    gap: spacing.md,
+    ...shadows.card,
+  },
+  filterHandle: {
+    width: 42,
+    height: 5,
+    borderRadius: radius.pill,
+    alignSelf: 'center',
+    backgroundColor: '#D7DFEB',
+  },
+  filterSheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  filterEyebrow: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+    color: palette.primaryDeep,
+  },
+  filterTitle: {
+    marginTop: 2,
+    fontSize: 22,
+    fontWeight: '900',
+    color: palette.ink,
+  },
+  filterCloseButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F3F6FA',
+  },
+  filterSections: {
+    gap: spacing.md,
+    paddingBottom: spacing.xs,
+  },
+  filterSection: {
+    gap: spacing.sm,
+  },
+  filterSectionTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: palette.ink,
+  },
+  filterOptionWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  filterChip: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 8,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: '#D7E0EB',
+    backgroundColor: '#F8FAFD',
+  },
+  filterColorChip: {
+    borderWidth: 1.5,
+  },
+  filterChipActive: {
+    backgroundColor: palette.primaryDeep,
+    borderColor: palette.primaryDeep,
+  },
+  filterChipLabel: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: palette.slate,
+  },
+  filterChipLabelActive: {
+    color: palette.snow,
+  },
+  filterActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  filterSecondaryButton: {
+    flex: 1,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#D7E0EB',
+    backgroundColor: palette.snow,
+  },
+  filterSecondaryLabel: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: palette.ink,
+  },
+  filterPrimaryButton: {
+    flex: 1,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 18,
+    backgroundColor: palette.primaryDeep,
+  },
+  filterPrimaryLabel: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: palette.snow,
   },
   modalTitle: {
     fontSize: 22,
@@ -677,26 +1087,15 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   librarySummaryCard: {
-    padding: spacing.sm,
-    backgroundColor: '#F4F8FF',
-    borderColor: '#D8E6FF',
-  },
-  summaryEyebrow: {
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 0.7,
-    color: palette.primaryDeep,
-    textTransform: 'uppercase',
-  },
-  summaryTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: palette.ink,
-  },
-  summaryDescription: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: palette.slate,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: '#F7FAFF',
+    borderColor: '#DCE8F8',
+    shadowColor: '#AFC4E5',
+    shadowOpacity: 0.24,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 6,
   },
   summaryStats: {
     flexDirection: 'row',
@@ -708,26 +1107,24 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 2,
+    gap: 4,
   },
   summaryStatDivider: {
     width: 1,
     alignSelf: 'stretch',
-    backgroundColor: 'rgba(111, 128, 153, 0.18)',
+    backgroundColor: '#D7E1EF',
   },
   summaryStatValue: {
-    fontSize: 26,
+    fontSize: 32,
+    lineHeight: 34,
     fontWeight: '900',
-    color: palette.slate,
+    color: '#6A7D98',
   },
   summaryStatLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: palette.ink,
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1C2C45',
     textAlign: 'center',
-  },
-  summaryPendingList: {
-    gap: 2,
   },
   summaryEmptyState: {
     borderRadius: radius.lg,
@@ -746,6 +1143,9 @@ const styles = StyleSheet.create({
     color: '#92400E',
     lineHeight: 20,
   },
+  summaryPendingList: {
+    gap: 2,
+  },
   contentSection: {
     padding: spacing.md,
     borderRadius: radius.lg,
@@ -761,32 +1161,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: spacing.md,
   },
-  collapsibleSectionHeader: {
-    alignItems: 'center',
-  },
-  historyHeaderActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  historyChevron: {
-    width: 30,
-    height: 30,
-    borderRadius: radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#EEF3FB',
-  },
   sectionHeaderCopy: {
     flex: 1,
     gap: spacing.xs,
-  },
-  sectionEyebrow: {
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 0.6,
-    color: palette.primaryDeep,
-    textTransform: 'uppercase',
   },
   sectionTitle: {
     fontSize: 20,
@@ -816,14 +1193,139 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xs,
     paddingVertical: 7,
   },
-  pendingCountBadge: {
-    backgroundColor: '#FDE68A',
-  },
   historyCountBadgeLabel: {
     fontSize: 12,
   },
+  pendingCountBadge: {
+    backgroundColor: '#FDE68A',
+  },
   pendingCountBadgeLabel: {
     color: '#92400E',
+  },
+  libraryToolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  searchShell: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 10,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#D8E1ED',
+    backgroundColor: '#F8FAFD',
+  },
+  searchInput: {
+    flex: 1,
+    height: 20,
+    fontSize: 15,
+    color: palette.ink,
+    paddingVertical: 0,
+    textAlignVertical: 'center',
+  },
+  filterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 11,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#CFE0FF',
+    backgroundColor: '#EEF4FF',
+  },
+  filterButtonLabel: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: palette.primaryDeep,
+  },
+  activeFiltersBlock: {
+    gap: spacing.sm,
+  },
+  activeFiltersRow: {
+    gap: spacing.xs,
+    paddingRight: spacing.xs,
+  },
+  activeFilterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 8,
+    borderRadius: radius.pill,
+    backgroundColor: '#EEF4FF',
+    borderWidth: 1,
+    borderColor: '#CFE0FF',
+  },
+  activeFilterChipLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: palette.primaryDeep,
+  },
+  clearFiltersChip: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 8,
+    borderRadius: radius.pill,
+    backgroundColor: '#F3F6FA',
+    borderWidth: 1,
+    borderColor: '#D7E0EB',
+  },
+  clearFiltersChipLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: palette.slate,
+  },
+  paginationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    paddingTop: spacing.xs,
+  },
+  paginationButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    minWidth: 108,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#CFE0FF',
+    backgroundColor: '#EEF4FF',
+  },
+  paginationButtonLabel: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: palette.primaryDeep,
+  },
+  paginationLabel: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 13,
+    fontWeight: '700',
+    color: palette.slate,
+  },
+  collapsibleSectionHeader: {
+    alignItems: 'center',
+  },
+  historyHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  historyChevron: {
+    width: 30,
+    height: 30,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EEF3FB',
   },
   inlineEmpty: {
     paddingTop: spacing.xs,
@@ -910,16 +1412,6 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     color: palette.ink,
   },
-  primaryButton: {
-    paddingVertical: 14,
-    borderRadius: radius.md,
-    alignItems: 'center',
-    backgroundColor: palette.primary,
-  },
-  primaryLabel: {
-    color: palette.snow,
-    fontWeight: '800',
-  },
   disabled: {
     opacity: 0.6,
   },
@@ -931,43 +1423,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: palette.line,
     gap: spacing.sm,
-  },
-  historyCard: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.lg,
-    backgroundColor: '#F9FBFF',
-    borderWidth: 1,
-    borderColor: '#E1EAF5',
-  },
-  historyCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-  },
-  historyCardCopy: {
-    flex: 1,
-    gap: 2,
-  },
-  historyTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: palette.ink,
-  },
-  historyMeta: {
-    color: palette.slate,
-    fontSize: 13,
-  },
-  historyInfoButton: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#E8F0FF',
-    borderWidth: 1,
-    borderColor: '#C8DAFF',
   },
   cardHeader: {
     flexDirection: 'row',
@@ -1034,6 +1489,43 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#D7DEE9',
     backgroundColor: '#F8FAFC',
+  },
+  historyCard: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.lg,
+    backgroundColor: '#F9FBFF',
+    borderWidth: 1,
+    borderColor: '#E1EAF5',
+  },
+  historyCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  historyCardCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  historyTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: palette.ink,
+  },
+  historyMeta: {
+    color: palette.slate,
+    fontSize: 13,
+  },
+  historyInfoButton: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E8F0FF',
+    borderWidth: 1,
+    borderColor: '#C8DAFF',
   },
   secondaryButton: {
     flex: 1,
