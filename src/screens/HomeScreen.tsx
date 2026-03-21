@@ -252,6 +252,7 @@ export function HomeScreen() {
   const [todayProgressSummary, setTodayProgressSummary] = useState(homeSummary);
   const [loadingDate, setLoadingDate] = useState(false);
   const [savingGoalId, setSavingGoalId] = useState<string | null>(null);
+  const contentScrollRef = useRef<ScrollView>(null);
   const summaryCache = useRef<Record<string, HomeSummary>>({});
   const today = startOfToday();
   const calendarStartDate = addMonths(today, CALENDAR_START_OFFSET_MONTHS);
@@ -261,6 +262,9 @@ export function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       setSelectedDate(today);
+      requestAnimationFrame(() => {
+        contentScrollRef.current?.scrollTo({ x: 0, y: 0, animated: false });
+      });
     }, [today]),
   );
 
@@ -459,6 +463,7 @@ export function HomeScreen() {
               />
             ) : (
               <ScrollView
+                ref={contentScrollRef}
                 contentContainerStyle={styles.scrollContent}
                 keyboardDismissMode="on-drag"
                 keyboardShouldPersistTaps="handled"

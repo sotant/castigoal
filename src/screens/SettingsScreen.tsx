@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Feather } from '@expo/vector-icons';
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
+import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
@@ -37,8 +38,17 @@ export function SettingsScreen() {
   const [deleteAccountModalVisible, setDeleteAccountModalVisible] = useState(false);
   const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
   const [isPrivacySectionOpen, setIsPrivacySectionOpen] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
   const tabBarHeight = useBottomTabBarHeight();
   const insets = useSafeAreaInsets();
+
+  useFocusEffect(
+    useCallback(() => {
+      requestAnimationFrame(() => {
+        scrollRef.current?.scrollTo({ x: 0, y: 0, animated: false });
+      });
+    }, []),
+  );
 
   const hourOptions = useMemo<ComboOption[]>(
     () =>
@@ -167,6 +177,7 @@ export function SettingsScreen() {
 
       <View style={styles.contentSurface}>
         <ScrollView
+          ref={scrollRef}
           contentContainerStyle={[
             styles.scrollContent,
             { paddingBottom: tabBarHeight + insets.bottom + spacing.xl },
@@ -564,10 +575,12 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: palette.primary,
+    borderWidth: 1,
+    borderColor: '#C9D9F8',
+    backgroundColor: '#E4EDFF',
   },
   primaryLabel: {
-    color: palette.snow,
+    color: palette.primaryDeep,
     fontWeight: '800',
   },
   compactPrimaryButton: {
@@ -577,7 +590,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: palette.primary,
+    borderWidth: 1,
+    borderColor: '#C9D9F8',
+    backgroundColor: '#E4EDFF',
   },
   compactSectionPrimaryButton: {
     minHeight: ACCOUNT_BUTTON_HEIGHT,
@@ -585,10 +600,12 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: palette.primary,
+    borderWidth: 1,
+    borderColor: '#C9D9F8',
+    backgroundColor: '#E4EDFF',
   },
   compactPrimaryLabel: {
-    color: palette.snow,
+    color: palette.primaryDeep,
     fontWeight: '800',
   },
   secondaryLabel: {

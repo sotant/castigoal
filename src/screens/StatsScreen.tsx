@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Feather } from '@expo/vector-icons';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
+import { useFocusEffect } from '@react-navigation/native';
 import { Directions, FlingGestureHandler } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -31,8 +32,17 @@ export function StatsScreen() {
   const [monthOffset, setMonthOffset] = useState(0);
   const [isGoalDropdownOpen, setIsGoalDropdownOpen] = useState(false);
   const [goalFilter, setGoalFilter] = useState<GoalFilter>('active');
+  const scrollRef = useRef<ScrollView>(null);
   const tabBarHeight = useBottomTabBarHeight();
   const insets = useSafeAreaInsets();
+
+  useFocusEffect(
+    useCallback(() => {
+      requestAnimationFrame(() => {
+        scrollRef.current?.scrollTo({ x: 0, y: 0, animated: false });
+      });
+    }, []),
+  );
 
   useEffect(() => {
     if (!statsLoaded) {
@@ -133,6 +143,7 @@ export function StatsScreen() {
       title="Stats">
       <View style={styles.contentSurface}>
         <ScrollView
+          ref={scrollRef}
           contentContainerStyle={[
             styles.scrollContent,
             { paddingBottom: tabBarHeight + insets.bottom + spacing.xl },

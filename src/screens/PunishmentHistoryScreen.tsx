@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams, usePathname } from 'expo-router';
-import { ComponentProps, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { ComponentProps, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { Directions, FlingGestureHandler } from 'react-native-gesture-handler';
@@ -288,6 +289,20 @@ export function PunishmentHistoryScreen() {
       setLibraryPage(totalLibraryPages);
     }
   }, [libraryPage, totalLibraryPages]);
+
+  useFocusEffect(
+    useCallback(() => {
+      requestAnimationFrame(() => {
+        scrollRef.current?.scrollTo({ x: 0, y: 0, animated: false });
+      });
+    }, []),
+  );
+
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollTo({ x: 0, y: 0, animated: false });
+    });
+  }, [activePrimaryTab]);
 
   const confirmCompletion = (pendingPunishment: PendingAssignedPunishmentSummary) => {
     setPendingCompletion(pendingPunishment);

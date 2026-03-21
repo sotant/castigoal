@@ -1,9 +1,10 @@
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Feather } from '@expo/vector-icons';
 import { FlatList, ListRenderItem, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
+import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
 
@@ -99,6 +100,7 @@ type ProcessingGoalAction =
 
 export function GoalsScreen() {
   const today = startOfToday();
+  const listRef = useRef<FlatList<GoalListEntry>>(null);
   const { deleteGoal, goals, homeSummary, toggleGoalActive } = useAppStore(
     useShallow((state) => ({
       deleteGoal: state.deleteGoal,
@@ -115,6 +117,14 @@ export function GoalsScreen() {
   const [processingAction, setProcessingAction] = useState<ProcessingGoalAction>(null);
   const [showActiveGoals, setShowActiveGoals] = useState(true);
   const [showFinishedGoals, setShowFinishedGoals] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      requestAnimationFrame(() => {
+        listRef.current?.scrollToOffset({ offset: 0, animated: false });
+      });
+    }, []),
+  );
 
   const activeMenuGoal = useMemo(
     () => goals.find((goal) => goal.id === activeMenuGoalId) ?? null,
@@ -408,6 +418,7 @@ export function GoalsScreen() {
       ) : (
         <View style={styles.contentSurface}>
           <FlatList
+            ref={listRef}
             style={styles.list}
             contentContainerStyle={[
               styles.listContent,
