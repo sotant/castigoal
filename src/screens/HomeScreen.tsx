@@ -2,7 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Directions, FlingGestureHandler } from 'react-native-gesture-handler';
 
 import { EmptyState } from '@/src/components/EmptyState';
@@ -428,6 +428,7 @@ export function HomeScreen() {
   return (
     <ScreenContainer
       enableTabSwipe={false}
+      scroll={false}
       title={getDateHeading(selectedDate)}
       action={
         <View style={styles.headerBadge}>
@@ -457,18 +458,24 @@ export function HomeScreen() {
                 message="Cambia la fecha para revisar otro momento o crea un nuevo objetivo para empezar a registrar actividad."
               />
             ) : (
-              <View style={styles.content}>
-                {activeGoals.map((item) => (
-                  <ActiveGoalCardView
-                    key={`${item.summary.goalId}-${selectedDate}`}
-                    {...item}
-                    disabled={savingGoalId === item.summary.goalId}
-                    selectedDate={selectedDate}
-                    onSetCompleted={() => void applyStatus(item.summary.goalId, item.selectedStatus === 'completed' ? 'pending' : 'completed')}
-                    onSetMissed={() => void applyStatus(item.summary.goalId, item.selectedStatus === 'missed' ? 'pending' : 'missed')}
-                  />
-                ))}
-              </View>
+              <ScrollView
+                contentContainerStyle={styles.scrollContent}
+                keyboardDismissMode="on-drag"
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}>
+                <View style={styles.content}>
+                  {activeGoals.map((item) => (
+                    <ActiveGoalCardView
+                      key={`${item.summary.goalId}-${selectedDate}`}
+                      {...item}
+                      disabled={savingGoalId === item.summary.goalId}
+                      selectedDate={selectedDate}
+                      onSetCompleted={() => void applyStatus(item.summary.goalId, item.selectedStatus === 'completed' ? 'pending' : 'completed')}
+                      onSetMissed={() => void applyStatus(item.summary.goalId, item.selectedStatus === 'missed' ? 'pending' : 'missed')}
+                    />
+                  ))}
+                </View>
+              </ScrollView>
             )}
           </View>
         </FlingGestureHandler>
@@ -482,8 +489,11 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   swipeArea: {
-    flexGrow: 1,
-    minHeight: 420,
+    flex: 1,
+    minHeight: 0,
+  },
+  scrollContent: {
+    paddingBottom: spacing.xl,
   },
   loadingOverlay: {
     flex: 1,

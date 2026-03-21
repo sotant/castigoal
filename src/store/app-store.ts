@@ -198,6 +198,8 @@ export const useAppStore = create<AppState>()((set, get) => ({
       goals: [result.goal, ...state.goals],
       goalEvaluations: result.goalEvaluations,
       homeSummary: result.homeSummary,
+      statsSummary: result.statsSummary,
+      statsLoaded: true,
     }));
     return result.goal.id;
   },
@@ -207,6 +209,8 @@ export const useAppStore = create<AppState>()((set, get) => ({
       goals: state.goals.map((item) => (item.id === goalId ? result.goal : item)),
       goalEvaluations: result.goalEvaluations,
       homeSummary: result.homeSummary,
+      statsSummary: result.statsSummary,
+      statsLoaded: true,
       goalDetails: state.goalDetails[goalId]
         ? {
             ...state.goalDetails,
@@ -241,6 +245,8 @@ export const useAppStore = create<AppState>()((set, get) => ({
         goalDetails: nextGoalDetails,
         assignedPunishmentDetails: nextAssignedDetails,
         homeSummary: result.homeSummary,
+        statsSummary: result.statsSummary,
+        statsLoaded: true,
         statsCalendars: nextCalendars,
       };
     });
@@ -257,6 +263,8 @@ export const useAppStore = create<AppState>()((set, get) => ({
       goals: state.goals.map((item) => (item.id === goalId ? result.goal : item)),
       goalEvaluations: result.goalEvaluations,
       homeSummary: result.homeSummary,
+      statsSummary: result.statsSummary,
+      statsLoaded: true,
       goalDetails: state.goalDetails[goalId]
         ? {
             ...state.goalDetails,

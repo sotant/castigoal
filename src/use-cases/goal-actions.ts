@@ -7,6 +7,7 @@ import {
   loadGoalCheckinHistory,
   loadGoalEvaluations,
   loadHomeSummary,
+  loadStatsSummary,
   recordGoalCheckinRecord,
   RecordCheckinResult,
   deleteGoalRecord,
@@ -48,45 +49,65 @@ function buildScheduleStatus(goal: Goal, referenceDate = startOfToday()) {
 
 export async function createGoalUseCase(input: GoalInput) {
   const goal = await createGoalRecord(input);
-  const [goalEvaluations, homeSummary] = await Promise.all([loadGoalEvaluations(), loadHomeSummary()]);
+  const [goalEvaluations, homeSummary, statsSummary] = await Promise.all([
+    loadGoalEvaluations(),
+    loadHomeSummary(),
+    loadStatsSummary(),
+  ]);
 
   return {
     goal,
     goalEvaluations,
     homeSummary,
+    statsSummary,
   };
 }
 
 export async function updateGoalUseCase(goalId: string, input: GoalInput) {
   const goal = await updateGoalRecord(goalId, input);
-  const [goalEvaluations, homeSummary] = await Promise.all([loadGoalEvaluations(), loadHomeSummary()]);
+  const [goalEvaluations, homeSummary, statsSummary] = await Promise.all([
+    loadGoalEvaluations(),
+    loadHomeSummary(),
+    loadStatsSummary(),
+  ]);
 
   return {
     goal,
     goalEvaluations,
     homeSummary,
+    statsSummary,
   };
 }
 
 export async function deleteGoalUseCase(goalId: string) {
   await deleteGoalRecord(goalId);
-  const [goalEvaluations, homeSummary] = await Promise.all([loadGoalEvaluations(), loadHomeSummary()]);
+  const [goalEvaluations, homeSummary, statsSummary] = await Promise.all([
+    loadGoalEvaluations(),
+    loadHomeSummary(),
+    loadStatsSummary(),
+  ]);
 
   return {
     goalEvaluations,
     goalId,
     homeSummary,
+    statsSummary,
   };
 }
 
 export async function toggleGoalActiveUseCase(goalId: string, active: boolean) {
   const goal = await toggleGoalActiveRecord(goalId, active);
-  const [goalEvaluations, homeSummary] = await Promise.all([loadGoalEvaluations(), loadHomeSummary()]);
+  const [goalEvaluations, homeSummary, statsSummary] = await Promise.all([
+    loadGoalEvaluations(),
+    loadHomeSummary(),
+    loadStatsSummary(),
+  ]);
 
   return {
     goal,
     goalEvaluations,
     homeSummary,
+    statsSummary,
   };
 }
 

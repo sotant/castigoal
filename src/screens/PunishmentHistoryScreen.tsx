@@ -1021,7 +1021,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFD',
   },
   filterColorChip: {
-    borderWidth: 1.5,
+    borderWidth: 0,
   },
   filterChipActive: {
     backgroundColor: palette.primaryDeep,
