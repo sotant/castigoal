@@ -781,7 +781,7 @@ export async function addCustomPunishmentRecord(input: Omit<Punishment, 'id' | '
       owner_id: userId,
       title: input.title.trim(),
       description: input.description.trim(),
-      category: 'custom',
+      category: input.category,
       difficulty: input.difficulty,
       is_custom: true,
     })
@@ -805,7 +805,7 @@ export async function updateCustomPunishmentRecord(punishmentId: string, input: 
     .update({
       title: input.title.trim(),
       description: input.description.trim(),
-      category: 'custom',
+      category: input.category,
       difficulty: input.difficulty,
     })
     .eq('id', punishmentId)
