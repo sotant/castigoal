@@ -11,6 +11,7 @@ import {
   HomeSummary,
   PendingAssignedPunishmentSummary,
   Punishment,
+  PunishmentMutationInput,
   StatsSummary,
   User,
   UserSettings,
@@ -91,8 +92,8 @@ interface AppState {
     date?: string;
   }) => Promise<Awaited<ReturnType<typeof clearGoalCheckinUseCase>>>;
   completeAssignedPunishment: (assignedId: string) => Promise<void>;
-  addCustomPunishment: (input: Omit<Punishment, 'id' | 'scope' | 'createdAt'>) => Promise<void>;
-  updateCustomPunishment: (punishmentId: string, input: Omit<Punishment, 'id' | 'scope' | 'createdAt'>) => Promise<void>;
+  addCustomPunishment: (input: PunishmentMutationInput) => Promise<void>;
+  updateCustomPunishment: (punishmentId: string, input: PunishmentMutationInput) => Promise<void>;
   deleteCustomPunishment: (punishmentId: string) => Promise<void>;
   updateSettings: (input: Partial<UserSettings>) => Promise<void>;
   hydrateUser: (input: Partial<User> & Pick<User, 'id'>) => void;

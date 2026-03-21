@@ -2,6 +2,11 @@ import { Tables } from '@/src/lib/database.types';
 import { createAppError, normalizeRepositoryError } from '@/src/lib/app-error';
 import { supabase } from '@/src/lib/supabase';
 import {
+  getPunishmentCategoryName,
+  isPunishmentCategoryName,
+  normalizePunishmentCategoryId,
+} from '@/src/constants/punishments';
+import {
   AppBootstrapData,
   AssignedPunishment,
   Checkin,
@@ -14,6 +19,7 @@ import {
   PendingAssignedPunishmentSummary,
   PendingPunishmentPreview,
   Punishment,
+  PunishmentMutationInput,
   StatsSummary,
   UserSettings,
 } from '@/src/models/types';
@@ -70,7 +76,8 @@ type HomeSummaryRow = {
   latest_pending_status: string | null;
   latest_punishment_title: string | null;
   latest_punishment_description: string | null;
-  latest_punishment_category: string | null;
+  latest_punishment_category_id: string | null;
+  latest_punishment_category_name: string | null;
   latest_punishment_difficulty: number | null;
   latest_punishment_scope: 'base' | 'personal' | null;
 };
@@ -110,7 +117,8 @@ type PunishmentCatalogRow = {
   id: string;
   title: string;
   description: string;
-  category: Punishment['category'];
+  category_id: Punishment['categoryId'];
+  category_name: Punishment['categoryName'];
   difficulty: Punishment['difficulty'];
   scope: Punishment['scope'];
   created_at: string;
@@ -123,7 +131,8 @@ type PendingAssignedPunishmentRow = {
   punishment_id: string;
   punishment_title: string;
   punishment_description: string;
-  punishment_category: Punishment['category'];
+  punishment_category_id: Punishment['categoryId'];
+  punishment_category_name: Punishment['categoryName'];
   punishment_difficulty: Punishment['difficulty'];
   punishment_scope: Punishment['scope'];
   assigned_at: string;
@@ -180,11 +189,14 @@ function mapCheckin(row: CheckinRow): Checkin {
 }
 
 function mapPunishmentFromCatalog(row: PunishmentCatalogRow): Punishment {
+  const categoryId = normalizePunishmentCategoryId(row.category_id);
+
   return {
     id: row.id,
     title: row.title,
     description: row.description,
-    category: row.category,
+    categoryId,
+    categoryName: row.category_name ?? getPunishmentCategoryName(categoryId, row.category_name),
     difficulty: row.difficulty,
     scope: row.scope,
     createdAt: row.created_at,
@@ -192,13 +204,18 @@ function mapPunishmentFromCatalog(row: PunishmentCatalogRow): Punishment {
 }
 
 function mapPunishmentRow(
-  row: Pick<PunishmentRow, 'id' | 'title' | 'description' | 'category' | 'difficulty' | 'owner_id' | 'created_at'>,
+  row: Pick<PunishmentRow, 'id' | 'title' | 'description' | 'category' | 'difficulty' | 'owner_id' | 'created_at'> & {
+    category_name?: Punishment['categoryName'] | null;
+  },
 ): Punishment {
+  const categoryId = normalizePunishmentCategoryId(row.category);
+
   return {
     id: row.id,
     title: row.title,
     description: row.description,
-    category: row.category as Punishment['category'],
+    categoryId,
+    categoryName: getPunishmentCategoryName(categoryId, row.category_name),
     difficulty: row.difficulty as Punishment['difficulty'],
     scope: row.owner_id ? 'personal' : 'base',
     createdAt: row.created_at,
@@ -219,6 +236,8 @@ function mapAssignedPunishment(row: AssignedPunishmentRow): AssignedPunishment {
 }
 
 function mapPendingAssignedPunishment(row: PendingAssignedPunishmentRow): PendingAssignedPunishmentSummary {
+  const categoryId = normalizePunishmentCategoryId(row.punishment_category_id);
+
   return {
     assignedId: row.assigned_id,
     goalId: row.goal_id,
@@ -231,7 +250,8 @@ function mapPendingAssignedPunishment(row: PendingAssignedPunishmentRow): Pendin
       id: row.punishment_id,
       title: row.punishment_title,
       description: row.punishment_description,
-      category: row.punishment_category,
+      categoryId,
+      categoryName: row.punishment_category_name ?? getPunishmentCategoryName(categoryId, row.punishment_category_name),
       difficulty: row.punishment_difficulty,
       scope: row.punishment_scope,
       createdAt: row.assigned_at,
@@ -302,12 +322,15 @@ function mapPendingPunishmentPreview(row: HomeSummaryRow): PendingPunishmentPrev
     !row.latest_pending_status ||
     !row.latest_punishment_title ||
     !row.latest_punishment_description ||
-    !row.latest_punishment_category ||
+    !row.latest_punishment_category_id ||
+    !row.latest_punishment_category_name ||
     !row.latest_punishment_difficulty ||
     !row.latest_punishment_scope
   ) {
     return undefined;
   }
+
+  const categoryId = normalizePunishmentCategoryId(row.latest_punishment_category_id);
 
   return {
     assignedId: row.latest_pending_assigned_id,
@@ -319,12 +342,32 @@ function mapPendingPunishmentPreview(row: HomeSummaryRow): PendingPunishmentPrev
       id: row.latest_pending_punishment_id,
       title: row.latest_punishment_title,
       description: row.latest_punishment_description,
-      category: row.latest_punishment_category as Punishment['category'],
+      categoryId,
+      categoryName: (row.latest_punishment_category_name ??
+        getPunishmentCategoryName(categoryId, row.latest_punishment_category_name)) as Punishment['categoryName'],
       difficulty: row.latest_punishment_difficulty as Punishment['difficulty'],
       scope: row.latest_punishment_scope,
       createdAt: row.latest_pending_due_date,
     },
   };
+}
+
+async function resolveCategoryIdForWrite(categoryName: Punishment['categoryName']) {
+  const { data, error } = await supabase.from('categories').select('id, name').eq('name', categoryName).maybeSingle();
+
+  if (error) {
+    throw normalizeRepositoryError(error, {
+      authMessage: 'No se pudo resolver la categoria.',
+      code: 'CATEGORY_RESOLVE_FAILED',
+      fallback: 'No se pudo resolver la categoria.',
+    });
+  }
+
+  if (!data?.id || !isPunishmentCategoryName(data.name)) {
+    throw createAppError('No se pudo resolver la categoria seleccionada.', 'CATEGORY_RESOLVE_FAILED');
+  }
+
+  return data.id;
 }
 
 function mapHomeSummary(summaryRow: HomeSummaryRow, goalRows: HomeGoalSummaryRow[]): HomeSummary {
@@ -636,7 +679,7 @@ export async function loadAssignedPunishmentById(assignedId: string) {
 export async function loadPunishmentById(punishmentId: string) {
   const { data, error } = await supabase
     .from('punishments')
-    .select('id, title, description, category, difficulty, owner_id, created_at')
+    .select('id, title, description, category, difficulty, owner_id, created_at, categories(name)')
     .eq('id', punishmentId)
     .maybeSingle();
 
@@ -648,7 +691,16 @@ export async function loadPunishmentById(punishmentId: string) {
     });
   }
 
-  return data ? mapPunishmentRow(data) : null;
+  const categoryName =
+    data &&
+    'categories' in data &&
+    data.categories &&
+    !Array.isArray(data.categories) &&
+    isPunishmentCategoryName(data.categories.name)
+      ? data.categories.name
+      : null;
+
+  return data ? mapPunishmentRow({ ...data, category_name: categoryName ?? undefined }) : null;
 }
 
 export async function createGoalRecord(input: GoalInput) {
@@ -773,15 +825,16 @@ export async function completeAssignedPunishmentRecord(assignedId: string) {
   return mapAssignedPunishment(data);
 }
 
-export async function addCustomPunishmentRecord(input: Omit<Punishment, 'id' | 'scope' | 'createdAt'>) {
+export async function addCustomPunishmentRecord(input: PunishmentMutationInput) {
   const userId = await getRequiredUserId();
+  const categoryId = await resolveCategoryIdForWrite(input.categoryName);
   const { data, error } = await supabase
     .from('punishments')
     .insert({
       owner_id: userId,
       title: input.title.trim(),
       description: input.description.trim(),
-      category: input.category,
+      category: categoryId,
       difficulty: input.difficulty,
       is_custom: true,
     })
@@ -796,16 +849,17 @@ export async function addCustomPunishmentRecord(input: Omit<Punishment, 'id' | '
     });
   }
 
-  return mapPunishmentRow(data);
+  return mapPunishmentRow({ ...data, category_name: input.categoryName });
 }
 
-export async function updateCustomPunishmentRecord(punishmentId: string, input: Omit<Punishment, 'id' | 'scope' | 'createdAt'>) {
+export async function updateCustomPunishmentRecord(punishmentId: string, input: PunishmentMutationInput) {
+  const categoryId = await resolveCategoryIdForWrite(input.categoryName);
   const { data, error } = await supabase
     .from('punishments')
     .update({
       title: input.title.trim(),
       description: input.description.trim(),
-      category: input.category,
+      category: categoryId,
       difficulty: input.difficulty,
     })
     .eq('id', punishmentId)
@@ -821,7 +875,7 @@ export async function updateCustomPunishmentRecord(punishmentId: string, input: 
     });
   }
 
-  return mapPunishmentRow(data);
+  return mapPunishmentRow({ ...data, category_name: input.categoryName });
 }
 
 export async function deleteCustomPunishmentRecord(punishmentId: string) {

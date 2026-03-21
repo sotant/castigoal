@@ -1,6 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { defaultPunishments } from '@/src/constants/punishments';
+import {
+  defaultPunishments,
+  getPunishmentCategoryName,
+  isPunishmentCategoryName,
+  normalizePunishmentCategoryId,
+  resolveLegacyPunishmentCategoryId,
+} from '@/src/constants/punishments';
 import type { Tables } from '@/src/lib/database.types';
 import { supabase } from '@/src/lib/supabase';
 import type {
@@ -17,6 +23,7 @@ import type {
   HomeSummary,
   PendingAssignedPunishmentSummary,
   Punishment,
+  PunishmentMutationInput,
   StatsSummary,
   User,
   UserSettings,
@@ -144,6 +151,8 @@ const defaultSettings: UserSettings = {
   pendingPunishmentReminderEnabled: true,
 };
 
+let categoryIdByNameCache: Partial<Record<Punishment['categoryName'], string>> | null = null;
+
 function nowIso() {
   return new Date().toISOString();
 }
@@ -265,17 +274,57 @@ async function loadContainer(mode: SessionMode, actorId: string) {
   let changed = false;
 
   for (const record of Object.values(container.records.punishments)) {
-    const punishment = record.data as Punishment & { createdAt?: string };
+    const punishment = record.data as Punishment & {
+      category?: string;
+      categoryId?: Punishment['categoryId'];
+      categoryName?: Punishment['categoryName'];
+      createdAt?: string;
+    };
 
     if (punishment.createdAt) {
-      continue;
+      // noop
+    } else {
+      record.data = {
+        ...punishment,
+        createdAt: record.meta.lastModifiedAt ?? record.meta.lastSyncedAt ?? container.createdAt,
+      };
+      changed = true;
     }
 
-    record.data = {
-      ...punishment,
-      createdAt: record.meta.lastModifiedAt ?? record.meta.lastSyncedAt ?? container.createdAt,
-    };
-    changed = true;
+    if (!('categoryId' in punishment) || punishment.categoryId === undefined || !('categoryName' in punishment) || !punishment.categoryName) {
+      const categoryId = resolveLegacyPunishmentCategoryId(
+        punishment.title,
+        punishment.categoryId ?? punishment.category ?? (record.data as Punishment).categoryId,
+        punishment.categoryName,
+      );
+
+      record.data = {
+        ...record.data,
+        categoryId,
+        categoryName: getPunishmentCategoryName(categoryId),
+      } as Punishment;
+      changed = true;
+    }
+
+    if ((record.data as Punishment).scope === 'base') {
+      const canonicalCategoryId = resolveLegacyPunishmentCategoryId(
+        punishment.title,
+        (record.data as Punishment).categoryId,
+        (record.data as Punishment).categoryName,
+      );
+
+      if (
+        (record.data as Punishment).categoryId !== canonicalCategoryId ||
+        (record.data as Punishment).categoryName !== getPunishmentCategoryName(canonicalCategoryId)
+      ) {
+        record.data = {
+          ...record.data,
+          categoryId: canonicalCategoryId,
+          categoryName: getPunishmentCategoryName(canonicalCategoryId),
+        } as Punishment;
+        changed = true;
+      }
+    }
   }
 
   if (changed) {
@@ -917,15 +966,29 @@ function mapAssignedPunishmentRow(row: Tables<'assigned_punishments'>): SyncReco
   };
 }
 
-function mapPunishmentRow(row: Tables<'punishments'>): SyncRecord<Punishment> {
+type PunishmentCatalogRow = {
+  category_id: string;
+  category_name: Punishment['categoryName'];
+  created_at: string;
+  description: string;
+  difficulty: Punishment['difficulty'];
+  id: string;
+  scope: Punishment['scope'];
+  title: string;
+};
+
+function mapPunishmentCatalogRow(row: PunishmentCatalogRow): SyncRecord<Punishment> {
+  const categoryId = normalizePunishmentCategoryId(row.category_id);
+
   return {
     data: {
-      category: row.category as Punishment['category'],
+      categoryId,
+      categoryName: getPunishmentCategoryName(categoryId, row.category_name),
       createdAt: row.created_at,
       description: row.description,
-      difficulty: row.difficulty as Punishment['difficulty'],
+      difficulty: row.difficulty,
       id: row.id,
-      scope: row.owner_id ? 'personal' : 'base',
+      scope: row.scope,
       title: row.title,
     },
     meta: {
@@ -934,6 +997,41 @@ function mapPunishmentRow(row: Tables<'punishments'>): SyncRecord<Punishment> {
       state: 'synced',
     },
   };
+}
+
+async function resolveCategoryId(categoryId: string, categoryName: Punishment['categoryName']) {
+  const categoryMap = await getCategoryIdByNameMap();
+  const resolvedByName = categoryMap[categoryName];
+
+  if (!resolvedByName) {
+    throw new Error(`No se pudo resolver la categoria ${categoryName}.`);
+  }
+
+  if (categoryId !== resolvedByName) {
+    return resolvedByName;
+  }
+
+  return categoryId;
+}
+
+async function getCategoryIdByNameMap() {
+  if (categoryIdByNameCache) {
+    return categoryIdByNameCache;
+  }
+
+  const { data, error } = await supabase.from('categories').select('id, name');
+
+  if (error) {
+    throw error;
+  }
+
+  categoryIdByNameCache = Object.fromEntries(
+    (data ?? [])
+      .filter((row): row is { id: string; name: Punishment['categoryName'] } => isPunishmentCategoryName(row.name))
+      .map((row) => [row.name, row.id]),
+  ) as Partial<Record<Punishment['categoryName'], string>>;
+
+  return categoryIdByNameCache;
 }
 
 function mapHistoryRow(
@@ -1011,7 +1109,7 @@ async function fetchRemoteSnapshot(userId: string): Promise<RemoteSnapshot> {
     supabase.from('goals').select('*').eq('user_id', userId),
     supabase.from('checkins').select('*').eq('user_id', userId),
     supabase.from('assigned_punishments').select('*').eq('user_id', userId),
-    supabase.from('punishments').select('*').or(`owner_id.is.null,owner_id.eq.${userId}`),
+    supabase.rpc('list_punishment_catalog'),
     supabase.from('punishment_completion_history').select('*').eq('user_id', userId),
     supabase.from('user_settings').select('*').eq('user_id', userId).maybeSingle(),
   ]);
@@ -1026,7 +1124,9 @@ async function fetchRemoteSnapshot(userId: string): Promise<RemoteSnapshot> {
   const goals = Object.fromEntries((goalsResult.data ?? []).map((row) => [row.id, mapGoalRow(row)]));
   const checkins = Object.fromEntries((checkinsResult.data ?? []).map((row) => [row.id, mapCheckinRow(row)]));
   const assignedPunishments = Object.fromEntries((assignedResult.data ?? []).map((row) => [row.id, mapAssignedPunishmentRow(row)]));
-  const punishments = Object.fromEntries((punishmentsResult.data ?? []).map((row) => [row.id, mapPunishmentRow(row)]));
+  const punishments = Object.fromEntries(
+    ((punishmentsResult.data ?? []) as PunishmentCatalogRow[]).map((row) => [row.id, mapPunishmentCatalogRow(row)]),
+  );
   const punishmentHistory = Object.fromEntries(
     (historyResult.data ?? []).map((row) => [row.id, mapHistoryRow(row, goals)]),
   );
@@ -1204,8 +1304,11 @@ async function pushPendingRecords(container: LocalContainer) {
     (record) => record.meta.state === 'pending_upsert' && record.data.scope === 'personal',
   );
   if (punishments.length) {
-    const payload = punishments.map((record) => ({
-      category: record.data.category,
+    const resolvedCategoryIds = await Promise.all(
+      punishments.map((record) => resolveCategoryId(record.data.categoryId, record.data.categoryName)),
+    );
+    const payload = punishments.map((record, index) => ({
+      category: resolvedCategoryIds[index],
       description: record.data.description,
       difficulty: record.data.difficulty,
       id: record.data.id,
@@ -1215,8 +1318,8 @@ async function pushPendingRecords(container: LocalContainer) {
       source_guest_id: record.meta.sourceGuestId ?? null,
       title: record.data.title,
     }));
-    const payloadWithoutMetadata = punishments.map((record) => ({
-      category: record.data.category,
+    const payloadWithoutMetadata = punishments.map((record, index) => ({
+      category: resolvedCategoryIds[index],
       description: record.data.description,
       difficulty: record.data.difficulty,
       id: record.data.id,
@@ -1735,10 +1838,11 @@ export async function completeAssignedPunishmentRecord(assignedId: string) {
   });
 }
 
-export async function addCustomPunishmentRecord(input: Omit<Punishment, 'id' | 'scope' | 'createdAt'>) {
+export async function addCustomPunishmentRecord(input: PunishmentMutationInput) {
   return withActiveContainer(async (container) => {
     const punishment: Punishment = {
-      category: input.category,
+      categoryId: input.categoryName,
+      categoryName: input.categoryName,
       createdAt: nowIso(),
       description: input.description.trim(),
       difficulty: input.difficulty,
@@ -1759,7 +1863,7 @@ export async function addCustomPunishmentRecord(input: Omit<Punishment, 'id' | '
   });
 }
 
-export async function updateCustomPunishmentRecord(punishmentId: string, input: Omit<Punishment, 'id' | 'scope' | 'createdAt'>) {
+export async function updateCustomPunishmentRecord(punishmentId: string, input: PunishmentMutationInput) {
   return withActiveContainer(async (container) => {
     const current = container.records.punishments[punishmentId]?.data;
     if (!current || current.scope !== 'personal') {
@@ -1768,7 +1872,8 @@ export async function updateCustomPunishmentRecord(punishmentId: string, input: 
 
     const punishment: Punishment = {
       ...current,
-      category: input.category,
+      categoryId: input.categoryName,
+      categoryName: input.categoryName,
       description: input.description.trim(),
       difficulty: input.difficulty,
       title: input.title.trim(),

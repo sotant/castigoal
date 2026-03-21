@@ -1,10 +1,17 @@
 export type CheckinStatus = 'completed' | 'missed';
-export type PunishmentCategory =
-  | 'physical'
-  | 'productive'
-  | 'financial'
-  | 'domestic'
-  | 'custom';
+export type PunishmentCategoryId = string;
+export type PunishmentCategoryName =
+  | 'tarea'
+  | 'estudio'
+  | 'fisico'
+  | 'social'
+  | 'finanzas'
+  | 'entretenimiento'
+  | 'salud'
+  | 'trabajo'
+  | 'nutricion'
+  | 'hogar'
+  | 'otros';
 export type PunishmentScope = 'base' | 'personal';
 export type AssignedPunishmentStatus = 'pending' | 'completed';
 
@@ -39,10 +46,18 @@ export interface Punishment {
   id: string;
   title: string;
   description: string;
-  category: PunishmentCategory;
+  categoryId: PunishmentCategoryId;
+  categoryName: PunishmentCategoryName;
   difficulty: 1 | 2 | 3;
   scope: PunishmentScope;
   createdAt: string;
+}
+
+export interface PunishmentMutationInput {
+  title: string;
+  description: string;
+  categoryName: PunishmentCategoryName;
+  difficulty: 1 | 2 | 3;
 }
 
 export interface AssignedPunishment {

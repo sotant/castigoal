@@ -175,6 +175,24 @@ export type Database = {
           },
         ];
       };
+      categories: {
+        Row: {
+          created_at: string;
+          id: string;
+          name: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          name: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          name?: string;
+        };
+        Relationships: [];
+      };
       goals: {
         Row: {
           active: boolean;
@@ -330,7 +348,15 @@ export type Database = {
           owner_id?: string | null;
           title?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: 'punishments_category_fkey';
+            columns: ['category'];
+            isOneToOne: false;
+            referencedRelation: 'categories';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       user_settings: {
         Row: {
@@ -403,7 +429,8 @@ export type Database = {
           latest_pending_goal_id: string;
           latest_pending_punishment_id: string;
           latest_pending_status: string;
-          latest_punishment_category: string;
+          latest_punishment_category_id: string;
+          latest_punishment_category_name: string;
           latest_punishment_description: string;
           latest_punishment_difficulty: number;
           latest_punishment_scope: string;
@@ -456,7 +483,8 @@ export type Database = {
           due_date: string;
           goal_id: string;
           goal_title: string;
-          punishment_category: string;
+          punishment_category_id: string;
+          punishment_category_name: string;
           punishment_description: string;
           punishment_difficulty: number;
           punishment_id: string;
@@ -468,7 +496,9 @@ export type Database = {
       list_punishment_catalog: {
         Args: Record<PropertyKey, never>;
         Returns: {
-          category: string;
+          category_id: string;
+          category_name: string;
+          created_at: string;
           description: string;
           difficulty: number;
           id: string;

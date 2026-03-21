@@ -5,15 +5,16 @@ import { Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } fr
 import { useFocusEffect } from '@react-navigation/native';
 
 import {
+  DEFAULT_CATEGORY_ID,
   PUNISHMENT_CATEGORY_OPTIONS,
   PUNISHMENT_DIFFICULTY_OPTIONS,
+  getPunishmentCategoryOption,
 } from '@/src/constants/punishments';
 import { palette, radius, shadows, spacing } from '@/src/constants/theme';
 import { usePunishmentCatalog } from '@/src/features/punishments/selectors';
 import { appRoutes } from '@/src/navigation/app-routes';
 import { ScreenContainer } from '@/src/components/ScreenContainer';
 
-const DEFAULT_CATEGORY = PUNISHMENT_CATEGORY_OPTIONS[0].value;
 const DEFAULT_DIFFICULTY = PUNISHMENT_DIFFICULTY_OPTIONS[0].value;
 
 export function PunishmentFormScreen() {
@@ -24,7 +25,7 @@ export function PunishmentFormScreen() {
   const isEditing = Boolean(punishmentId);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [category, setCategory] = useState(DEFAULT_CATEGORY);
+  const [categoryName, setCategoryName] = useState(DEFAULT_CATEGORY_ID);
   const [difficulty, setDifficulty] = useState<1 | 2 | 3>(DEFAULT_DIFFICULTY);
   const [difficultyInfoValue, setDifficultyInfoValue] = useState<1 | 2 | 3 | null>(null);
   const [categoryInfoValue, setCategoryInfoValue] = useState<string | null>(null);
@@ -34,7 +35,7 @@ export function PunishmentFormScreen() {
     () => (punishmentId ? personalPunishments.find((item) => item.id === punishmentId) ?? null : null),
     [personalPunishments, punishmentId],
   );
-  const selectedCategory = PUNISHMENT_CATEGORY_OPTIONS.find((option) => option.value === category) ?? PUNISHMENT_CATEGORY_OPTIONS[0];
+  const selectedCategory = getPunishmentCategoryOption(undefined, categoryName);
   const selectedDifficulty =
     PUNISHMENT_DIFFICULTY_OPTIONS.find((option) => option.value === difficulty) ?? PUNISHMENT_DIFFICULTY_OPTIONS[0];
 
@@ -61,7 +62,7 @@ export function PunishmentFormScreen() {
 
     setTitle(editingPunishment.title);
     setDescription(editingPunishment.description);
-    setCategory(editingPunishment.category === 'custom' ? DEFAULT_CATEGORY : editingPunishment.category);
+    setCategoryName(editingPunishment.categoryName);
     setDifficulty(editingPunishment.difficulty);
   }, [editingPunishment, isEditing]);
 
@@ -80,14 +81,14 @@ export function PunishmentFormScreen() {
         await updateCustomPunishment(punishmentId, {
           title: normalizedTitle,
           description: normalizedDescription,
-          category,
+          categoryName,
           difficulty,
         });
       } else {
         await addCustomPunishment({
           title: normalizedTitle,
           description: normalizedDescription,
-          category,
+          categoryName,
           difficulty,
         });
       }
@@ -235,14 +236,14 @@ export function PunishmentFormScreen() {
 
             <View style={styles.categoryList}>
               {PUNISHMENT_CATEGORY_OPTIONS.map((option) => {
-                const isSelected = option.value === category;
+                const isSelected = option.name === categoryName;
 
                 return (
                   <Pressable
                     accessibilityRole="button"
                     disabled={saving}
                     key={option.value}
-                    onPress={() => setCategory(option.value)}
+                    onPress={() => setCategoryName(option.name)}
                     style={[
                       styles.categoryItem,
                       { backgroundColor: option.tint, borderColor: isSelected ? option.accent : 'transparent' },
@@ -274,13 +275,13 @@ export function PunishmentFormScreen() {
                         hitSlop={8}
                         onPress={(event) => {
                           event.stopPropagation();
-                          setCategoryInfoValue((current) => (current === option.value ? null : option.value));
+                          setCategoryInfoValue((current) => (current === option.name ? null : option.name));
                         }}
                         style={[styles.categoryInfoButton, { borderColor: option.accent }]}>
                         <Ionicons color={option.accent} name="information-circle-outline" size={18} />
                       </Pressable>
                     </View>
-                    {categoryInfoValue === option.value ? (
+                    {categoryInfoValue === option.name ? (
                       <Text style={styles.inlineCategoryInfoText}>{option.description}</Text>
                     ) : null}
                   </Pressable>

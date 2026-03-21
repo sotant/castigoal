@@ -23,7 +23,7 @@ type Props = {
 type DetailStatProps = {
   value: string;
   iconColor: string;
-  iconName: string;
+  iconName: ComponentProps<typeof MaterialCommunityIcons>['name'] | ComponentProps<typeof Feather>['name'];
   iconFamily?: 'material-community' | 'feather';
 };
 
@@ -42,7 +42,7 @@ function DetailStat({ value, iconColor, iconName, iconFamily = 'material-communi
         {iconFamily === 'feather' ? (
           <Feather color={iconColor} name={iconName as ComponentProps<typeof Feather>['name']} size={18} />
         ) : (
-          <MaterialCommunityIcons color={iconColor} name={iconName} size={18} />
+          <MaterialCommunityIcons color={iconColor} name={iconName as ComponentProps<typeof MaterialCommunityIcons>['name']} size={18} />
         )}
         <Text style={styles.statValue}>{value}</Text>
       </View>

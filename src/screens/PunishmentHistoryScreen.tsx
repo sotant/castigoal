@@ -10,7 +10,11 @@ import { EmptyState } from '@/src/components/EmptyState';
 import { GoalActionConfirmationModal } from '@/src/components/GoalActionConfirmationModal';
 import { ObjectiveActionsMenu } from '@/src/components/ObjectiveActionsMenu';
 import { ScreenContainer } from '@/src/components/ScreenContainer';
-import { PUNISHMENT_CATEGORY_OPTIONS, PUNISHMENT_DIFFICULTY_OPTIONS } from '@/src/constants/punishments';
+import {
+  getPunishmentCategoryOption,
+  PUNISHMENT_CATEGORY_OPTIONS,
+  PUNISHMENT_DIFFICULTY_OPTIONS,
+} from '@/src/constants/punishments';
 import { palette, radius, shadows, spacing } from '@/src/constants/theme';
 import { usePunishmentCatalog } from '@/src/features/punishments/selectors';
 import { CompletedPunishmentHistoryEntry, PendingAssignedPunishmentSummary, Punishment } from '@/src/models/types';
@@ -50,7 +54,7 @@ const ORIGIN_FILTER_OPTIONS: { label: string; value: LibraryOriginFilter }[] = [
 const LIBRARY_PAGE_SIZE = 10;
 
 function PunishmentCard({ punishment, actions }: { punishment: Punishment; actions?: ReactNode }) {
-  const categoryOption = PUNISHMENT_CATEGORY_OPTIONS.find((option) => option.value === punishment.category) ?? PUNISHMENT_CATEGORY_OPTIONS[0];
+  const categoryOption = getPunishmentCategoryOption(punishment.categoryId, punishment.categoryName);
   const difficultyOption =
     PUNISHMENT_DIFFICULTY_OPTIONS.find((option) => option.value === punishment.difficulty) ?? PUNISHMENT_DIFFICULTY_OPTIONS[0];
 
@@ -179,7 +183,7 @@ export function PunishmentHistoryScreen() {
     () =>
       allLibraryPunishments.filter((punishment) => {
         const matchesOrigin = originFilter === 'all' ? true : punishment.scope === originFilter;
-        const matchesCategory = categoryFilters.length === 0 ? true : categoryFilters.includes(punishment.category);
+        const matchesCategory = categoryFilters.length === 0 ? true : categoryFilters.includes(punishment.categoryName);
         const matchesDifficulty = difficultyFilters.length === 0 ? true : difficultyFilters.includes(punishment.difficulty);
         const matchesSearch = normalizedSearchQuery
           ? `${punishment.title} ${punishment.description}`.toLocaleLowerCase('es').includes(normalizedSearchQuery)
@@ -207,7 +211,7 @@ export function PunishmentHistoryScreen() {
     }
 
     categoryFilters.forEach((value) => {
-      const option = PUNISHMENT_CATEGORY_OPTIONS.find((item) => item.value === value);
+      const option = PUNISHMENT_CATEGORY_OPTIONS.find((item) => item.name === value);
 
       if (option) {
         chips.push({

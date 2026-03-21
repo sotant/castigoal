@@ -3,7 +3,7 @@ import {
   AssignedPunishmentDetail,
   CompletedPunishmentHistoryEntry,
   PendingAssignedPunishmentSummary,
-  Punishment,
+  PunishmentMutationInput,
   StatsSummary,
 } from '@/src/models/types';
 import {
@@ -39,12 +39,12 @@ export async function loadPunishmentHistoryUseCase(): Promise<{
   };
 }
 
-export async function addCustomPunishmentUseCase(input: Omit<Punishment, 'id' | 'scope' | 'createdAt'>) {
+export async function addCustomPunishmentUseCase(input: PunishmentMutationInput) {
   await addCustomPunishmentRecord(input);
   return loadPunishmentCatalog();
 }
 
-export async function updateCustomPunishmentUseCase(punishmentId: string, input: Omit<Punishment, 'id' | 'scope' | 'createdAt'>) {
+export async function updateCustomPunishmentUseCase(punishmentId: string, input: PunishmentMutationInput) {
   await updateCustomPunishmentRecord(punishmentId, input);
   return loadPunishmentCatalog();
 }

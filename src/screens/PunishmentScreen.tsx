@@ -52,7 +52,7 @@ export function PunishmentScreen({ assignedId }: Props) {
       title="Castigo generado"
       subtitle="La consecuencia se crea automaticamente al caer por debajo del minimo.">
       <View style={styles.hero}>
-        <Text style={styles.category}>{detail.punishment.category}</Text>
+        <Text style={styles.category}>{detail.punishment.categoryName}</Text>
         <Text style={styles.title}>{detail.punishment.title}</Text>
         <Text style={styles.description}>{detail.punishment.description}</Text>
       </View>
