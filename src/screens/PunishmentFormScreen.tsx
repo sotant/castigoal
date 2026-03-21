@@ -22,6 +22,8 @@ export function PunishmentFormScreen() {
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState(DEFAULT_CATEGORY);
   const [difficulty, setDifficulty] = useState<1 | 2 | 3>(DEFAULT_DIFFICULTY);
+  const [difficultyInfoValue, setDifficultyInfoValue] = useState<1 | 2 | 3 | null>(null);
+  const [categoryInfoValue, setCategoryInfoValue] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const selectedCategory = PUNISHMENT_CATEGORY_OPTIONS.find((option) => option.value === category) ?? PUNISHMENT_CATEGORY_OPTIONS[0];
@@ -73,193 +75,207 @@ export function PunishmentFormScreen() {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
-      <View style={styles.heroCard}>
-        <View style={styles.heroGlowPrimary} />
-        <View style={styles.heroGlowSecondary} />
-
-        <View style={styles.heroBadge}>
-          <Ionicons color={palette.primaryDeep} name="sparkles-outline" size={16} />
-          <Text style={styles.heroBadgeText}>Nuevo castigo personal</Text>
-        </View>
-
-        <Text style={styles.heroTitle}>Haz que el castigo se sienta intencional</Text>
-        <Text style={styles.heroDescription}>
-          Un buen castigo no solo penaliza: tambien refuerza el habito que quieres construir.
-        </Text>
-
-        <View style={styles.heroStats}>
-          <View style={styles.heroStatCard}>
-            <Text style={styles.heroStatLabel}>Dificultad</Text>
-            <Text style={styles.heroStatValue}>{selectedDifficulty.label}</Text>
-          </View>
-          <View style={styles.heroStatCard}>
-            <Text style={styles.heroStatLabel}>Categoria</Text>
-            <Text style={styles.heroStatValue}>{selectedCategory.label}</Text>
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.formCard}>
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionEyebrow}>Obligatorio</Text>
-            <Text style={styles.sectionTitle}>Identidad del castigo</Text>
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>Titulo del castigo</Text>
-            <TextInput
-              editable={!saving}
-              onChangeText={setTitle}
-              onSubmitEditing={() => {
-                void handleSubmit();
-              }}
-              placeholder="Ejemplo: ordenar toda la habitacion"
-              placeholderTextColor="#8EA0B7"
-              returnKeyType="done"
-              style={styles.titleInput}
-              value={title}
-            />
-          </View>
-
-          <View style={styles.field}>
-            <View style={styles.inlineHeader}>
-              <Text style={styles.label}>Descripcion</Text>
-              <Text style={styles.optionalTag}>Opcional</Text>
+        <View style={styles.formSectionCard}>
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Identidad del castigo</Text>
             </View>
-            <TextInput
-              editable={!saving}
-              multiline
-              numberOfLines={4}
-              onChangeText={setDescription}
-              placeholder="Anade contexto, limites o una instruccion concreta para cumplirlo mejor."
-              placeholderTextColor="#8EA0B7"
-              style={[styles.titleInput, styles.descriptionInput]}
-              textAlignVertical="top"
-              value={description}
-            />
+
+            <View style={styles.field}>
+              <View style={styles.inlineHeader}>
+                <Text style={styles.label}>Titulo del castigo</Text>
+                <Text style={styles.requiredTag}>Obligatorio</Text>
+              </View>
+              <TextInput
+                editable={!saving}
+                onChangeText={setTitle}
+                onSubmitEditing={() => {
+                  void handleSubmit();
+                }}
+                placeholder="Ejemplo: ordenar toda la habitacion"
+                placeholderTextColor="#8EA0B7"
+                returnKeyType="done"
+                style={styles.titleInput}
+                value={title}
+              />
+            </View>
+
+            <View style={styles.field}>
+              <View style={styles.inlineHeader}>
+                <Text style={styles.label}>Descripcion</Text>
+                <Text style={styles.optionalTag}>Opcional</Text>
+              </View>
+              <TextInput
+                editable={!saving}
+                multiline
+                numberOfLines={4}
+                onChangeText={setDescription}
+                placeholder="Anade contexto, limites o una instruccion concreta para cumplirlo mejor."
+                placeholderTextColor="#8EA0B7"
+                style={[styles.titleInput, styles.descriptionInput]}
+                textAlignVertical="top"
+                value={description}
+              />
+            </View>
           </View>
         </View>
 
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionEyebrow}>Obligatorio</Text>
-            <Text style={styles.sectionTitle}>Selecciona la dificultad</Text>
-          </View>
+        <View style={styles.formSectionCard}>
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Selecciona la dificultad</Text>
+            </View>
 
-          <View style={styles.difficultyGrid}>
-            {PUNISHMENT_DIFFICULTY_OPTIONS.map((option) => {
-              const isSelected = option.value === difficulty;
+            <View style={styles.difficultyGrid}>
+              {PUNISHMENT_DIFFICULTY_OPTIONS.map((option) => {
+                const isSelected = option.value === difficulty;
 
-              return (
-                <Pressable
-                  key={option.value}
-                  accessibilityRole="button"
-                  disabled={saving}
-                  onPress={() => setDifficulty(option.value)}
-                  style={[
-                    styles.difficultyCard,
-                    { backgroundColor: option.tint, borderColor: isSelected ? option.accent : 'transparent' },
-                    isSelected && styles.selectedCard,
-                  ]}>
-                  <View style={[styles.difficultyBadge, { backgroundColor: option.accent }]}>
-                    <Text style={styles.difficultyBadgeLabel}>{option.value}</Text>
-                  </View>
-                  <Text style={styles.optionTitle}>{option.label}</Text>
-                  <Text style={styles.optionDescription}>{option.description}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionEyebrow}>Obligatorio</Text>
-            <Text style={styles.sectionTitle}>Elige una categoria</Text>
-          </View>
-
-          <View style={styles.categoryList}>
-            {PUNISHMENT_CATEGORY_OPTIONS.map((option) => {
-              const isSelected = option.value === category;
-
-              return (
-                <Pressable
-                  key={option.value}
-                  accessibilityRole="button"
-                  disabled={saving}
-                  onPress={() => setCategory(option.value)}
-                  style={[
-                    styles.categoryCard,
-                    { backgroundColor: option.tint, borderColor: isSelected ? option.accent : 'transparent' },
-                    isSelected && styles.selectedCard,
-                  ]}>
-                  <View style={[styles.categoryIconWrap, { backgroundColor: option.accent }]}>
-                    <Ionicons color={palette.snow} name={option.icon} size={18} />
-                  </View>
-
-                  <View style={styles.categoryCopy}>
-                    <Text style={styles.optionTitle}>{option.label}</Text>
-                    <Text style={styles.optionDescription}>{option.description}</Text>
-                  </View>
-
+                return (
                   <View
+                    key={option.value}
                     style={[
-                      styles.selectionDot,
-                      isSelected && { backgroundColor: option.accent, borderColor: option.accent },
+                      styles.difficultyItem,
+                      { backgroundColor: option.tint, borderColor: isSelected ? option.accent : 'transparent' },
+                      isSelected && styles.selectedDifficultyCard,
                     ]}>
-                    {isSelected ? <Ionicons color={palette.snow} name="checkmark" size={14} /> : null}
+                    <View style={styles.difficultyCard}>
+                      <Pressable
+                        accessibilityRole="button"
+                        disabled={saving}
+                        onPress={() => setDifficulty(option.value)}
+                        style={styles.difficultyMainAction}>
+                        <View
+                          style={[
+                            styles.difficultyBadge,
+                            { backgroundColor: isSelected ? option.accent : palette.snow, borderColor: option.accent },
+                          ]}>
+                          <Text style={[styles.difficultyBadgeLabel, { color: isSelected ? palette.snow : option.accent }]}>
+                            {option.value}
+                          </Text>
+                        </View>
+                        <Text style={[styles.optionTitle, isSelected && { color: option.accent }]}>{option.label}</Text>
+                      </Pressable>
+                      <Pressable
+                        accessibilityLabel={`Ver informacion sobre dificultad ${option.label}`}
+                        accessibilityRole="button"
+                        disabled={saving}
+                        hitSlop={8}
+                        onPress={() => setDifficultyInfoValue((current) => (current === option.value ? null : option.value))}
+                        style={[styles.difficultyInfoButton, { borderColor: option.accent }]}>
+                        <Ionicons color={option.accent} name="information-circle-outline" size={18} />
+                      </Pressable>
+                    </View>
+                    {difficultyInfoValue === option.value ? (
+                      <Text style={styles.inlineDifficultyInfoText}>{option.description}</Text>
+                    ) : null}
                   </View>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.previewCard}>
-        <View style={styles.previewHeader}>
-          <View>
-            <Text style={styles.previewEyebrow}>Vista previa</Text>
-            <Text style={styles.previewTitle}>{title.trim() || 'Tu castigo aun no tiene titulo'}</Text>
-          </View>
-          <View style={[styles.previewDifficultyChip, { backgroundColor: selectedDifficulty.accent }]}>
-            <Text style={styles.previewDifficultyChipText}>Nivel {difficulty}</Text>
+                );
+              })}
+            </View>
           </View>
         </View>
 
-        <View style={styles.previewTags}>
-          <View style={[styles.previewTag, { backgroundColor: selectedCategory.tint }]}>
-            <Text style={[styles.previewTagText, { color: selectedCategory.accent }]}>{selectedCategory.label}</Text>
-          </View>
-          <View style={[styles.previewTag, { backgroundColor: selectedDifficulty.tint }]}>
-            <Text style={[styles.previewTagText, { color: selectedDifficulty.accent }]}>{selectedDifficulty.label}</Text>
+        <View style={styles.formSectionCard}>
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Elige una categoria</Text>
+            </View>
+
+            <View style={styles.categoryList}>
+              {PUNISHMENT_CATEGORY_OPTIONS.map((option) => {
+                const isSelected = option.value === category;
+
+                return (
+                  <View
+                    key={option.value}
+                    style={[
+                      styles.categoryItem,
+                      { backgroundColor: option.tint, borderColor: isSelected ? option.accent : 'transparent' },
+                      isSelected && styles.selectedDifficultyCard,
+                    ]}>
+                    <View style={styles.categoryCard}>
+                      <Pressable
+                        accessibilityRole="button"
+                        disabled={saving}
+                        onPress={() => setCategory(option.value)}
+                        style={styles.categoryMainAction}>
+                        <View
+                          style={[
+                            styles.categoryIconWrap,
+                            { backgroundColor: isSelected ? option.accent : palette.snow, borderColor: option.accent },
+                          ]}>
+                          <Ionicons color={isSelected ? palette.snow : option.accent} name={option.icon} size={18} />
+                        </View>
+
+                        <Text
+                          style={[
+                            styles.optionTitle,
+                            styles.categoryTitle,
+                            isSelected && { color: option.accent },
+                          ]}>
+                          {option.label}
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        accessibilityLabel={`Ver informacion sobre categoria ${option.label}`}
+                        accessibilityRole="button"
+                        disabled={saving}
+                        hitSlop={8}
+                        onPress={() => setCategoryInfoValue((current) => (current === option.value ? null : option.value))}
+                        style={[styles.categoryInfoButton, { borderColor: option.accent }]}>
+                        <Ionicons color={option.accent} name="information-circle-outline" size={18} />
+                      </Pressable>
+                    </View>
+                    {categoryInfoValue === option.value ? (
+                      <Text style={styles.inlineCategoryInfoText}>{option.description}</Text>
+                    ) : null}
+                  </View>
+                );
+              })}
+            </View>
           </View>
         </View>
 
-        <Text style={styles.previewDescriptionText}>
-          {description.trim() || 'Sin descripcion. Puedes dejarlo asi o dar mas detalle para hacerlo mas claro al cumplirlo.'}
-        </Text>
-      </View>
+        <View style={styles.previewCard}>
+          <View style={styles.previewHeader}>
+            <View>
+              <Text style={styles.previewEyebrow}>Vista previa</Text>
+              <Text style={styles.previewTitle}>{title.trim() || 'Tu castigo aun no tiene titulo'}</Text>
+            </View>
+          </View>
 
-      <View style={styles.actionsRow}>
-        <Pressable
-          disabled={saving}
-          onPress={handleBack}
-          style={[styles.secondaryButton, saving && styles.disabled]}>
-          <Text style={styles.secondaryLabel}>Cancelar</Text>
-        </Pressable>
+          <View style={styles.previewTags}>
+            <View style={[styles.previewTag, { backgroundColor: selectedCategory.tint }]}>
+              <Text style={[styles.previewTagText, { color: selectedCategory.accent }]}>{selectedCategory.label}</Text>
+            </View>
+            <View style={[styles.previewTag, { backgroundColor: selectedDifficulty.tint }]}>
+              <Text style={[styles.previewTagText, { color: selectedDifficulty.accent }]}>{selectedDifficulty.label}</Text>
+            </View>
+          </View>
 
-        <Pressable
-          disabled={saving || !title.trim()}
-          onPress={() => {
-            void handleSubmit();
-          }}
-          style={[styles.primaryButton, (saving || !title.trim()) && styles.disabled]}>
-          <Ionicons color={palette.snow} name="add-circle-outline" size={18} />
-          <Text style={styles.primaryLabel}>{saving ? 'Guardando...' : 'Crear castigo'}</Text>
-        </Pressable>
-      </View>
+          <Text style={styles.previewDescriptionText}>
+            {description.trim() || 'Sin descripcion. Puedes dejarlo asi o dar mas detalle para hacerlo mas claro al cumplirlo.'}
+          </Text>
+        </View>
+
+        <View style={styles.actionsRow}>
+          <Pressable
+            disabled={saving}
+            onPress={handleBack}
+            style={[styles.secondaryButton, saving && styles.disabled]}>
+            <Text style={styles.secondaryLabel}>Cancelar</Text>
+          </Pressable>
+
+          <Pressable
+            disabled={saving || !title.trim()}
+            onPress={() => {
+              void handleSubmit();
+            }}
+            style={[styles.primaryButton, (saving || !title.trim()) && styles.disabled]}>
+            <Ionicons color={palette.snow} name="add-circle-outline" size={18} />
+            <Text style={styles.primaryLabel}>{saving ? 'Guardando...' : 'Crear castigo'}</Text>
+          </Pressable>
+        </View>
       </ScrollView>
     </ScreenContainer>
   );
@@ -270,88 +286,8 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     paddingBottom: spacing.xl,
   },
-  heroCard: {
-    overflow: 'hidden',
-    padding: spacing.lg,
-    borderRadius: 30,
-    backgroundColor: '#132238',
-    gap: spacing.md,
-    ...shadows.card,
-  },
-  heroGlowPrimary: {
-    position: 'absolute',
-    top: -30,
-    right: -10,
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: 'rgba(74, 134, 247, 0.28)',
-  },
-  heroGlowSecondary: {
-    position: 'absolute',
-    bottom: -45,
-    left: -20,
-    width: 170,
-    height: 170,
-    borderRadius: 85,
-    backgroundColor: 'rgba(255, 159, 67, 0.20)',
-  },
-  heroBadge: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: radius.pill,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-  },
-  heroBadgeText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: palette.primaryDeep,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  heroTitle: {
-    fontSize: 28,
-    lineHeight: 34,
-    fontWeight: '900',
-    color: palette.snow,
-  },
-  heroDescription: {
-    maxWidth: '88%',
-    fontSize: 15,
-    lineHeight: 22,
-    color: 'rgba(255, 255, 255, 0.76)',
-  },
-  heroStats: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  heroStatCard: {
-    flex: 1,
+  formSectionCard: {
     padding: spacing.md,
-    borderRadius: radius.md,
-    backgroundColor: 'rgba(255, 255, 255, 0.10)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    gap: 4,
-  },
-  heroStatLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: 'rgba(255, 255, 255, 0.62)',
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-  },
-  heroStatValue: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: palette.snow,
-  },
-  formCard: {
-    padding: spacing.lg,
     borderRadius: 30,
     backgroundColor: palette.snow,
     borderWidth: 1,
@@ -364,13 +300,6 @@ const styles = StyleSheet.create({
   },
   sectionHeader: {
     gap: 4,
-  },
-  sectionEyebrow: {
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 0.7,
-    color: palette.primaryDeep,
-    textTransform: 'uppercase',
   },
   sectionTitle: {
     fontSize: 21,
@@ -400,9 +329,18 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: palette.primaryDeep,
   },
+  requiredTag: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+    backgroundColor: '#FDECEC',
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#B42318',
+  },
   titleInput: {
     paddingHorizontal: spacing.md,
-    paddingVertical: 15,
+    paddingVertical: 12,
     borderRadius: 18,
     borderWidth: 1,
     borderColor: '#D9E2EE',
@@ -411,18 +349,27 @@ const styles = StyleSheet.create({
     color: palette.ink,
   },
   descriptionInput: {
-    minHeight: 112,
+    minHeight: 96,
   },
   difficultyGrid: {
-    flexDirection: 'row',
-    gap: spacing.sm,
+    gap: 4,
   },
-  difficultyCard: {
-    flex: 1,
-    minHeight: 150,
-    padding: spacing.md,
+  difficultyItem: {
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 8,
     borderRadius: radius.lg,
     borderWidth: 2,
+  },
+  difficultyCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  difficultyMainAction: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.sm,
   },
   difficultyBadge: {
@@ -431,29 +378,54 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 2,
   },
   difficultyBadgeLabel: {
-    color: palette.snow,
     fontSize: 16,
     fontWeight: '900',
   },
+  difficultyInfoButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: palette.snow,
+  },
+  inlineDifficultyInfoText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: palette.slate,
+  },
   categoryList: {
+    gap: 4,
+  },
+  categoryItem: {
     gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 8,
+    borderRadius: radius.lg,
+    borderWidth: 2,
   },
   categoryCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    padding: spacing.md,
-    borderRadius: radius.lg,
-    borderWidth: 2,
+  },
+  categoryMainAction: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   categoryIconWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 2,
   },
   categoryCopy: {
     flex: 1,
@@ -462,7 +434,15 @@ const styles = StyleSheet.create({
   optionTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: palette.ink,
+    color: '#475467',
+  },
+  categoryTitle: {
+    flex: 1,
+  },
+  inlineCategoryInfoText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: palette.slate,
   },
   optionDescription: {
     fontSize: 13,
@@ -476,18 +456,24 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     elevation: 3,
   },
-  selectionDot: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+  selectedDifficultyCard: {
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 3,
+  },
+  categoryInfoButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: '#CAD5E3',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: palette.snow,
   },
   previewCard: {
-    padding: spacing.lg,
+    padding: spacing.md,
     borderRadius: 28,
     backgroundColor: '#FFF8EC',
     borderWidth: 1,
@@ -496,10 +482,7 @@ const styles = StyleSheet.create({
     ...shadows.card,
   },
   previewHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: spacing.md,
+    gap: spacing.xs,
   },
   previewEyebrow: {
     fontSize: 12,
@@ -513,18 +496,6 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '900',
     color: palette.ink,
-  },
-  previewDifficultyChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: radius.pill,
-  },
-  previewDifficultyChipText: {
-    color: palette.snow,
-    fontSize: 12,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
   previewTags: {
     flexDirection: 'row',
