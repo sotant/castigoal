@@ -1,14 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams, usePathname } from 'expo-router';
 import { ComponentProps, ReactNode, useEffect, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { Directions, FlingGestureHandler } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EmptyState } from '@/src/components/EmptyState';
+import { GoalActionConfirmationModal } from '@/src/components/GoalActionConfirmationModal';
+import { ObjectiveActionsMenu } from '@/src/components/ObjectiveActionsMenu';
 import { ScreenContainer } from '@/src/components/ScreenContainer';
-import { punishmentCategoryLabels } from '@/src/constants/punishments';
+import { PUNISHMENT_CATEGORY_OPTIONS, PUNISHMENT_DIFFICULTY_OPTIONS } from '@/src/constants/punishments';
 import { palette, radius, shadows, spacing } from '@/src/constants/theme';
 import { usePunishmentCatalog } from '@/src/features/punishments/selectors';
 import { CompletedPunishmentHistoryEntry, PendingAssignedPunishmentSummary, Punishment } from '@/src/models/types';
@@ -17,20 +19,32 @@ import { useAppStore } from '@/src/store/app-store';
 import { formatLongDate, toISODate } from '@/src/utils/date';
 
 function PunishmentCard({ punishment, actions }: { punishment: Punishment; actions?: ReactNode }) {
+  const categoryOption = PUNISHMENT_CATEGORY_OPTIONS.find((option) => option.value === punishment.category) ?? PUNISHMENT_CATEGORY_OPTIONS[0];
+  const difficultyOption =
+    PUNISHMENT_DIFFICULTY_OPTIONS.find((option) => option.value === punishment.difficulty) ?? PUNISHMENT_DIFFICULTY_OPTIONS[0];
+
   return (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
         <Text style={styles.cardTitle}>{punishment.title}</Text>
         <Text style={[styles.badge, punishment.scope === 'personal' ? styles.badgeCustom : styles.badgeDefault]}>
-          {punishment.scope === 'personal' ? 'Personal' : 'Predeterminado'}
+          {punishment.scope === 'personal' ? 'Personal' : 'Base'}
         </Text>
       </View>
-      <Text style={styles.cardDescription}>{punishment.description}</Text>
-      <View style={styles.metaRow}>
-        <Text style={styles.metaText}>Categoria: {punishmentCategoryLabels[punishment.category]}</Text>
-        <Text style={styles.metaText}>Dificultad: {punishment.difficulty}/3</Text>
+
+      {punishment.description ? <Text style={styles.cardDescription}>{punishment.description}</Text> : null}
+
+      <View style={styles.cardFooter}>
+        <View style={styles.previewTags}>
+          <View style={[styles.previewTag, { backgroundColor: categoryOption.tint }]}>
+            <Text style={[styles.previewTagText, { color: categoryOption.accent }]}>{categoryOption.label}</Text>
+          </View>
+          <View style={[styles.previewTag, { backgroundColor: difficultyOption.tint }]}>
+            <Text style={[styles.previewTagText, { color: difficultyOption.accent }]}>{difficultyOption.label}</Text>
+          </View>
+        </View>
+        {actions ? <View style={styles.cardFooterActions}>{actions}</View> : null}
       </View>
-      {actions}
     </View>
   );
 }
@@ -121,7 +135,6 @@ export function PunishmentHistoryScreen() {
     deleteCustomPunishment,
     punishmentsLoaded,
     refreshPunishmentCatalog,
-    updateCustomPunishment,
   } = usePunishmentCatalog();
   const completedPunishmentHistory = useAppStore((state) => state.completedPunishmentHistory);
   const completeAssignedPunishment = useAppStore((state) => state.completeAssignedPunishment);
@@ -131,15 +144,16 @@ export function PunishmentHistoryScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const insets = useSafeAreaInsets();
   const [activePrimaryTab, setActivePrimaryTab] = useState<PrimaryTabKey>(params.tab === 'library' ? 'library' : 'mine');
-  const [editingPunishmentId, setEditingPunishmentId] = useState<string | null>(null);
-  const [editingPunishmentTitle, setEditingPunishmentTitle] = useState('');
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [activeMenuPunishmentId, setActiveMenuPunishmentId] = useState<string | null>(null);
+  const [pendingDeletePunishmentId, setPendingDeletePunishmentId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [completingAssignedId, setCompletingAssignedId] = useState<string | null>(null);
   const [pendingCompletion, setPendingCompletion] = useState<PendingAssignedPunishmentSummary | null>(null);
   const [infoPunishment, setInfoPunishment] = useState<PendingAssignedPunishmentSummary | null>(null);
   const [infoCompletedEntry, setInfoCompletedEntry] = useState<CompletedPunishmentHistoryEntry | null>(null);
   const [isCompletedHistoryOpen, setIsCompletedHistoryOpen] = useState(false);
+  const activeMenuPunishment = personalPunishments.find((item) => item.id === activeMenuPunishmentId) ?? null;
+  const pendingDeletePunishment = personalPunishments.find((item) => item.id === pendingDeletePunishmentId) ?? null;
 
   useEffect(() => {
     const tasks: Promise<unknown>[] = [];
@@ -164,18 +178,6 @@ export function PunishmentHistoryScreen() {
       setActivePrimaryTab(params.tab);
     }
   }, [params.tab]);
-
-  const startEditing = (punishment: Punishment) => {
-    setEditingPunishmentId(punishment.id);
-    setEditingPunishmentTitle(punishment.title);
-    setConfirmDeleteId(null);
-    setActivePrimaryTab('library');
-  };
-
-  const cancelEditing = () => {
-    setEditingPunishmentId(null);
-    setEditingPunishmentTitle('');
-  };
 
   const confirmCompletion = (pendingPunishment: PendingAssignedPunishmentSummary) => {
     setPendingCompletion(pendingPunishment);
@@ -295,105 +297,23 @@ export function PunishmentHistoryScreen() {
     }
 
     return personalPunishments.map((punishment) => {
-      const isEditing = editingPunishmentId === punishment.id;
-      const isConfirmingDelete = confirmDeleteId === punishment.id;
-
-      if (isEditing) {
-        return (
-          <View key={punishment.id} style={styles.card}>
-            <Text style={styles.cardTitle}>Editar castigo</Text>
-            <TextInput
-              editable={!saving}
-              value={editingPunishmentTitle}
-              onChangeText={setEditingPunishmentTitle}
-              style={styles.input}
-              placeholder="Ejemplo: limpiar el coche"
-            />
-            <View style={styles.actionsRow}>
-              <Pressable disabled={saving} onPress={cancelEditing} style={[styles.secondaryButton, saving && styles.disabled]}>
-                <Text style={styles.secondaryLabel}>Cancelar</Text>
-              </Pressable>
-              <Pressable
-                disabled={saving}
-                onPress={async () => {
-                  if (!editingPunishmentTitle.trim()) {
-                    return;
-                  }
-
-                  setSaving(true);
-
-                  try {
-                    await updateCustomPunishment(punishment.id, {
-                      title: editingPunishmentTitle.trim(),
-                      description: punishment.description,
-                      category: punishment.category,
-                      difficulty: punishment.difficulty,
-                    });
-                    cancelEditing();
-                  } catch {
-                    return;
-                  } finally {
-                    setSaving(false);
-                  }
-                }}
-                style={[styles.primaryButton, styles.actionButton, saving && styles.disabled]}>
-                <Text style={styles.primaryLabel}>{saving ? 'Guardando...' : 'Guardar cambios'}</Text>
-              </Pressable>
-            </View>
-          </View>
-        );
-      }
-
       return (
         <PunishmentCard
           key={punishment.id}
           punishment={punishment}
           actions={
-            <>
-              <View style={styles.actionsRow}>
-                <Pressable
-                  disabled={saving}
-                  onPress={() => startEditing(punishment)}
-                  style={[styles.secondaryButton, saving && styles.disabled]}>
-                  <Text style={styles.secondaryLabel}>Editar</Text>
-                </Pressable>
-                <Pressable
-                  disabled={saving}
-                  onPress={() => {
-                    setConfirmDeleteId((current) => (current === punishment.id ? null : punishment.id));
-                  }}
-                  style={[styles.dangerButton, saving && styles.disabled]}>
-                  <Text style={styles.dangerLabel}>{isConfirmingDelete ? 'Cancelar borrado' : 'Borrar'}</Text>
-                </Pressable>
-              </View>
-              {isConfirmingDelete ? (
-                <View style={styles.confirmCard}>
-                  <Text style={styles.confirmText}>
-                    Confirma el borrado. El servidor bloqueara el borrado si este castigo ya fue asignado para conservar el historial.
-                  </Text>
-                  <Pressable
-                    disabled={saving}
-                    onPress={async () => {
-                      setSaving(true);
-
-                      try {
-                        await deleteCustomPunishment(punishment.id);
-                        if (editingPunishmentId === punishment.id) {
-                          cancelEditing();
-                        }
-                        setConfirmDeleteId(null);
-                      } catch {
-                        return;
-                      } finally {
-                        setSaving(false);
-                      }
-                    }}
-                    style={[styles.confirmDeleteButton, saving && styles.disabled]}>
-                    <Text style={styles.confirmDeleteLabel}>{saving ? 'Borrando...' : 'Confirmar borrado'}</Text>
-                  </Pressable>
-                </View>
-              ) : null}
-            </>
+            <Pressable
+              accessibilityHint="Muestra mas acciones para este castigo"
+              accessibilityLabel={`Abrir menu de ${punishment.title}`}
+              accessibilityRole="button"
+              disabled={saving}
+              onPress={(event) => {
+                event.stopPropagation();
+                setActiveMenuPunishmentId(punishment.id);
+              }}
+              style={({ pressed }) => [styles.moreButton, pressed && styles.secondaryNavPressed, saving && styles.disabled]}>
+              <Ionicons color={palette.ink} name="ellipsis-horizontal" size={18} />
+            </Pressable>
           }
         />
       );
@@ -419,12 +339,10 @@ export function PunishmentHistoryScreen() {
       <View style={styles.contentSection}>
         <View style={styles.contentSectionHeader}>
           <View style={styles.sectionHeaderCopy}>
-            <Text style={styles.sectionEyebrow}>Mis castigos</Text>
             <Text style={styles.sectionTitle}>Castigos creados por mi</Text>
-            <Text style={styles.sectionDescription}>Edita o elimina tus propios castigos sin salir de la biblioteca.</Text>
           </View>
-          <View style={styles.countBadge}>
-            <Text style={styles.countBadgeLabel}>{personalPunishments.length}</Text>
+          <View style={[styles.countBadge, styles.historyCountBadge]}>
+            <Text style={[styles.countBadgeLabel, styles.historyCountBadgeLabel]}>{personalPunishments.length}</Text>
           </View>
         </View>
 
@@ -434,12 +352,10 @@ export function PunishmentHistoryScreen() {
       <View style={styles.contentSection}>
         <View style={styles.contentSectionHeader}>
           <View style={styles.sectionHeaderCopy}>
-            <Text style={styles.sectionEyebrow}>Predeterminados</Text>
             <Text style={styles.sectionTitle}>Castigos de la app</Text>
-            <Text style={styles.sectionDescription}>Opciones base listas para utilizar sin tener que configurarlas de nuevo.</Text>
           </View>
-          <View style={styles.countBadge}>
-            <Text style={styles.countBadgeLabel}>{basePunishments.length}</Text>
+          <View style={[styles.countBadge, styles.historyCountBadge]}>
+            <Text style={[styles.countBadgeLabel, styles.historyCountBadgeLabel]}>{basePunishments.length}</Text>
           </View>
         </View>
 
@@ -584,6 +500,66 @@ export function PunishmentHistoryScreen() {
           </View>
         </View>
       </Modal>
+
+      <ObjectiveActionsMenu
+        goalTitle={activeMenuPunishment?.title ?? ''}
+        onClose={() => setActiveMenuPunishmentId(null)}
+        onFinalize={() => {}}
+        onReactivate={() => {}}
+        onEdit={() => {
+          if (!activeMenuPunishment) {
+            return;
+          }
+
+          const punishmentId = activeMenuPunishment.id;
+          setActiveMenuPunishmentId(null);
+          router.push(appRoutes.editPunishment(punishmentId));
+        }}
+        onDelete={() => {
+          if (!activeMenuPunishment) {
+            return;
+          }
+
+          setPendingDeletePunishmentId(activeMenuPunishment.id);
+          setActiveMenuPunishmentId(null);
+        }}
+        showEdit
+        visible={Boolean(activeMenuPunishment)}
+      />
+
+      {pendingDeletePunishment ? (
+        <GoalActionConfirmationModal
+          confirmLabel={saving ? 'Borrando...' : 'Borrar'}
+          description="El servidor bloqueara el borrado si este castigo ya fue asignado para conservar el historial."
+          eyebrow="Eliminar castigo"
+          onCancel={() => {
+            if (!saving) {
+              setPendingDeletePunishmentId(null);
+            }
+          }}
+          onConfirm={() => {
+            if (!pendingDeletePunishment || saving) {
+              return;
+            }
+
+            void (async () => {
+              setSaving(true);
+
+              try {
+                await deleteCustomPunishment(pendingDeletePunishment.id);
+                setPendingDeletePunishmentId(null);
+              } catch {
+                return;
+              } finally {
+                setSaving(false);
+              }
+            })();
+          }}
+          title="Borrar castigo"
+          tone="danger"
+          visible
+        />
+      ) : null}
 
       <FlingGestureHandler direction={Directions.LEFT} onActivated={() => handlePrimaryTabSwipe('left')}>
         <FlingGestureHandler direction={Directions.RIGHT} onActivated={() => handlePrimaryTabSwipe('right')}>
@@ -934,15 +910,6 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     color: palette.ink,
   },
-  input: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: 14,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: palette.line,
-    backgroundColor: palette.cloud,
-    fontSize: 16,
-  },
   primaryButton: {
     paddingVertical: 14,
     borderRadius: radius.md,
@@ -957,7 +924,8 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   card: {
-    padding: spacing.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
     borderRadius: radius.lg,
     backgroundColor: palette.snow,
     borderWidth: 1,
@@ -1017,15 +985,15 @@ const styles = StyleSheet.create({
     color: palette.slate,
     lineHeight: 21,
   },
-  metaRow: {
+  cardFooter: {
     flexDirection: 'row',
+    alignItems: 'flex-end',
     justifyContent: 'space-between',
     gap: spacing.sm,
-    flexWrap: 'wrap',
   },
-  metaText: {
-    fontSize: 13,
-    color: palette.slate,
+  cardFooterActions: {
+    alignItems: 'flex-end',
+    justifyContent: 'flex-end',
   },
   badge: {
     overflow: 'hidden',
@@ -1043,12 +1011,29 @@ const styles = StyleSheet.create({
     backgroundColor: '#ECFDF5',
     color: '#065F46',
   },
-  actionsRow: {
+  previewTags: {
     flexDirection: 'row',
-    gap: spacing.sm,
+    flexWrap: 'wrap',
+    gap: spacing.xs,
   },
-  actionButton: {
-    flex: 1,
+  previewTag: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: radius.pill,
+  },
+  previewTagText: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  moreButton: {
+    width: 38,
+    height: 30,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#D7DEE9',
+    backgroundColor: '#F8FAFC',
   },
   secondaryButton: {
     flex: 1,
@@ -1061,37 +1046,6 @@ const styles = StyleSheet.create({
   },
   secondaryLabel: {
     color: palette.ink,
-    fontWeight: '800',
-  },
-  dangerButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: radius.md,
-    alignItems: 'center',
-    backgroundColor: '#FEE4E2',
-  },
-  dangerLabel: {
-    color: palette.danger,
-    fontWeight: '800',
-  },
-  confirmCard: {
-    padding: spacing.sm,
-    borderRadius: radius.md,
-    backgroundColor: '#FFF1E8',
-    gap: spacing.sm,
-  },
-  confirmText: {
-    color: palette.slate,
-    lineHeight: 20,
-  },
-  confirmDeleteButton: {
-    paddingVertical: 12,
-    borderRadius: radius.md,
-    alignItems: 'center',
-    backgroundColor: palette.danger,
-  },
-  confirmDeleteLabel: {
-    color: palette.snow,
     fontWeight: '800',
   },
   secondaryNavShell: {

@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 
@@ -17,7 +17,11 @@ const DEFAULT_CATEGORY = PUNISHMENT_CATEGORY_OPTIONS[0].value;
 const DEFAULT_DIFFICULTY = PUNISHMENT_DIFFICULTY_OPTIONS[0].value;
 
 export function PunishmentFormScreen() {
-  const { addCustomPunishment } = usePunishmentCatalog();
+  const params = useLocalSearchParams<{ id?: string }>();
+  const { addCustomPunishment, personalPunishments, punishmentsLoaded, refreshPunishmentCatalog, updateCustomPunishment } =
+    usePunishmentCatalog();
+  const punishmentId = typeof params.id === 'string' ? params.id : undefined;
+  const isEditing = Boolean(punishmentId);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState(DEFAULT_CATEGORY);
@@ -26,6 +30,10 @@ export function PunishmentFormScreen() {
   const [categoryInfoValue, setCategoryInfoValue] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const editingPunishment = useMemo(
+    () => (punishmentId ? personalPunishments.find((item) => item.id === punishmentId) ?? null : null),
+    [personalPunishments, punishmentId],
+  );
   const selectedCategory = PUNISHMENT_CATEGORY_OPTIONS.find((option) => option.value === category) ?? PUNISHMENT_CATEGORY_OPTIONS[0];
   const selectedDifficulty =
     PUNISHMENT_DIFFICULTY_OPTIONS.find((option) => option.value === difficulty) ?? PUNISHMENT_DIFFICULTY_OPTIONS[0];
@@ -38,6 +46,25 @@ export function PunishmentFormScreen() {
     }, []),
   );
 
+  useEffect(() => {
+    if (!punishmentsLoaded) {
+      void refreshPunishmentCatalog().catch(() => {
+        return;
+      });
+    }
+  }, [punishmentsLoaded, refreshPunishmentCatalog]);
+
+  useEffect(() => {
+    if (!isEditing || !editingPunishment) {
+      return;
+    }
+
+    setTitle(editingPunishment.title);
+    setDescription(editingPunishment.description);
+    setCategory(editingPunishment.category === 'custom' ? DEFAULT_CATEGORY : editingPunishment.category);
+    setDifficulty(editingPunishment.difficulty);
+  }, [editingPunishment, isEditing]);
+
   const handleSubmit = async () => {
     const normalizedTitle = title.trim();
     const normalizedDescription = description.trim();
@@ -49,12 +76,21 @@ export function PunishmentFormScreen() {
     setSaving(true);
 
     try {
-      await addCustomPunishment({
-        title: normalizedTitle,
-        description: normalizedDescription,
-        category,
-        difficulty,
-      });
+      if (isEditing && punishmentId) {
+        await updateCustomPunishment(punishmentId, {
+          title: normalizedTitle,
+          description: normalizedDescription,
+          category,
+          difficulty,
+        });
+      } else {
+        await addCustomPunishment({
+          title: normalizedTitle,
+          description: normalizedDescription,
+          category,
+          difficulty,
+        });
+      }
       Keyboard.dismiss();
       router.replace({ pathname: appRoutes.punishments, params: { tab: 'library' } });
     } catch {
@@ -69,8 +105,22 @@ export function PunishmentFormScreen() {
     router.back();
   };
 
+  if (isEditing && punishmentsLoaded && !editingPunishment) {
+    return (
+      <ScreenContainer title="Editar castigo" scroll={false}>
+        <View style={styles.missingState}>
+          <Text style={styles.missingTitle}>Castigo no disponible</Text>
+          <Text style={styles.missingDescription}>No he encontrado ese castigo personalizado para editarlo.</Text>
+          <Pressable onPress={handleBack} style={styles.secondaryButton}>
+            <Text style={styles.secondaryLabel}>Volver</Text>
+          </Pressable>
+        </View>
+      </ScreenContainer>
+    );
+  }
+
   return (
-    <ScreenContainer title="Crear castigo" scroll={false}>
+    <ScreenContainer title={isEditing ? 'Editar castigo' : 'Crear castigo'} scroll={false}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
@@ -276,8 +326,10 @@ export function PunishmentFormScreen() {
               void handleSubmit();
             }}
             style={[styles.primaryButton, (saving || !title.trim()) && styles.disabled]}>
-            <Ionicons color={palette.snow} name="add-circle-outline" size={18} />
-            <Text style={styles.primaryLabel}>{saving ? 'Guardando...' : 'Crear castigo'}</Text>
+            <Ionicons color={palette.snow} name={isEditing ? 'save-outline' : 'add-circle-outline'} size={18} />
+            <Text style={styles.primaryLabel}>
+              {saving ? 'Guardando...' : isEditing ? 'Guardar cambios' : 'Crear castigo'}
+            </Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -289,6 +341,25 @@ const styles = StyleSheet.create({
   scrollContent: {
     gap: spacing.md,
     paddingBottom: spacing.xl,
+  },
+  missingState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
+  },
+  missingTitle: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: palette.ink,
+    textAlign: 'center',
+  },
+  missingDescription: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: palette.slate,
+    textAlign: 'center',
   },
   formSectionCard: {
     padding: spacing.md,
