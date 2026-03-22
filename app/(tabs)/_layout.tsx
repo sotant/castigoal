@@ -74,6 +74,18 @@ export default function TabLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="feedback/suggestion"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="feedback/bug-report"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }

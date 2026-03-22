@@ -14,6 +14,7 @@ type Props = PropsWithChildren<{
   action?: ReactNode;
   overlay?: ReactNode;
   scroll?: boolean;
+  fixedHeader?: boolean;
   enableTabSwipe?: boolean;
   bodyStyle?: StyleProp<ViewStyle>;
   resetScrollOnFocus?: boolean;
@@ -25,6 +26,7 @@ export function ScreenContainer({
   action,
   overlay,
   scroll = true,
+  fixedHeader = false,
   enableTabSwipe,
   bodyStyle,
   resetScrollOnFocus = false,
@@ -59,22 +61,40 @@ export function ScreenContainer({
     }
   };
 
-  const content = (
-    <View style={[styles.body, !scroll && styles.bodyFill, bodyStyle]}>
-      <View style={styles.header}>
-        <View style={styles.headerCopy}>
-          <Text style={styles.title}>{title}</Text>
-          {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
-        </View>
-        {action}
+  const header = (
+    <View style={styles.header}>
+      <View style={styles.headerCopy}>
+        <Text style={styles.title}>{title}</Text>
+        {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
       </View>
-      {children}
+      {action}
+    </View>
+  );
+
+  const bodyContent = <View style={[styles.bodyContent, !scroll && styles.bodyFill, bodyStyle]}>{children}</View>;
+
+  const content = (
+    <View style={[styles.body, !scroll && styles.bodyFill]}>
+      {header}
+      {bodyContent}
     </View>
   );
 
   const keyboardContent = (
     <>
-      {scroll ? (
+      {scroll && fixedHeader ? (
+        <View style={[styles.body, styles.bodyFill]}>
+          {header}
+          <ScrollView
+            ref={scrollViewRef}
+            contentContainerStyle={styles.scroll}
+            keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+            keyboardShouldPersistTaps="handled"
+            style={styles.scrollView}>
+            {bodyContent}
+          </ScrollView>
+        </View>
+      ) : scroll ? (
         <ScrollView
           ref={scrollViewRef}
           contentContainerStyle={styles.scroll}
@@ -118,9 +138,16 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingBottom: spacing.xl,
   },
+  scrollView: {
+    flex: 1,
+  },
   body: {
+    flex: 1,
     padding: spacing.md,
     paddingTop: spacing.lg,
+    gap: spacing.md,
+  },
+  bodyContent: {
     gap: spacing.md,
   },
   bodyFill: {

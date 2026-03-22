@@ -94,8 +94,6 @@ function RootNavigator() {
         <Stack.Screen name="reset-password" />
         <Stack.Screen name="privacy" />
         <Stack.Screen name="onboarding" />
-        <Stack.Screen name="feedback/suggestion" />
-        <Stack.Screen name="feedback/bug-report" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="goals/create" />
         <Stack.Screen name="goals/[id]" />

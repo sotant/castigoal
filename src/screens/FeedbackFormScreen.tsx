@@ -1,6 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { ScreenContainer } from '@/src/components/ScreenContainer';
@@ -61,6 +62,27 @@ export function FeedbackFormScreen({ type }: Props) {
     message: (hasTriedSubmit || touched.message) && errors.message ? errors.message : undefined,
     subject: (hasTriedSubmit || touched.subject) && errors.subject ? errors.subject : undefined,
   };
+
+  const resetForm = useCallback(() => {
+    setValues(createInitialFeedbackValues());
+    setTouched({});
+    setHasTriedSubmit(false);
+    setIsSubmitting(false);
+    setSubmitError(null);
+    setIsSuccess(false);
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      Keyboard.dismiss();
+      resetForm();
+
+      return () => {
+        Keyboard.dismiss();
+        resetForm();
+      };
+    }, [resetForm]),
+  );
 
   const updateField = <Key extends keyof FeedbackFormValues>(field: Key, value: FeedbackFormValues[Key]) => {
     setValues((current) => ({ ...current, [field]: value }));
@@ -125,7 +147,7 @@ export function FeedbackFormScreen({ type }: Props) {
 
   if (isSuccess) {
     return (
-      <ScreenContainer subtitle={copy.screenDescription} title={copy.screenTitle}>
+      <ScreenContainer fixedHeader resetScrollOnFocus subtitle={copy.screenDescription} title={copy.screenTitle}>
         <View style={styles.successCard}>
           <View style={styles.successIconWrap}>
             <MaterialCommunityIcons
@@ -145,13 +167,8 @@ export function FeedbackFormScreen({ type }: Props) {
   }
 
   return (
-    <ScreenContainer subtitle={copy.screenDescription} title={copy.screenTitle}>
+    <ScreenContainer fixedHeader resetScrollOnFocus subtitle={copy.screenDescription} title={copy.screenTitle}>
       <View style={styles.panel}>
-        <View style={styles.infoCard}>
-          <Text style={styles.infoTitle}>{copy.introDescription}</Text>
-          <Text style={styles.helperText}>{copy.contactEmailHelper}</Text>
-        </View>
-
         <View style={styles.field}>
           <FieldLabel label={copy.subjectLabel} tone="required" />
           <TextInput
@@ -314,17 +331,6 @@ const styles = StyleSheet.create({
   helperText: {
     color: palette.slate,
     lineHeight: 21,
-  },
-  infoCard: {
-    padding: spacing.md,
-    borderRadius: 20,
-    backgroundColor: '#EEF4FF',
-    gap: spacing.xs,
-  },
-  infoTitle: {
-    color: palette.ink,
-    fontSize: 18,
-    fontWeight: '800',
   },
   input: {
     minHeight: 52,
