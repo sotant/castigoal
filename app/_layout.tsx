@@ -11,6 +11,8 @@ import { useAuth } from '@/src/hooks/use-auth';
 import { useAppBootstrap } from '@/src/hooks/use-app-bootstrap';
 import { appRoutes } from '@/src/navigation/app-routes';
 import { AuthProvider } from '@/src/providers/auth-provider';
+import { OnboardingIntroModal } from '@/src/screens/OnboardingScreen';
+import { useAppStore } from '@/src/store/app-store';
 
 const navigationTheme = {
   dark: false,
@@ -57,15 +59,13 @@ const rootStackScreenOptions = {
 function AuthRedirector() {
   const pathname = usePathname();
   const { isLoading, profile, session } = useAuth();
+  const hydrated = useAppStore((state) => state.hydrated);
   const isPrivacyRoute = pathname === appRoutes.privacy;
+  const isOnboardingRoute = pathname === appRoutes.onboarding;
+  const isAuthRoute = pathname === appRoutes.auth;
 
   useEffect(() => {
-    if (isLoading) {
-      return;
-    }
-
-    if (!session && pathname === appRoutes.onboarding) {
-      router.replace(appRoutes.home);
+    if (isLoading || !hydrated) {
       return;
     }
 
@@ -74,16 +74,44 @@ function AuthRedirector() {
       return;
     }
 
-    if (session && profile && (pathname === appRoutes.auth || pathname === appRoutes.onboarding) && !isPrivacyRoute) {
+    if (isOnboardingRoute) {
+      router.replace(appRoutes.home);
+      return;
+    }
+
+    if (session && profile && isAuthRoute && !isPrivacyRoute) {
       router.replace(appRoutes.home);
     }
-  }, [isLoading, isPrivacyRoute, pathname, profile, session]);
+  }, [
+    hydrated,
+    isAuthRoute,
+    isLoading,
+    isOnboardingRoute,
+    isPrivacyRoute,
+    pathname,
+    profile,
+    session,
+  ]);
 
   return null;
 }
 
 function RootNavigator() {
   useAppBootstrap();
+  const pathname = usePathname();
+  const hydrated = useAppStore((state) => state.hydrated);
+  const onboarding = useAppStore((state) => state.onboarding);
+  const shouldRenderIntroModal =
+    hydrated &&
+    !onboarding.hasSeenOnboarding &&
+    !onboarding.isSkipped &&
+    !onboarding.isCompleted &&
+    !onboarding.hasCreatedFirstGoal &&
+    !onboarding.hasLoggedFirstDay &&
+    pathname !== '/' &&
+    pathname !== appRoutes.auth &&
+    pathname !== appRoutes.privacy &&
+    pathname !== appRoutes.onboarding;
 
   return (
     <ThemeProvider value={navigationTheme}>
@@ -102,6 +130,7 @@ function RootNavigator() {
         <Stack.Screen name="punishments/edit/[id]" />
         <Stack.Screen name="punishments/[id]" />
       </Stack>
+      {shouldRenderIntroModal ? <OnboardingIntroModal visible /> : null}
       <StatusBar style="dark" />
     </ThemeProvider>
   );

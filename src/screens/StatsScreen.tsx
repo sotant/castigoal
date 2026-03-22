@@ -24,6 +24,9 @@ type GoalFilter = 'active' | 'completed';
 export function StatsScreen() {
   const goals = useAppStore((state) => state.goals);
   const homeSummary = useAppStore((state) => state.homeSummary);
+  const onboarding = useAppStore((state) => state.onboarding);
+  const onboardingDecision = useAppStore((state) => state.onboardingDecision);
+  const markStatsTooltipSeen = useAppStore((state) => state.markStatsTooltipSeen);
   const statsSummary = useAppStore((state) => state.statsSummary);
   const statsLoaded = useAppStore((state) => state.statsLoaded);
   const loadStatsCalendar = useAppStore((state) => state.loadStatsCalendar);
@@ -35,6 +38,7 @@ export function StatsScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const tabBarHeight = useBottomTabBarHeight();
   const insets = useSafeAreaInsets();
+  const showStatsTooltip = onboardingDecision.shouldGuideStats && !onboarding.statsTooltipSeen;
 
   useFocusEffect(
     useCallback(() => {
@@ -150,6 +154,17 @@ export function StatsScreen() {
           ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
+          {showStatsTooltip ? (
+            <View style={styles.tooltipCard}>
+              <View style={styles.tooltipHeader}>
+                <Text style={styles.tooltipTitle}>Tu progreso</Text>
+                <Pressable accessibilityLabel="Cerrar mensaje" hitSlop={8} onPress={() => void markStatsTooltipSeen()} style={styles.tooltipClose}>
+                  <Feather color={palette.primaryDeep} name="x" size={16} />
+                </Pressable>
+              </View>
+              <Text style={styles.tooltipText}>Aqui veras como vas cumpliendo tus objetivos.</Text>
+            </View>
+          ) : null}
           <View style={styles.section}>
             <View style={styles.overviewHero}>
               <View style={styles.heroGlowPrimary} />
@@ -407,6 +422,39 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     gap: spacing.md,
+  },
+  tooltipCard: {
+    padding: spacing.md,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: '#CFE0FF',
+    backgroundColor: '#F4F8FF',
+    gap: spacing.xs,
+  },
+  tooltipHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  tooltipTitle: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: '800',
+    color: palette.primaryDeep,
+  },
+  tooltipText: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#35507A',
+  },
+  tooltipClose: {
+    width: 30,
+    height: 30,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.72)',
   },
   section: {
     gap: spacing.sm,

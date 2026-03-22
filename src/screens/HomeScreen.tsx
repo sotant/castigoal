@@ -243,9 +243,17 @@ function LoadingGoalsModal({ visible }: { visible: boolean }) {
 export function HomeScreen() {
   const homeSummary = useAppStore((state) => state.homeSummary);
   const goals = useAppStore((state) => state.goals);
+  const onboarding = useAppStore((state) => state.onboarding);
+  const onboardingDecision = useAppStore((state) => state.onboardingDecision);
   const recordCheckin = useAppStore((state) => state.recordCheckin);
   const clearCheckin = useAppStore((state) => state.clearCheckin);
+  const dismissFirstCheckinSuccess = useAppStore((state) => state.dismissFirstCheckinSuccess);
+  const markTodayActionTooltipSeen = useAppStore((state) => state.markTodayActionTooltipSeen);
+  const markTodayCastigoTooltipSeen = useAppStore((state) => state.markTodayCastigoTooltipSeen);
+  const markTodayProgressTooltipSeen = useAppStore((state) => state.markTodayProgressTooltipSeen);
+  const markTodayViewed = useAppStore((state) => state.markTodayViewed);
   const refreshHomeSummary = useAppStore((state) => state.refreshHomeSummary);
+  const showFirstCheckinSuccess = useAppStore((state) => state.showFirstCheckinSuccess);
   const [selectedDate, setSelectedDate] = useState(startOfToday());
   const [selectedSummary, setSelectedSummary] = useState(homeSummary);
   const [calendarMarkers, setCalendarMarkers] = useState<Partial<Record<string, CalendarMarkerStatus>>>({});
@@ -262,10 +270,11 @@ export function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       setSelectedDate(today);
+      void markTodayViewed();
       requestAnimationFrame(() => {
         contentScrollRef.current?.scrollTo({ x: 0, y: 0, animated: false });
       });
-    }, [today]),
+    }, [markTodayViewed, today]),
   );
 
   useEffect(() => {
@@ -361,6 +370,29 @@ export function HomeScreen() {
       });
   }, [goals, isFutureSelected, selectedDate, selectedSummary.goalSummaries, todayProgressSummary.goalSummaries]);
 
+  const shouldShowTodayOnboarding = onboardingDecision.activeStep === 'daily_tracking_pending' && !onboarding.hasLoggedFirstDay;
+  const showProgressTooltip = shouldShowTodayOnboarding && !onboarding.todayProgressTooltipSeen;
+  const showActionTooltip =
+    shouldShowTodayOnboarding &&
+    onboarding.todayProgressTooltipSeen &&
+    !onboarding.todayActionTooltipSeen &&
+    activeGoals.length > 0 &&
+    !loadingDate;
+  const showCastigoTooltip = showFirstCheckinSuccess && !onboarding.todayCastigoTooltipSeen;
+  const showPunishmentsSuggestion = onboardingDecision.shouldGuidePunishments && !showCastigoTooltip;
+
+  useEffect(() => {
+    if (!showFirstCheckinSuccess || showCastigoTooltip) {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      dismissFirstCheckinSuccess();
+    }, 2400);
+
+    return () => clearTimeout(timeout);
+  }, [dismissFirstCheckinSuccess, showCastigoTooltip, showFirstCheckinSuccess]);
+
   const applyOptimisticStatus = (goalId: string, status: HomeGoalSummary['todayStatus']) => {
     setSelectedSummary((current) => {
       const goalSummaries = current.goalSummaries.map((item) => (item.goalId === goalId ? { ...item, todayStatus: status } : item));
@@ -446,6 +478,13 @@ export function HomeScreen() {
         selectedDate={selectedDate}
         startDate={calendarStartDate}
       />
+      {showProgressTooltip ? (
+        <ContextTooltip
+          title="Tu progreso"
+          text="Aqui veras cada dia si cumpliste o no tu objetivo."
+          onClose={() => void markTodayProgressTooltipSeen()}
+        />
+      ) : null}
       <LoadingGoalsModal visible={loadingDate} />
 
       <FlingGestureHandler direction={Directions.LEFT} onActivated={() => handleDateSwipe('left')}>
@@ -469,15 +508,53 @@ export function HomeScreen() {
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}>
                 <View style={styles.content}>
-                  {activeGoals.map((item) => (
-                    <ActiveGoalCardView
-                      key={`${item.summary.goalId}-${selectedDate}`}
-                      {...item}
-                      disabled={savingGoalId === item.summary.goalId}
-                      selectedDate={selectedDate}
-                      onSetCompleted={() => void applyStatus(item.summary.goalId, item.selectedStatus === 'completed' ? 'pending' : 'completed')}
-                      onSetMissed={() => void applyStatus(item.summary.goalId, item.selectedStatus === 'missed' ? 'pending' : 'missed')}
+                  {showFirstCheckinSuccess ? (
+                    <View accessibilityRole="alert" style={styles.successBanner}>
+                      <Text style={styles.successBannerTitle}>Buen trabajo</Text>
+                      <Text style={styles.successBannerText}>Perfecto. Ya estas en marcha.</Text>
+                    </View>
+                  ) : null}
+                  {showCastigoTooltip ? (
+                    <ContextTooltip
+                      title="Consecuencias"
+                      text="Si no alcanzas tu objetivo... tendras un castigo."
+                      onClose={() => {
+                        void markTodayCastigoTooltipSeen();
+                        dismissFirstCheckinSuccess();
+                      }}
+                      variant="warning"
                     />
+                  ) : null}
+                  {showActionTooltip ? (
+                    <ContextTooltip
+                      title="Marca tu dia"
+                      text="¿Cumpliste hoy? Registralo aqui."
+                      onClose={() => void markTodayActionTooltipSeen()}
+                    />
+                  ) : null}
+                  {showPunishmentsSuggestion ? (
+                    <View style={styles.nextStepCard}>
+                      <View style={styles.nextStepCopy}>
+                        <Text style={styles.nextStepTitle}>Siguiente paso</Text>
+                        <Text style={styles.nextStepText}>Pasa por Castigos para entender que ocurre si fallas tu reto.</Text>
+                      </View>
+                      <Pressable accessibilityRole="button" onPress={() => router.push(appRoutes.punishments)} style={styles.nextStepButton}>
+                        <Text style={styles.nextStepButtonText}>Ver castigos</Text>
+                      </Pressable>
+                    </View>
+                  ) : null}
+                  {activeGoals.map((item) => (
+                    <View
+                      key={`${item.summary.goalId}-${selectedDate}`}
+                      style={showActionTooltip && item.summary.goalId === activeGoals[0]?.summary.goalId ? styles.actionHighlightWrap : null}>
+                      <ActiveGoalCardView
+                        {...item}
+                        disabled={savingGoalId === item.summary.goalId}
+                        selectedDate={selectedDate}
+                        onSetCompleted={() => void applyStatus(item.summary.goalId, item.selectedStatus === 'completed' ? 'pending' : 'completed')}
+                        onSetMissed={() => void applyStatus(item.summary.goalId, item.selectedStatus === 'missed' ? 'pending' : 'missed')}
+                      />
+                    </View>
                   ))}
                 </View>
               </ScrollView>
@@ -489,9 +566,148 @@ export function HomeScreen() {
   );
 }
 
+function ContextTooltip({
+  title,
+  text,
+  onClose,
+  variant = 'default',
+}: {
+  title: string;
+  text: string;
+  onClose: () => void;
+  variant?: 'default' | 'warning';
+}) {
+  const isWarning = variant === 'warning';
+
+  return (
+    <View style={[styles.tooltipCard, isWarning ? styles.tooltipCardWarning : null]}>
+      <View style={styles.tooltipHeader}>
+        <Text style={[styles.tooltipTitle, isWarning ? styles.tooltipTitleWarning : null]}>{title}</Text>
+        <Pressable
+          accessibilityLabel="Cerrar mensaje"
+          accessibilityRole="button"
+          hitSlop={8}
+          onPress={onClose}
+          style={styles.tooltipClose}>
+          <Feather color={isWarning ? '#7A5A1F' : palette.ink} name="x" size={16} />
+        </Pressable>
+      </View>
+      <Text style={[styles.tooltipText, isWarning ? styles.tooltipTextWarning : null]}>{text}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  tooltipCard: {
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
+    padding: spacing.md,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#CFE0FF',
+    backgroundColor: '#F4F8FF',
+    gap: spacing.xs,
+  },
+  tooltipCardWarning: {
+    borderColor: '#F3C37A',
+    backgroundColor: '#FFF6E6',
+  },
+  tooltipHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  tooltipTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: palette.primaryDeep,
+  },
+  tooltipTitleWarning: {
+    color: '#8A5A00',
+  },
+  tooltipText: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#36507A',
+  },
+  tooltipTextWarning: {
+    color: '#7A5A1F',
+  },
+  tooltipClose: {
+    width: 28,
+    height: 28,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.72)',
+  },
+  successBanner: {
+    padding: spacing.md,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#B7E4C7',
+    backgroundColor: '#ECFDF3',
+    gap: 4,
+  },
+  successBannerTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#157347',
+    textTransform: 'uppercase',
+    letterSpacing: 0.7,
+  },
+  successBannerText: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#14532D',
+    fontWeight: '700',
+  },
+  nextStepCard: {
+    padding: spacing.md,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#F7C989',
+    backgroundColor: '#FFF7EA',
+    gap: spacing.sm,
+  },
+  nextStepCopy: {
+    gap: 4,
+  },
+  nextStepTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#9A5400',
+    textTransform: 'uppercase',
+    letterSpacing: 0.7,
+  },
+  nextStepText: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#7A4D12',
+    fontWeight: '700',
+  },
+  nextStepButton: {
+    minHeight: 44,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#C77700',
+  },
+  nextStepButtonText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: palette.snow,
+  },
   content: {
-    gap: 2,
+    gap: spacing.sm,
+  },
+  actionHighlightWrap: {
+    borderRadius: radius.lg,
+    borderWidth: 2,
+    borderColor: '#F2B84B',
+    padding: 4,
+    backgroundColor: '#FFF9EE',
   },
   swipeArea: {
     flex: 1,

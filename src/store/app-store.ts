@@ -1,6 +1,29 @@
 import { create } from 'zustand';
 
+import type { OnboardingDecision, OnboardingState, OnboardingStatus } from '@/src/features/onboarding/types';
 import { createAppError } from '@/src/lib/app-error';
+import { getCurrentSession } from '@/src/repositories/auth-repository';
+import {
+  completeOnboardingIntro,
+  completeOnboarding as completeOnboardingService,
+  dismissGoalCreationHighlight as dismissGoalCreationHighlightService,
+  markFirstCheckinCompleted,
+  markGoalCreationCompleted,
+  markGoalCreationStarted,
+  markOnboardingStarted,
+  markOnboardingStepViewed,
+  markPunishmentsReinforcementSeen as markPunishmentsReinforcementSeenService,
+  markPunishmentsTooltipSeen as markPunishmentsTooltipSeenService,
+  markStatsTooltipSeen as markStatsTooltipSeenService,
+  markTodayActionTooltipSeen as markTodayActionTooltipSeenService,
+  markTodayCastigoTooltipSeen as markTodayCastigoTooltipSeenService,
+  markTodayProgressTooltipSeen as markTodayProgressTooltipSeenService,
+  markTodayScreenViewed,
+  reconcileOnboarding,
+  resetOnboarding as resetOnboardingService,
+  setOnboardingIntroSlide as setOnboardingIntroSlideService,
+  skipOnboarding as skipOnboardingService,
+} from '@/src/services/onboarding-service';
 import {
   AssignedPunishmentDetail,
   CompletedPunishmentHistoryEntry,
@@ -51,10 +74,15 @@ import { updateSettingsUseCase } from '@/src/use-cases/settings-actions';
 interface AppState {
   hydrated: boolean;
   sessionState: AppSessionState;
+  onboarding: OnboardingState;
+  onboardingDecision: OnboardingDecision;
   user: User;
   goals: Goal[];
   punishments: Punishment[];
   punishmentsLoaded: boolean;
+  showFirstGoalSuccess: boolean;
+  showFirstCheckinSuccess: boolean;
+  showOnboardingCompletedMessage: boolean;
   pendingPunishments: PendingAssignedPunishmentSummary[];
   completedPunishmentHistory: CompletedPunishmentHistoryEntry[];
   punishmentHistoryLoaded: boolean;
@@ -69,7 +97,25 @@ interface AppState {
   initializeApp: () => Promise<void>;
   clearRemoteState: () => void;
   retrySync: () => Promise<void>;
-  completeOnboarding: (name: string) => void;
+  startOnboarding: () => Promise<void>;
+  setOnboardingIntroSlide: (index: number) => Promise<void>;
+  completeOnboardingIntro: () => Promise<void>;
+  viewOnboardingStep: (step: OnboardingStatus) => Promise<void>;
+  refreshOnboarding: () => Promise<void>;
+  skipOnboarding: () => Promise<void>;
+  dismissGoalCreationHighlight: () => Promise<void>;
+  dismissFirstGoalSuccess: () => void;
+  markTodayViewed: () => Promise<void>;
+  markTodayProgressTooltipSeen: () => Promise<void>;
+  markTodayActionTooltipSeen: () => Promise<void>;
+  markTodayCastigoTooltipSeen: () => Promise<void>;
+  markPunishmentsTooltipSeen: () => Promise<void>;
+  markPunishmentsReinforcementSeen: () => Promise<void>;
+  markStatsTooltipSeen: () => Promise<void>;
+  dismissFirstCheckinSuccess: () => void;
+  dismissOnboardingCompletedMessage: () => void;
+  completeOnboarding: () => Promise<void>;
+  resetOnboarding: () => Promise<void>;
   createGoal: (input: GoalInput) => Promise<string>;
   updateGoal: (goalId: string, input: GoalInput) => Promise<void>;
   deleteGoal: (goalId: string) => Promise<void>;
@@ -115,6 +161,38 @@ const defaultSettings: UserSettings = {
   pendingPunishmentReminderEnabled: true,
 };
 
+const defaultOnboardingState: OnboardingState = {
+  localUserId: 'guest',
+  hasSeenOnboarding: false,
+  isCompleted: false,
+  isSkipped: false,
+  currentStep: 'not_started',
+  onboardingVersion: 1,
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+  introSlideIndex: 0,
+  goalCreationHighlightDismissed: false,
+  todayProgressTooltipSeen: false,
+  todayActionTooltipSeen: false,
+  todayCastigoTooltipSeen: false,
+  punishmentsTooltipSeen: false,
+  punishmentsReinforcementSeen: false,
+  statsTooltipSeen: false,
+  hasCreatedFirstGoal: false,
+  hasLoggedFirstDay: false,
+};
+
+const defaultOnboardingDecision: OnboardingDecision = {
+  shouldShowOnboarding: true,
+  shouldShowIntro: true,
+  shouldGuideGoalCreation: false,
+  shouldGuidePunishments: false,
+  shouldGuideStats: false,
+  shouldResume: false,
+  activeStep: 'not_started',
+  canSkip: true,
+};
+
 const defaultHomeSummary: HomeSummary = {
   activeGoalsCount: 0,
   pendingPunishmentsCount: 0,
@@ -139,10 +217,15 @@ const initialState = {
     mode: 'guest' as const,
     syncStatus: 'idle' as const,
   },
+  onboarding: defaultOnboardingState,
+  onboardingDecision: defaultOnboardingDecision,
   user: defaultUser,
   goals: [] as Goal[],
   punishments: [] as Punishment[],
   punishmentsLoaded: false,
+  showFirstGoalSuccess: false,
+  showFirstCheckinSuccess: false,
+  showOnboardingCompletedMessage: false,
   pendingPunishments: [] as PendingAssignedPunishmentSummary[],
   completedPunishmentHistory: [] as CompletedPunishmentHistoryEntry[],
   punishmentHistoryLoaded: false,
@@ -158,6 +241,23 @@ const initialState = {
 
 function buildCalendarKey(goalId: string, monthStart: string) {
   return `${goalId}:${monthStart}`;
+}
+
+function applyOnboardingSnapshot(
+  set: (partial: Partial<AppState> | ((state: AppState) => Partial<AppState>)) => void,
+  snapshot: {
+    decision: OnboardingDecision;
+    state: OnboardingState;
+  },
+) {
+  set((state) => ({
+    onboarding: snapshot.state,
+    onboardingDecision: snapshot.decision,
+    user: {
+      ...state.user,
+      onboardingCompleted: snapshot.state.isCompleted,
+    },
+  }));
 }
 
 export const useAppStore = create<AppState>()((set, get) => ({
@@ -179,20 +279,87 @@ export const useAppStore = create<AppState>()((set, get) => ({
       hydrated: true,
     });
   },
+  startOnboarding: async () => {
+    const snapshot = await markOnboardingStarted(await getCurrentSession());
+    applyOnboardingSnapshot(set, snapshot);
+  },
+  setOnboardingIntroSlide: async (index) => {
+    const snapshot = await setOnboardingIntroSlideService(index, await getCurrentSession());
+    applyOnboardingSnapshot(set, snapshot);
+  },
+  completeOnboardingIntro: async () => {
+    const snapshot = await completeOnboardingIntro(await getCurrentSession());
+    applyOnboardingSnapshot(set, snapshot);
+  },
+  viewOnboardingStep: async (step) => {
+    const snapshot = await markOnboardingStepViewed(step, await getCurrentSession());
+    applyOnboardingSnapshot(set, snapshot);
+  },
+  refreshOnboarding: async () => {
+    const snapshot = await reconcileOnboarding(await getCurrentSession());
+    applyOnboardingSnapshot(set, snapshot);
+  },
+  skipOnboarding: async () => {
+    const snapshot = await skipOnboardingService(await getCurrentSession());
+    applyOnboardingSnapshot(set, snapshot);
+  },
+  dismissGoalCreationHighlight: async () => {
+    const snapshot = await dismissGoalCreationHighlightService(await getCurrentSession());
+    applyOnboardingSnapshot(set, snapshot);
+  },
+  dismissFirstGoalSuccess: () => set({ showFirstGoalSuccess: false }),
+  markTodayViewed: async () => {
+    const snapshot = await markTodayScreenViewed(await getCurrentSession());
+    applyOnboardingSnapshot(set, snapshot);
+  },
+  markTodayProgressTooltipSeen: async () => {
+    const snapshot = await markTodayProgressTooltipSeenService(await getCurrentSession());
+    applyOnboardingSnapshot(set, snapshot);
+  },
+  markTodayActionTooltipSeen: async () => {
+    const snapshot = await markTodayActionTooltipSeenService(await getCurrentSession());
+    applyOnboardingSnapshot(set, snapshot);
+  },
+  markTodayCastigoTooltipSeen: async () => {
+    const snapshot = await markTodayCastigoTooltipSeenService(await getCurrentSession());
+    applyOnboardingSnapshot(set, snapshot);
+  },
+  markPunishmentsTooltipSeen: async () => {
+    const snapshot = await markPunishmentsTooltipSeenService(await getCurrentSession());
+    applyOnboardingSnapshot(set, snapshot);
+  },
+  markPunishmentsReinforcementSeen: async () => {
+    const snapshot = await markPunishmentsReinforcementSeenService(await getCurrentSession());
+    applyOnboardingSnapshot(set, snapshot);
+  },
+  markStatsTooltipSeen: async () => {
+    const snapshot = await markStatsTooltipSeenService(await getCurrentSession());
+    applyOnboardingSnapshot(set, snapshot);
+  },
+  dismissFirstCheckinSuccess: () => set({ showFirstCheckinSuccess: false }),
+  dismissOnboardingCompletedMessage: () => set({ showOnboardingCompletedMessage: false }),
   retrySync: async () => {
     const sessionState = await retryPendingSync();
     set({ sessionState });
     await get().initializeApp();
   },
-  completeOnboarding: (name) =>
-    set((state) => ({
-      user: {
-        ...state.user,
-        name: name.trim(),
-        onboardingCompleted: true,
-      },
-    })),
+  completeOnboarding: async () => {
+    const snapshot = await completeOnboardingService(await getCurrentSession());
+    applyOnboardingSnapshot(set, snapshot);
+    set({ showOnboardingCompletedMessage: true });
+  },
+  resetOnboarding: async () => {
+    const snapshot = await resetOnboardingService(await getCurrentSession());
+    applyOnboardingSnapshot(set, snapshot);
+    set({
+      showFirstGoalSuccess: false,
+      showFirstCheckinSuccess: false,
+      showOnboardingCompletedMessage: false,
+    });
+  },
   createGoal: async (input) => {
+    const hadNoGoalsBeforeCreate = get().goals.length === 0;
+    await markGoalCreationStarted(await getCurrentSession());
     const result = await createGoalUseCase(input);
     set((state) => ({
       goals: [result.goal, ...state.goals],
@@ -201,6 +368,11 @@ export const useAppStore = create<AppState>()((set, get) => ({
       statsSummary: result.statsSummary,
       statsLoaded: true,
     }));
+    await get().refreshOnboarding();
+    await markGoalCreationCompleted(await getCurrentSession());
+    if (hadNoGoalsBeforeCreate) {
+      set({ showFirstGoalSuccess: true });
+    }
     return result.goal.id;
   },
   updateGoal: async (goalId, input) => {
@@ -221,6 +393,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
           }
         : state.goalDetails,
     }));
+    await get().refreshOnboarding();
   },
   deleteGoal: async (goalId) => {
     const result = await deleteGoalUseCase(goalId);
@@ -250,6 +423,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
         statsCalendars: nextCalendars,
       };
     });
+    await get().refreshOnboarding();
   },
   toggleGoalActive: async (goalId) => {
     const goal = get().goals.find((item) => item.id === goalId);
@@ -275,6 +449,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
           }
         : state.goalDetails,
     }));
+    await get().refreshOnboarding();
   },
   refreshGoalEvaluations: async (referenceDate) => {
     const goalEvaluations = await loadGoalEvaluations(referenceDate);
@@ -338,6 +513,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
     });
   },
   recordCheckin: async (input) => {
+    const hadLoggedFirstDayBefore = get().onboarding.hasLoggedFirstDay;
     const result = await recordGoalCheckinUseCase(input);
     const goal = get().goals.find((item) => item.id === input.goalId);
 
@@ -368,6 +544,11 @@ export const useAppStore = create<AppState>()((set, get) => ({
       }));
     }
 
+    await get().refreshOnboarding();
+    if (!hadLoggedFirstDayBefore) {
+      await markFirstCheckinCompleted(await getCurrentSession());
+      set({ showFirstCheckinSuccess: true });
+    }
     return result;
   },
   clearCheckin: async (input) => {
@@ -400,6 +581,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
       }));
     }
 
+    await get().refreshOnboarding();
     return result;
   },
   completeAssignedPunishment: async (assignedId) => {
@@ -457,6 +639,8 @@ export const useAppStore = create<AppState>()((set, get) => ({
       user: {
         ...state.user,
         ...input,
+        onboardingCompleted:
+          state.onboarding.isCompleted || input.onboardingCompleted || false,
       },
     })),
   resetApp: async () => {

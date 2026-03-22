@@ -25,19 +25,22 @@ const ACCOUNT_BUTTON_HEIGHT = 40;
 
 export function SettingsScreen() {
   const { deleteAccount, signOut, session } = useAuth();
-  const { retrySync, sessionState, settings, updateSettings } = useAppStore(
+  const { resetOnboarding, retrySync, sessionState, settings, updateSettings } = useAppStore(
     useShallow((state) => ({
+      resetOnboarding: state.resetOnboarding,
       retrySync: state.retrySync,
       sessionState: state.sessionState,
       settings: state.userSettings,
       updateSettings: state.updateSettings,
     })),
   );
+  const goals = useAppStore((state) => state.goals);
   const [openField, setOpenField] = useState<TimeField | null>(null);
   const [accountAction, setAccountAction] = useState<'delete' | 'signout' | null>(null);
   const [deleteAccountModalVisible, setDeleteAccountModalVisible] = useState(false);
   const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
   const [isPrivacySectionOpen, setIsPrivacySectionOpen] = useState(false);
+  const [isResettingOnboarding, setIsResettingOnboarding] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const tabBarHeight = useBottomTabBarHeight();
   const insets = useSafeAreaInsets();
@@ -115,6 +118,33 @@ export function SettingsScreen() {
     } finally {
       setAccountAction(null);
     }
+  };
+
+  const handleResetOnboarding = () => {
+    Alert.alert(
+      'Reiniciar onboarding',
+      'Se borrara el progreso local del onboarding y volveras al inicio del flujo. Esta opcion es temporal para validacion.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Reiniciar',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              try {
+                setIsResettingOnboarding(true);
+                await resetOnboarding();
+                router.replace(goals.length === 0 ? appRoutes.goals : appRoutes.home);
+              } catch (error) {
+                Alert.alert('No se pudo reiniciar', error instanceof Error ? error.message : 'Error desconocido');
+              } finally {
+                setIsResettingOnboarding(false);
+              }
+            })();
+          },
+        },
+      ],
+    );
   };
 
   const isAuthenticated = sessionState.mode === 'authenticated' && Boolean(session);
@@ -289,6 +319,21 @@ export function SettingsScreen() {
             </View>
           </View>
 
+          <View style={[styles.card, styles.temporaryToolsCard]}>
+            <Text style={styles.sectionTitle}>Herramientas temporales</Text>
+            <Text style={styles.helperText}>Utilidad de testing para volver a recorrer el onboarding desde cero.</Text>
+            <Pressable
+              accessibilityLabel="Reiniciar onboarding"
+              accessibilityRole="button"
+              disabled={isResettingOnboarding}
+              onPress={handleResetOnboarding}
+              style={[styles.compactWarningButton, isResettingOnboarding && styles.disabled]}>
+              <Text style={styles.warningLabel}>
+                {isResettingOnboarding ? 'Reiniciando onboarding...' : 'Reiniciar onboarding'}
+              </Text>
+            </Pressable>
+          </View>
+
           <View style={[styles.card, !isPrivacySectionOpen && styles.collapsedCard]}>
             <Pressable
               onPress={() => setIsPrivacySectionOpen((current) => !current)}
@@ -387,6 +432,10 @@ const styles = StyleSheet.create({
   },
   remindersCard: {
     gap: 4,
+  },
+  temporaryToolsCard: {
+    borderColor: '#F3D19A',
+    backgroundColor: '#FFF8EC',
   },
   ctaCard: {
     padding: spacing.md,
@@ -674,8 +723,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#B91C1C',
   },
+  compactWarningButton: {
+    minHeight: ACCOUNT_BUTTON_HEIGHT,
+    paddingVertical: 10,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#F3D19A',
+    backgroundColor: '#FFF1D6',
+  },
   dangerLabel: {
     color: palette.snow,
+    fontWeight: '800',
+  },
+  warningLabel: {
+    color: '#9A6700',
     fontWeight: '800',
   },
   disabled: {

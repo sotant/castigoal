@@ -142,16 +142,77 @@ function CompletedHistoryCard({
   );
 }
 
+function OnboardingBanner({
+  title,
+  text,
+  actionLabel,
+  onAction,
+  onClose,
+  tone = 'default',
+}: {
+  title: string;
+  text: string;
+  actionLabel?: string;
+  onAction?: () => void;
+  onClose?: () => void;
+  tone?: 'default' | 'warning' | 'success';
+}) {
+  return (
+    <View
+      style={[
+        styles.onboardingBanner,
+        tone === 'warning' ? styles.onboardingBannerWarning : null,
+        tone === 'success' ? styles.onboardingBannerSuccess : null,
+      ]}>
+      <View style={styles.onboardingBannerHeader}>
+        <Text
+          style={[
+            styles.onboardingBannerTitle,
+            tone === 'warning' ? styles.onboardingBannerTitleWarning : null,
+            tone === 'success' ? styles.onboardingBannerTitleSuccess : null,
+          ]}>
+          {title}
+        </Text>
+        {onClose ? (
+          <Pressable accessibilityLabel="Cerrar mensaje" hitSlop={8} onPress={onClose} style={styles.onboardingBannerClose}>
+            <Ionicons color={tone === 'warning' ? '#7A4C00' : tone === 'success' ? '#166534' : palette.primaryDeep} name="close" size={18} />
+          </Pressable>
+        ) : null}
+      </View>
+      <Text
+        style={[
+          styles.onboardingBannerText,
+          tone === 'warning' ? styles.onboardingBannerTextWarning : null,
+          tone === 'success' ? styles.onboardingBannerTextSuccess : null,
+        ]}>
+        {text}
+      </Text>
+      {actionLabel && onAction ? (
+        <Pressable accessibilityRole="button" onPress={onAction} style={styles.onboardingBannerButton}>
+          <Text style={styles.onboardingBannerButtonText}>{actionLabel}</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
 export function PunishmentHistoryScreen() {
   const pathname = usePathname();
   const params = useLocalSearchParams<{ tab?: PrimaryTabKey }>();
   const { personalPunishments, basePunishments, deleteCustomPunishment, punishmentsLoaded, refreshPunishmentCatalog } =
     usePunishmentCatalog();
+  const onboarding = useAppStore((state) => state.onboarding);
+  const onboardingDecision = useAppStore((state) => state.onboardingDecision);
   const completedPunishmentHistory = useAppStore((state) => state.completedPunishmentHistory);
   const completeAssignedPunishment = useAppStore((state) => state.completeAssignedPunishment);
+  const completeOnboarding = useAppStore((state) => state.completeOnboarding);
+  const dismissOnboardingCompletedMessage = useAppStore((state) => state.dismissOnboardingCompletedMessage);
+  const markPunishmentsReinforcementSeen = useAppStore((state) => state.markPunishmentsReinforcementSeen);
+  const markPunishmentsTooltipSeen = useAppStore((state) => state.markPunishmentsTooltipSeen);
   const pendingPunishments = useAppStore((state) => state.pendingPunishments);
   const punishmentHistoryLoaded = useAppStore((state) => state.punishmentHistoryLoaded);
   const refreshPunishmentHistory = useAppStore((state) => state.refreshPunishmentHistory);
+  const showOnboardingCompletedMessage = useAppStore((state) => state.showOnboardingCompletedMessage);
   const tabBarHeight = useBottomTabBarHeight();
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
@@ -179,6 +240,13 @@ export function PunishmentHistoryScreen() {
   const pendingDeletePunishment = personalPunishments.find((item) => item.id === pendingDeletePunishmentId) ?? null;
   const allLibraryPunishments = useMemo(() => [...personalPunishments, ...basePunishments], [basePunishments, personalPunishments]);
   const normalizedSearchQuery = searchQuery.trim().toLocaleLowerCase('es');
+  const hasExistingPunishmentContext = pendingPunishments.length > 0 || completedPunishmentHistory.length > 0;
+  const showPunishmentsTooltip =
+    onboardingDecision.shouldGuidePunishments && !onboarding.punishmentsTooltipSeen && !hasExistingPunishmentContext;
+  const showPunishmentsReinforcement =
+    onboardingDecision.shouldGuidePunishments &&
+    !onboarding.punishmentsReinforcementSeen &&
+    (onboarding.punishmentsTooltipSeen || hasExistingPunishmentContext);
 
   const filteredLibraryPunishments = useMemo(
     () =>
@@ -297,6 +365,29 @@ export function PunishmentHistoryScreen() {
       });
     }, []),
   );
+
+  useEffect(() => {
+    if (!showOnboardingCompletedMessage) {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      dismissOnboardingCompletedMessage();
+    }, 2600);
+
+    return () => clearTimeout(timeout);
+  }, [dismissOnboardingCompletedMessage, showOnboardingCompletedMessage]);
+
+  const handlePunishmentsTooltipClose = async () => {
+    await markPunishmentsTooltipSeen();
+  };
+
+  const handlePunishmentsReinforcementClose = async () => {
+    await markPunishmentsReinforcementSeen();
+    if (!onboarding.isCompleted) {
+      await completeOnboarding();
+    }
+  };
 
   useEffect(() => {
     requestAnimationFrame(() => {
@@ -880,6 +971,42 @@ export function PunishmentHistoryScreen() {
               contentContainerStyle={[styles.contentScroll, { paddingBottom: tabBarHeight + insets.bottom + 88 }]}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}>
+              {showOnboardingCompletedMessage ? (
+                <OnboardingBanner
+                  title="Ya estas listo"
+                  text="Ahora todo depende de ti."
+                  tone="success"
+                  onClose={dismissOnboardingCompletedMessage}
+                />
+              ) : null}
+              {showPunishmentsTooltip ? (
+                <OnboardingBanner
+                  title="Aqui estan tus castigos"
+                  text="Si no cumples tu objetivo, se te asignara uno automaticamente."
+                  actionLabel="Entendido"
+                  onAction={() => void handlePunishmentsTooltipClose()}
+                  onClose={() => void handlePunishmentsTooltipClose()}
+                  tone="warning"
+                />
+              ) : null}
+              {showPunishmentsReinforcement ? (
+                <OnboardingBanner
+                  title="Sin escapatoria"
+                  text="No puedes escapar. Solo cumplir... o aceptar las consecuencias."
+                  actionLabel="Seguir"
+                  onAction={() => void handlePunishmentsReinforcementClose()}
+                  onClose={() => void handlePunishmentsReinforcementClose()}
+                  tone="warning"
+                />
+              ) : null}
+              {onboardingDecision.shouldGuideStats ? (
+                <OnboardingBanner
+                  title="Mira tu progreso"
+                  text="Cuando quieras una vista general, abre Stats para ver como vas cumpliendo."
+                  actionLabel="Ir a Stats"
+                  onAction={() => router.push(appRoutes.stats)}
+                />
+              ) : null}
               {activePrimaryTab === 'mine' ? renderMineView() : renderLibraryView()}
             </ScrollView>
 
@@ -941,6 +1068,71 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     gap: spacing.md,
     paddingBottom: spacing.lg,
+  },
+  onboardingBanner: {
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: '#CFE0FF',
+    backgroundColor: '#F4F8FF',
+    gap: spacing.sm,
+  },
+  onboardingBannerWarning: {
+    borderColor: '#F3C37A',
+    backgroundColor: '#FFF6E6',
+  },
+  onboardingBannerSuccess: {
+    borderColor: '#B8E3C6',
+    backgroundColor: '#ECFDF3',
+  },
+  onboardingBannerHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  onboardingBannerTitle: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: '800',
+    color: palette.primaryDeep,
+  },
+  onboardingBannerTitleWarning: {
+    color: '#8A5A00',
+  },
+  onboardingBannerTitleSuccess: {
+    color: '#166534',
+  },
+  onboardingBannerText: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#35507A',
+  },
+  onboardingBannerTextWarning: {
+    color: '#7A5A1F',
+  },
+  onboardingBannerTextSuccess: {
+    color: '#166534',
+  },
+  onboardingBannerClose: {
+    width: 30,
+    height: 30,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.72)',
+  },
+  onboardingBannerButton: {
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 16,
+    backgroundColor: palette.primaryDeep,
+  },
+  onboardingBannerButtonText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: palette.snow,
   },
   pageContent: {
     gap: spacing.md,

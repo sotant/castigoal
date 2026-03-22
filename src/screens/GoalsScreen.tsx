@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Feather } from '@expo/vector-icons';
 import { FlatList, ListRenderItem, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
@@ -14,7 +14,7 @@ import { GoalActionConfirmationModal } from '@/src/components/GoalActionConfirma
 import { ObjectiveActionsMenu } from '@/src/components/ObjectiveActionsMenu';
 import { ObjectiveListItem } from '@/src/components/ObjectiveListItem';
 import { ScreenContainer } from '@/src/components/ScreenContainer';
-import { palette, spacing } from '@/src/constants/theme';
+import { palette, radius, shadows, spacing } from '@/src/constants/theme';
 import { appRoutes } from '@/src/navigation/app-routes';
 import { HomeGoalSummary, Goal } from '@/src/models/types';
 import { useAppStore } from '@/src/store/app-store';
@@ -101,12 +101,18 @@ type ProcessingGoalAction =
 export function GoalsScreen() {
   const today = startOfToday();
   const listRef = useRef<FlatList<GoalListEntry>>(null);
-  const { deleteGoal, goals, homeSummary, toggleGoalActive } = useAppStore(
+  const { deleteGoal, dismissFirstGoalSuccess, dismissGoalCreationHighlight, goals, homeSummary, onboarding, onboardingDecision, showFirstGoalSuccess, toggleGoalActive, viewOnboardingStep } = useAppStore(
     useShallow((state) => ({
       deleteGoal: state.deleteGoal,
+      dismissFirstGoalSuccess: state.dismissFirstGoalSuccess,
+      dismissGoalCreationHighlight: state.dismissGoalCreationHighlight,
       goals: state.goals,
       homeSummary: state.homeSummary,
+      onboarding: state.onboarding,
+      onboardingDecision: state.onboardingDecision,
+      showFirstGoalSuccess: state.showFirstGoalSuccess,
       toggleGoalActive: state.toggleGoalActive,
+      viewOnboardingStep: state.viewOnboardingStep,
     })),
   );
   const tabBarHeight = useBottomTabBarHeight();
@@ -125,6 +131,26 @@ export function GoalsScreen() {
       });
     }, []),
   );
+
+  useFocusEffect(
+    useCallback(() => {
+      if (goals.length === 0 && onboardingDecision.shouldGuideGoalCreation) {
+        void viewOnboardingStep('goal_creation_pending');
+      }
+    }, [goals.length, onboardingDecision.shouldGuideGoalCreation, viewOnboardingStep]),
+  );
+
+  useEffect(() => {
+    if (!showFirstGoalSuccess) {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      dismissFirstGoalSuccess();
+    }, 3200);
+
+    return () => clearTimeout(timeout);
+  }, [dismissFirstGoalSuccess, showFirstGoalSuccess]);
 
   const activeMenuGoal = useMemo(
     () => goals.find((goal) => goal.id === activeMenuGoalId) ?? null,
@@ -399,19 +425,52 @@ export function GoalsScreen() {
     );
   };
 
+  const shouldShowGoalCreationGuide =
+    goals.length === 0 &&
+    onboardingDecision.shouldGuideGoalCreation &&
+    !onboarding.goalCreationHighlightDismissed;
+
   return (
     <ScreenContainer
       bodyStyle={styles.screenBody}
       title="Objetivos"
       scroll={false}>
+      {showFirstGoalSuccess ? (
+        <View accessibilityRole="alert" style={styles.successBanner}>
+          <Text style={styles.successBannerTitle}>Objetivo creado</Text>
+          <Text style={styles.successBannerText}>¡Objetivo creado! Ahora empieza el reto.</Text>
+        </View>
+      ) : null}
       {goals.length === 0 ? (
         <View style={styles.contentSurface}>
           <View style={[styles.emptyStateWrapper, { paddingBottom: tabBarHeight + insets.bottom + 96 }]}>
+            {shouldShowGoalCreationGuide ? (
+              <View style={styles.guideCard}>
+                <View style={styles.guideHeader}>
+                  <Text style={styles.guideTitle}>Empieza aqui</Text>
+                  <Pressable
+                    accessibilityHint="Cierra la guia del primer objetivo."
+                    accessibilityLabel="Cerrar guia"
+                    accessibilityRole="button"
+                    onPress={() => void dismissGoalCreationHighlight()}
+                    style={styles.guideCloseButton}>
+                    <Feather color={palette.ink} name="x" size={16} />
+                  </Pressable>
+                </View>
+                <Text style={styles.guideText}>Crea tu primer objetivo y define cuanto debes cumplir.</Text>
+                <View style={styles.guideArrow} />
+              </View>
+            ) : null}
             <EmptyState
-              title="No hay objetivos todavia"
-              message="Crea tu primer objetivo para empezar a registrar avances, cerrar ciclos y mantener el foco."
+              title="Crea tu primer objetivo"
+              message="Por ejemplo: entrenar 20 dias este mes. Empieza creando tu reto."
               actionLabel="Crear objetivo"
-              onAction={() => router.push(appRoutes.createGoal)}
+              onAction={() => {
+                if (shouldShowGoalCreationGuide) {
+                  void dismissGoalCreationHighlight();
+                }
+                router.push(appRoutes.createGoal);
+              }}
             />
           </View>
         </View>
@@ -432,10 +491,14 @@ export function GoalsScreen() {
           />
         </View>
       )}
-      <FloatingAddButton
-        bottomOffset={floatingButtonBottomOffset}
-        onPress={() => router.push(appRoutes.createGoal)}
-      />
+      {goals.length > 0 ? (
+        <FloatingAddButton
+          bottomOffset={floatingButtonBottomOffset}
+          accessibilityHint="Abre el formulario para crear un nuevo objetivo."
+          accessibilityLabel="Crear objetivo"
+          onPress={() => router.push(appRoutes.createGoal)}
+        />
+      ) : null}
       <ObjectiveActionsMenu
         goalTitle={activeMenuGoal?.title ?? ''}
         onClose={closeMenu}
@@ -488,12 +551,80 @@ const styles = StyleSheet.create({
   emptyStateWrapper: {
     flex: 1,
     justifyContent: 'center',
+    gap: spacing.md,
   },
   screenBody: {
     paddingBottom: 0,
   },
+  successBanner: {
+    marginBottom: spacing.md,
+    padding: spacing.md,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#B7E4C7',
+    backgroundColor: '#ECFDF3',
+    gap: 4,
+  },
+  successBannerTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#157347',
+    textTransform: 'uppercase',
+    letterSpacing: 0.7,
+  },
+  successBannerText: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#14532D',
+    fontWeight: '700',
+  },
   contentSurface: {
     flex: 1,
+  },
+  guideCard: {
+    alignSelf: 'stretch',
+    padding: spacing.md,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: '#F3C37A',
+    backgroundColor: '#FFF6E6',
+    gap: spacing.xs,
+    ...shadows.card,
+  },
+  guideHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  guideTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#6B4A0D',
+  },
+  guideText: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#7A5A1F',
+  },
+  guideCloseButton: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.72)',
+  },
+  guideArrow: {
+    alignSelf: 'center',
+    marginTop: spacing.xs,
+    width: 18,
+    height: 18,
+    transform: [{ rotate: '45deg' }],
+    backgroundColor: '#FFF6E6',
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#F3C37A',
   },
   listContent: {
     gap: 3,

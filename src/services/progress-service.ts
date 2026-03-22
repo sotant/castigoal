@@ -134,6 +134,11 @@ export type AppSessionState = {
   syncStatus: SyncStatus;
 };
 
+export type ProgressSignals = {
+  goalCount: number;
+  checkinCount: number;
+};
+
 type BootstrapSnapshot = AppBootstrapData & {
   sessionState: AppSessionState;
   statsSummary: StatsSummary;
@@ -1559,6 +1564,16 @@ export async function loadBootstrapData(): Promise<AppBootstrapData> {
     goals: derived.goals,
     homeSummary: derived.homeSummary,
     userSettings: derived.settings,
+  };
+}
+
+export async function loadProgressSignals(): Promise<ProgressSignals> {
+  const { container } = await getActiveContainer();
+  const derived = getDerivedData(container);
+
+  return {
+    goalCount: derived.goals.length,
+    checkinCount: derived.checkins.length,
   };
 }
 

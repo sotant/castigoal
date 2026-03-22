@@ -129,6 +129,8 @@ function CalendarSelector({ disabled, minDate, month, selectedDate, onMonthChang
 
 export function GoalFormScreen({ mode, goal }: Props) {
   const createGoal = useAppStore((state) => state.createGoal);
+  const onboardingDecision = useAppStore((state) => state.onboardingDecision);
+  const goals = useAppStore((state) => state.goals);
   const updateGoal = useAppStore((state) => state.updateGoal);
   const today = startOfToday();
 
@@ -263,8 +265,9 @@ export function GoalFormScreen({ mode, goal }: Props) {
 
     try {
       if (mode === 'create') {
+        const shouldTakeUserToToday = goals.length === 0 && onboardingDecision.shouldGuideGoalCreation;
         await createGoal(payload);
-        setPendingExitHref(appRoutes.goals);
+        setPendingExitHref(shouldTakeUserToToday ? appRoutes.home : appRoutes.goals);
         return;
       }
 
