@@ -358,6 +358,63 @@ export type Database = {
           },
         ];
       };
+      user_feedback: {
+        Row: {
+          affected_section: string | null;
+          app_version: string | null;
+          category: string | null;
+          created_at: string;
+          device_model: string | null;
+          id: string;
+          locale: string | null;
+          message: string;
+          platform: string | null;
+          reproduction_steps: string | null;
+          source_screen: string | null;
+          status: string;
+          subject: string;
+          type: string;
+          user_email: string | null;
+          user_id: string | null;
+        };
+        Insert: {
+          affected_section?: string | null;
+          app_version?: string | null;
+          category?: string | null;
+          created_at?: string;
+          device_model?: string | null;
+          id?: string;
+          locale?: string | null;
+          message: string;
+          platform?: string | null;
+          reproduction_steps?: string | null;
+          source_screen?: string | null;
+          status?: string;
+          subject: string;
+          type: string;
+          user_email?: string | null;
+          user_id?: string | null;
+        };
+        Update: {
+          affected_section?: string | null;
+          app_version?: string | null;
+          category?: string | null;
+          created_at?: string;
+          device_model?: string | null;
+          id?: string;
+          locale?: string | null;
+          message?: string;
+          platform?: string | null;
+          reproduction_steps?: string | null;
+          source_screen?: string | null;
+          status?: string;
+          subject?: string;
+          type?: string;
+          user_email?: string | null;
+          user_id?: string | null;
+        };
+        Relationships: [];
+      };
       user_settings: {
         Row: {
           created_at: string;

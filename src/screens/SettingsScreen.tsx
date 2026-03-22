@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Feather } from '@expo/vector-icons';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useFocusEffect } from '@react-navigation/native';
@@ -270,6 +270,25 @@ export function SettingsScreen() {
             </View>
           </View>
 
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Comentarios y ayuda</Text>
+            <Text style={styles.helperText}>Comparte errores, sugerencias o ideas para mejorar la app.</Text>
+            <View style={styles.feedbackActions}>
+              <Pressable onPress={() => router.push(appRoutes.feedbackSuggestion)} style={styles.compactSectionPrimaryButton}>
+                <View style={styles.buttonContent}>
+                  <MaterialCommunityIcons color={palette.primaryDeep} name="lightbulb-outline" size={18} />
+                  <Text style={styles.primaryLabel}>Enviar sugerencia</Text>
+                </View>
+              </Pressable>
+              <Pressable onPress={() => router.push(appRoutes.feedbackBugReport)} style={styles.compactSectionPrimaryButton}>
+                <View style={styles.buttonContent}>
+                  <MaterialCommunityIcons color={palette.primaryDeep} name="bug-outline" size={18} />
+                  <Text style={styles.primaryLabel}>Reportar error</Text>
+                </View>
+              </Pressable>
+            </View>
+          </View>
+
           <View style={[styles.card, !isPrivacySectionOpen && styles.collapsedCard]}>
             <Pressable
               onPress={() => setIsPrivacySectionOpen((current) => !current)}
@@ -405,6 +424,9 @@ const styles = StyleSheet.create({
   helperText: {
     color: palette.slate,
     lineHeight: 21,
+  },
+  feedbackActions: {
+    gap: spacing.sm,
   },
   timeRow: {
     flexDirection: 'row',
@@ -582,6 +604,12 @@ const styles = StyleSheet.create({
   primaryLabel: {
     color: palette.primaryDeep,
     fontWeight: '800',
+  },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
   },
   compactPrimaryButton: {
     minHeight: ACCOUNT_BUTTON_HEIGHT,

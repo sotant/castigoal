@@ -1,5 +1,7 @@
 export const appRoutes = {
   auth: '/auth',
+  feedbackBugReport: '/feedback/bug-report',
+  feedbackSuggestion: '/feedback/suggestion',
   resetPassword: '/reset-password',
   privacy: '/privacy',
   onboarding: '/onboarding',
