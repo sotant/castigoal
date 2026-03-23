@@ -1,9 +1,9 @@
 import { ThemeProvider } from '@react-navigation/native';
 import { Stack, router, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import 'react-native-reanimated';
-import { Platform } from 'react-native';
+import { Modal, Platform, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -11,6 +11,8 @@ import { useAuth } from '@/src/hooks/use-auth';
 import { useAppBootstrap } from '@/src/hooks/use-app-bootstrap';
 import { appRoutes } from '@/src/navigation/app-routes';
 import { AuthProvider } from '@/src/providers/auth-provider';
+import { hasCompletedWelcomeOnboarding, subscribeToWelcomeOnboarding } from '@/src/services/welcome-onboarding';
+import { OnboardingScreen } from '@/src/screens/OnboardingScreen';
 
 const navigationTheme = {
   dark: false,
@@ -64,17 +66,12 @@ function AuthRedirector() {
       return;
     }
 
-    if (!session && pathname === appRoutes.onboarding) {
-      router.replace(appRoutes.home);
-      return;
-    }
-
     if (pathname === '/') {
       router.replace(appRoutes.home);
       return;
     }
 
-    if (session && profile && (pathname === appRoutes.auth || pathname === appRoutes.onboarding) && !isPrivacyRoute) {
+    if (session && profile && pathname === appRoutes.auth && !isPrivacyRoute) {
       router.replace(appRoutes.home);
     }
   }, [isLoading, isPrivacyRoute, pathname, profile, session]);
@@ -84,6 +81,27 @@ function AuthRedirector() {
 
 function RootNavigator() {
   useAppBootstrap();
+  const pathname = usePathname();
+  const [welcomeModalVisible, setWelcomeModalVisible] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void hasCompletedWelcomeOnboarding().then((completed) => {
+      if (!cancelled) {
+        setWelcomeModalVisible(!completed);
+      }
+    });
+
+    const unsubscribe = subscribeToWelcomeOnboarding((completed) => {
+      setWelcomeModalVisible(!completed);
+    });
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, []);
 
   return (
     <ThemeProvider value={navigationTheme}>
@@ -102,6 +120,20 @@ function RootNavigator() {
         <Stack.Screen name="punishments/edit/[id]" />
         <Stack.Screen name="punishments/[id]" />
       </Stack>
+      <Modal
+        animationType="fade"
+        presentationStyle="fullScreen"
+        statusBarTranslucent
+        transparent={false}
+        visible={welcomeModalVisible && pathname !== appRoutes.onboarding}>
+        <View style={{ flex: 1, backgroundColor: '#F7F7FA' }}>
+          <OnboardingScreen
+            onComplete={() => {
+              setWelcomeModalVisible(false);
+            }}
+          />
+        </View>
+      </Modal>
       <StatusBar style="dark" />
     </ThemeProvider>
   );
