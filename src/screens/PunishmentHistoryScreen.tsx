@@ -174,6 +174,7 @@ export function PunishmentHistoryScreen() {
   const [draftCategoryFilters, setDraftCategoryFilters] = useState<string[]>([]);
   const [draftDifficultyFilters, setDraftDifficultyFilters] = useState<(1 | 2 | 3)[]>([]);
   const [librarySectionY, setLibrarySectionY] = useState(0);
+  const [secondaryNavHeight, setSecondaryNavHeight] = useState(0);
 
   const activeMenuPunishment = personalPunishments.find((item) => item.id === activeMenuPunishmentId) ?? null;
   const pendingDeletePunishment = personalPunishments.find((item) => item.id === pendingDeletePunishmentId) ?? null;
@@ -877,13 +878,21 @@ export function PunishmentHistoryScreen() {
           <View style={styles.layout}>
             <ScrollView
               ref={scrollRef}
-              contentContainerStyle={[styles.contentScroll, { paddingBottom: tabBarHeight + insets.bottom + 88 }]}
+              contentContainerStyle={[
+                styles.contentScroll,
+                { paddingBottom: tabBarHeight + insets.bottom + Math.max(secondaryNavHeight, 58) + spacing.md },
+              ]}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}>
               {activePrimaryTab === 'mine' ? renderMineView() : renderLibraryView()}
             </ScrollView>
 
-            <View style={styles.secondaryNavShell}>
+            <View
+              onLayout={(event) => {
+                const nextHeight = Math.ceil(event.nativeEvent.layout.height);
+                setSecondaryNavHeight((current) => (current === nextHeight ? current : nextHeight));
+              }}
+              style={styles.secondaryNavShell}>
               <View style={styles.secondaryNavBar}>
                 {SECONDARY_NAV_ITEMS.map((item, index) => {
                   const isTab = item.type === 'tab';
@@ -1560,8 +1569,10 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   secondaryNavShell: {
-    marginHorizontal: -spacing.md,
-    marginBottom: -spacing.md,
+    position: 'absolute',
+    left: -spacing.md,
+    right: -spacing.md,
+    bottom: -spacing.md,
   },
   secondaryNavBar: {
     flexDirection: 'row',
