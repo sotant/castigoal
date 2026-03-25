@@ -248,6 +248,14 @@ export function GoalFormScreen({ mode, goal }: Props) {
     }
   };
 
+  const handleCancel = () => {
+    if (isSubmittingRef.current) {
+      return;
+    }
+
+    setPendingExitHref(appRoutes.goals);
+  };
+
   const handleSubmit = async () => {
     const payload = {
       title: draft.title.trim(),
@@ -327,12 +335,15 @@ export function GoalFormScreen({ mode, goal }: Props) {
             </View>
           </View>
 
-          <View style={styles.footerActionsSingle}>
+          <View style={styles.footerActionsStacked}>
             <Pressable
               disabled={!canContinueStep1 || saving}
               onPress={handleNext}
               style={[styles.submit, styles.submitFullWidth, !canContinueStep1 || saving ? styles.submitDisabled : null]}>
               <Text style={styles.submitLabel}>Continuar</Text>
+            </Pressable>
+            <Pressable disabled={saving} onPress={handleCancel} style={[styles.secondaryButton, styles.secondaryButtonFullWidth]}>
+              <Text style={styles.secondaryButtonLabel}>Cancelar</Text>
             </Pressable>
           </View>
         </>
@@ -488,7 +499,10 @@ export function GoalFormScreen({ mode, goal }: Props) {
                 setStep(1);
               }}
               style={[styles.secondaryButton, styles.secondaryButtonFullWidth]}>
-              <Text style={styles.secondaryButtonLabel}>Atrás</Text>
+              <Text style={styles.secondaryButtonLabel}>Atras</Text>
+            </Pressable>
+            <Pressable disabled={saving} onPress={handleCancel} style={[styles.secondaryButton, styles.secondaryButtonFullWidth]}>
+              <Text style={styles.secondaryButtonLabel}>Cancelar</Text>
             </Pressable>
           </View>
         </>
@@ -576,7 +590,10 @@ export function GoalFormScreen({ mode, goal }: Props) {
                 setStep(2);
               }}
               style={[styles.secondaryButton, styles.secondaryButtonFullWidth]}>
-              <Text style={styles.secondaryButtonLabel}>Atrás</Text>
+              <Text style={styles.secondaryButtonLabel}>Atras</Text>
+            </Pressable>
+            <Pressable disabled={saving} onPress={handleCancel} style={[styles.secondaryButton, styles.secondaryButtonFullWidth]}>
+              <Text style={styles.secondaryButtonLabel}>Cancelar</Text>
             </Pressable>
           </View>
 
@@ -697,7 +714,7 @@ const styles = StyleSheet.create({
   segmentButton: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderRadius: 16,
   },
   segmentButtonActive: {
@@ -752,7 +769,7 @@ const styles = StyleSheet.create({
   },
   chip: {
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.xs,
     borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: palette.line,
@@ -824,7 +841,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.xs,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.xs,
     borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: palette.line,
@@ -858,8 +875,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   calendarMonthButton: {
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
     borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: palette.line,
@@ -895,8 +912,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   calendarDayButton: {
-    width: 38,
-    height: 38,
+    width: 34,
+    height: 34,
     borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: palette.line,
@@ -950,8 +967,8 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   stepperButton: {
-    width: 48,
-    height: 48,
+    width: 42,
+    height: 42,
     borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1000,10 +1017,10 @@ const styles = StyleSheet.create({
   },
   footerActionsStacked: {
     flexDirection: 'column',
-    gap: spacing.sm,
+    gap: 2,
   },
   secondaryButton: {
-    paddingVertical: 16,
+    paddingVertical: 13,
     borderRadius: radius.pill,
     alignItems: 'center',
     borderWidth: 1,
@@ -1012,14 +1029,14 @@ const styles = StyleSheet.create({
   },
   secondaryButtonLabel: {
     color: palette.ink,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
   },
   secondaryButtonFullWidth: {
     width: '100%',
   },
   submit: {
-    paddingVertical: 16,
+    paddingVertical: 13,
     borderRadius: radius.pill,
     alignItems: 'center',
     backgroundColor: palette.primary,
@@ -1032,7 +1049,8 @@ const styles = StyleSheet.create({
   },
   submitLabel: {
     color: palette.snow,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
   },
 });
+

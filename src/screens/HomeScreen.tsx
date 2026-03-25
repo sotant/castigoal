@@ -43,7 +43,7 @@ function getDateHeading(selectedDate: string) {
   const today = startOfToday();
 
   if (selectedDate === today) {
-    return 'Para hoy';
+    return 'Hoy';
   }
 
   return formatCompactDate(selectedDate);
@@ -542,11 +542,15 @@ export function HomeScreen() {
               <EmptyState
                 title="No hay objetivos todavia"
                 message="Cuando tengas objetivos creados, aqui veras tus tareas del dia para resolverlas rapido."
+                actionLabel="Crear objetivo"
+                onAction={() => router.push(appRoutes.createGoal)}
               />
             ) : activeGoals.length === 0 ? (
               <EmptyState
                 title="No habia objetivos vigentes ese dia"
                 message="Cambia la fecha para revisar otro momento o crea un nuevo objetivo para empezar a registrar actividad."
+                actionLabel="Crear objetivo"
+                onAction={() => router.push(appRoutes.createGoal)}
               />
             ) : null}
           </View>
