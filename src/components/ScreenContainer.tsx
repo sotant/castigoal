@@ -145,6 +145,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: spacing.md,
     paddingTop: 6,
+    paddingBottom: 0,
     gap: spacing.md,
   },
   bodyContent: {

@@ -1572,7 +1572,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: -spacing.md,
     right: -spacing.md,
-    bottom: -spacing.md,
+    bottom: 0,
   },
   secondaryNavBar: {
     flexDirection: 'row',
