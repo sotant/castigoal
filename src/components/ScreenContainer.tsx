@@ -144,7 +144,7 @@ const styles = StyleSheet.create({
   body: {
     flex: 1,
     padding: spacing.md,
-    paddingTop: spacing.lg,
+    paddingTop: 6,
     gap: spacing.md,
   },
   bodyContent: {
@@ -158,6 +158,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: spacing.sm,
+    marginTop: -12,
   },
   headerCopy: {
     flex: 1,
