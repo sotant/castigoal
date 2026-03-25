@@ -608,8 +608,59 @@ export function PunishmentHistoryScreen() {
     </View>
   );
 
+  const renderSecondaryNav = () => (
+    <View
+      onLayout={(event) => {
+        const nextHeight = Math.ceil(event.nativeEvent.layout.height);
+        setSecondaryNavHeight((current) => (current === nextHeight ? current : nextHeight));
+      }}
+      style={styles.secondaryNavShell}>
+      <View style={styles.secondaryNavBar}>
+        {SECONDARY_NAV_ITEMS.map((item, index) => {
+          const isTab = item.type === 'tab';
+          const isActive = isTab && item.key === activePrimaryTab;
+          const iconColor = isActive ? palette.primaryDeep : '#708198';
+          const handlePress = () => {
+            if (item.type === 'tab') {
+              setActivePrimaryTab(item.key);
+              return;
+            }
+
+            router.push(appRoutes.createPunishment);
+          };
+
+          return (
+            <View key={item.key} style={styles.secondaryNavItem}>
+              <Pressable
+                accessibilityHint={item.type === 'action' ? 'Abre la pantalla para crear un castigo' : undefined}
+                accessibilityLabel={item.type === 'action' ? 'Agregar castigo' : item.label}
+                accessibilityRole="button"
+                onPress={handlePress}
+                style={({ pressed }) => [
+                  styles.secondaryNavTab,
+                  isActive && styles.secondaryNavTabActive,
+                  pressed && styles.secondaryNavPressed,
+                ]}>
+                <View style={[styles.secondaryNavIconShell, isActive && styles.secondaryNavIconShellActive]}>
+                  <Ionicons color={iconColor} name={item.icon} size={17} />
+                </View>
+                <Text
+                  minimumFontScale={0.9}
+                  numberOfLines={1}
+                  style={[styles.secondaryNavTabLabel, isActive && styles.secondaryNavTabLabelActive]}>
+                  {item.label}
+                </Text>
+              </Pressable>
+              {index < SECONDARY_NAV_ITEMS.length - 1 ? <View pointerEvents="none" style={styles.secondaryNavDivider} /> : null}
+            </View>
+          );
+        })}
+      </View>
+    </View>
+  );
+
   return (
-    <ScreenContainer title="Castigos" scroll={false} enableTabSwipe={false}>
+    <ScreenContainer title="Castigos" scroll={false} enableTabSwipe={false} stableOverlay={renderSecondaryNav()}>
       <Modal
         animationType="fade"
         transparent
@@ -886,55 +937,6 @@ export function PunishmentHistoryScreen() {
               showsVerticalScrollIndicator={false}>
               {activePrimaryTab === 'mine' ? renderMineView() : renderLibraryView()}
             </ScrollView>
-
-            <View
-              onLayout={(event) => {
-                const nextHeight = Math.ceil(event.nativeEvent.layout.height);
-                setSecondaryNavHeight((current) => (current === nextHeight ? current : nextHeight));
-              }}
-              style={styles.secondaryNavShell}>
-              <View style={styles.secondaryNavBar}>
-                {SECONDARY_NAV_ITEMS.map((item, index) => {
-                  const isTab = item.type === 'tab';
-                  const isActive = isTab && item.key === activePrimaryTab;
-                  const iconColor = isActive ? palette.primaryDeep : '#708198';
-                  const handlePress = () => {
-                    if (item.type === 'tab') {
-                      setActivePrimaryTab(item.key);
-                      return;
-                    }
-
-                    router.push(appRoutes.createPunishment);
-                  };
-
-                  return (
-                    <View key={item.key} style={styles.secondaryNavItem}>
-                      <Pressable
-                        accessibilityHint={item.type === 'action' ? 'Abre la pantalla para crear un castigo' : undefined}
-                        accessibilityLabel={item.type === 'action' ? 'Agregar castigo' : item.label}
-                        accessibilityRole="button"
-                        onPress={handlePress}
-                        style={({ pressed }) => [
-                          styles.secondaryNavTab,
-                          isActive && styles.secondaryNavTabActive,
-                          pressed && styles.secondaryNavPressed,
-                        ]}>
-                        <View style={[styles.secondaryNavIconShell, isActive && styles.secondaryNavIconShellActive]}>
-                          <Ionicons color={iconColor} name={item.icon} size={17} />
-                        </View>
-                        <Text
-                          minimumFontScale={0.9}
-                          numberOfLines={1}
-                          style={[styles.secondaryNavTabLabel, isActive && styles.secondaryNavTabLabelActive]}>
-                          {item.label}
-                        </Text>
-                      </Pressable>
-                      {index < SECONDARY_NAV_ITEMS.length - 1 ? <View pointerEvents="none" style={styles.secondaryNavDivider} /> : null}
-                    </View>
-                  );
-                })}
-              </View>
-            </View>
           </View>
         </FlingGestureHandler>
       </FlingGestureHandler>
@@ -1570,8 +1572,8 @@ const styles = StyleSheet.create({
   },
   secondaryNavShell: {
     position: 'absolute',
-    left: -spacing.md,
-    right: -spacing.md,
+    left: 0,
+    right: 0,
     bottom: 0,
   },
   secondaryNavBar: {

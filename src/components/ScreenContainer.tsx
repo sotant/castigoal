@@ -13,6 +13,7 @@ type Props = PropsWithChildren<{
   subtitle?: string;
   action?: ReactNode;
   overlay?: ReactNode;
+  stableOverlay?: ReactNode;
   scroll?: boolean;
   fixedHeader?: boolean;
   enableTabSwipe?: boolean;
@@ -25,6 +26,7 @@ export function ScreenContainer({
   subtitle,
   action,
   overlay,
+  stableOverlay,
   scroll = true,
   fixedHeader = false,
   enableTabSwipe,
@@ -122,6 +124,7 @@ export function ScreenContainer({
             style={styles.keyboardArea}>
             {keyboardContent}
           </KeyboardAvoidingView>
+          {stableOverlay}
         </SafeAreaView>
       </FlingGestureHandler>
     </FlingGestureHandler>
