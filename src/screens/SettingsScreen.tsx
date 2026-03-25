@@ -12,6 +12,8 @@ import { palette, radius, spacing } from '@/src/constants/theme';
 import { useAuth } from '@/src/hooks/use-auth';
 import { getErrorMessage } from '@/src/lib/app-error';
 import { appRoutes } from '@/src/navigation/app-routes';
+import { resetAppTutorial } from '@/src/services/app-tutorial';
+import { resetWelcomeOnboarding } from '@/src/services/welcome-onboarding';
 import { useAppStore } from '@/src/store/app-store';
 
 type TimeField = 'hour' | 'minute';
@@ -121,6 +123,42 @@ export function SettingsScreen() {
   const isSyncing = sessionState.syncStatus === 'syncing';
   const hasSyncError = sessionState.syncStatus === 'error' && Boolean(sessionState.syncError);
   const linkedEmail = session?.user.email || 'tu email';
+
+  const handleResetOnboarding = () => {
+    Alert.alert(
+      'Reset onboarding',
+      'Se borrara la bienvenida guardada en este dispositivo y se abrira de nuevo.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Reiniciar',
+          onPress: () => {
+            void (async () => {
+              await resetWelcomeOnboarding();
+            })();
+          },
+        },
+      ],
+    );
+  };
+
+  const handleResetTutorial = () => {
+    Alert.alert(
+      'Reset tutorial',
+      'Se borrara el tutorial guiado guardado en este dispositivo y volvera a mostrarse despues de la bienvenida.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Reiniciar',
+          onPress: () => {
+            void (async () => {
+              await resetAppTutorial();
+            })();
+          },
+        },
+      ],
+    );
+  };
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -288,6 +326,19 @@ export function SettingsScreen() {
               </Pressable>
             </View>
           </View>
+
+          {__DEV__ ? (
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Desarrollo</Text>
+              <Text style={styles.helperText}>Utilidades para repetir la bienvenida y el tutorial durante pruebas y validaciones.</Text>
+              <Pressable onPress={handleResetOnboarding} style={styles.compactSecondaryButton}>
+                <Text style={styles.secondaryLabel}>Reset onboarding</Text>
+              </Pressable>
+              <Pressable onPress={handleResetTutorial} style={styles.compactSecondaryButton}>
+                <Text style={styles.secondaryLabel}>Reset tutorial</Text>
+              </Pressable>
+            </View>
+          ) : null}
 
           <View style={[styles.card, !isPrivacySectionOpen && styles.collapsedCard]}>
             <Pressable
