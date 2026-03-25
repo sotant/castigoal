@@ -9,6 +9,7 @@ import { EmptyState } from '@/src/components/EmptyState';
 import { HorizontalDateCalendar } from '@/src/components/HorizontalDateCalendar';
 import { ScreenContainer } from '@/src/components/ScreenContainer';
 import { palette, radius, shadows, spacing } from '@/src/constants/theme';
+import { APP_TUTORIAL_STEPS, AppTutorialState, getAppTutorialState, subscribeToAppTutorial } from '@/src/services/app-tutorial';
 import { Goal, HomeGoalSummary, HomeSummary, Checkin } from '@/src/models/types';
 import { appRoutes } from '@/src/navigation/app-routes';
 import { useAppStore } from '@/src/store/app-store';
@@ -28,6 +29,7 @@ type GoalCardViewModel = {
 type CalendarMarkerStatus = 'pending';
 const CALENDAR_START_OFFSET_MONTHS = -2;
 const CALENDAR_END_OFFSET_MONTHS = 1;
+const TUTORIAL_HOME_DEMO_GOAL_ID = 'tutorial-home-demo-goal';
 
 function getDeadlineCopy(remainingDays: number) {
   if (remainingDays <= 0) {
@@ -252,6 +254,7 @@ export function HomeScreen() {
   const [todayProgressSummary, setTodayProgressSummary] = useState(homeSummary);
   const [loadingDate, setLoadingDate] = useState(false);
   const [savingGoalId, setSavingGoalId] = useState<string | null>(null);
+  const [tutorialState, setTutorialState] = useState<AppTutorialState | null>(null);
   const contentScrollRef = useRef<ScrollView>(null);
   const summaryCache = useRef<Record<string, HomeSummary>>({});
   const today = startOfToday();
@@ -267,6 +270,25 @@ export function HomeScreen() {
       });
     }, [today]),
   );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void getAppTutorialState().then((state) => {
+      if (!cancelled) {
+        setTutorialState(state);
+      }
+    });
+
+    const unsubscribe = subscribeToAppTutorial((state) => {
+      setTutorialState(state);
+    });
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     setTodayProgressSummary(homeSummary);
@@ -332,6 +354,41 @@ export function HomeScreen() {
   }, [selectedDate]);
 
   const isFutureSelected = selectedDate > startOfToday();
+  const isTutorialHomeStep =
+    tutorialState?.status === 'in_progress' && APP_TUTORIAL_STEPS[tutorialState.currentStep]?.id === 'home';
+  const showTutorialDemoGoal = isTutorialHomeStep && selectedDate === today;
+
+  const tutorialDemoGoal = useMemo<GoalCardViewModel | null>(() => {
+    if (!showTutorialDemoGoal) {
+      return null;
+    }
+
+    const summary: HomeGoalSummary = {
+      goalId: TUTORIAL_HOME_DEMO_GOAL_ID,
+      title: 'Salir a correr 30 minutos',
+      description: 'Objetivo de ejemplo del tutorial.',
+      active: true,
+      passed: true,
+      targetDays: 7,
+      completedDays: 5,
+      completionRate: 71,
+      currentStreak: 3,
+      bestStreak: 3,
+      todayStatus: 'completed',
+      daysUntilStart: 0,
+      remainingDays: 2,
+      recentDays: [],
+    };
+
+    return {
+      summary,
+      canEdit: true,
+      completedDays: 5,
+      requiredDays: 5,
+      isTodaySelected: true,
+      selectedStatus: 'completed',
+    };
+  }, [showTutorialDemoGoal]);
 
   const activeGoals = useMemo(() => {
     return selectedSummary.goalSummaries
@@ -360,6 +417,8 @@ export function HomeScreen() {
         return left.summary.remainingDays - right.summary.remainingDays;
       });
   }, [goals, isFutureSelected, selectedDate, selectedSummary.goalSummaries, todayProgressSummary.goalSummaries]);
+
+  const visibleActiveGoals = tutorialDemoGoal ? [tutorialDemoGoal] : activeGoals;
 
   const applyOptimisticStatus = (goalId: string, status: HomeGoalSummary['todayStatus']) => {
     setSelectedSummary((current) => {
@@ -436,7 +495,7 @@ export function HomeScreen() {
       title={getDateHeading(selectedDate)}
       action={
         <View style={styles.headerBadge}>
-          <Text style={styles.headerBadgeText}>{activeGoals.length}</Text>
+          <Text style={styles.headerBadgeText}>{visibleActiveGoals.length}</Text>
         </View>
       }>
       <HorizontalDateCalendar
@@ -451,7 +510,35 @@ export function HomeScreen() {
       <FlingGestureHandler direction={Directions.LEFT} onActivated={() => handleDateSwipe('left')}>
         <FlingGestureHandler direction={Directions.RIGHT} onActivated={() => handleDateSwipe('right')}>
           <View style={styles.swipeArea}>
-            {selectedSummary.goalSummaries.length === 0 ? (
+            {visibleActiveGoals.length > 0 ? (
+              <ScrollView
+                ref={contentScrollRef}
+                contentContainerStyle={styles.scrollContent}
+                keyboardDismissMode="on-drag"
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}>
+                <View style={styles.content}>
+                  {visibleActiveGoals.map((item) => (
+                    <ActiveGoalCardView
+                      key={`${item.summary.goalId}-${selectedDate}`}
+                      {...item}
+                      disabled={item.summary.goalId === TUTORIAL_HOME_DEMO_GOAL_ID || savingGoalId === item.summary.goalId}
+                      selectedDate={selectedDate}
+                      onSetCompleted={() =>
+                        item.summary.goalId === TUTORIAL_HOME_DEMO_GOAL_ID
+                          ? undefined
+                          : void applyStatus(item.summary.goalId, item.selectedStatus === 'completed' ? 'pending' : 'completed')
+                      }
+                      onSetMissed={() =>
+                        item.summary.goalId === TUTORIAL_HOME_DEMO_GOAL_ID
+                          ? undefined
+                          : void applyStatus(item.summary.goalId, item.selectedStatus === 'missed' ? 'pending' : 'missed')
+                      }
+                    />
+                  ))}
+                </View>
+              </ScrollView>
+            ) : selectedSummary.goalSummaries.length === 0 ? (
               <EmptyState
                 title="No hay objetivos todavia"
                 message="Cuando tengas objetivos creados, aqui veras tus tareas del dia para resolverlas rapido."
@@ -461,27 +548,7 @@ export function HomeScreen() {
                 title="No habia objetivos vigentes ese dia"
                 message="Cambia la fecha para revisar otro momento o crea un nuevo objetivo para empezar a registrar actividad."
               />
-            ) : (
-              <ScrollView
-                ref={contentScrollRef}
-                contentContainerStyle={styles.scrollContent}
-                keyboardDismissMode="on-drag"
-                keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={false}>
-                <View style={styles.content}>
-                  {activeGoals.map((item) => (
-                    <ActiveGoalCardView
-                      key={`${item.summary.goalId}-${selectedDate}`}
-                      {...item}
-                      disabled={savingGoalId === item.summary.goalId}
-                      selectedDate={selectedDate}
-                      onSetCompleted={() => void applyStatus(item.summary.goalId, item.selectedStatus === 'completed' ? 'pending' : 'completed')}
-                      onSetMissed={() => void applyStatus(item.summary.goalId, item.selectedStatus === 'missed' ? 'pending' : 'missed')}
-                    />
-                  ))}
-                </View>
-              </ScrollView>
-            )}
+            ) : null}
           </View>
         </FlingGestureHandler>
       </FlingGestureHandler>

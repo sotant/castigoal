@@ -7,10 +7,21 @@ import { Modal, Platform, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { AppTutorialOverlay } from '@/src/components/AppTutorialOverlay';
 import { useAuth } from '@/src/hooks/use-auth';
 import { useAppBootstrap } from '@/src/hooks/use-app-bootstrap';
 import { appRoutes } from '@/src/navigation/app-routes';
 import { AuthProvider } from '@/src/providers/auth-provider';
+import {
+  APP_TUTORIAL_STEPS,
+  AppTutorialState,
+  completeAppTutorial,
+  getAppTutorialState,
+  setAppTutorialStep,
+  skipAppTutorial,
+  startAppTutorial,
+  subscribeToAppTutorial,
+} from '@/src/services/app-tutorial';
 import { hasCompletedWelcomeOnboarding, subscribeToWelcomeOnboarding } from '@/src/services/welcome-onboarding';
 import { OnboardingScreen } from '@/src/screens/OnboardingScreen';
 
@@ -83,6 +94,24 @@ function RootNavigator() {
   useAppBootstrap();
   const pathname = usePathname();
   const [welcomeModalVisible, setWelcomeModalVisible] = useState(false);
+  const [tutorialState, setTutorialState] = useState<AppTutorialState | null>(null);
+
+  const activeTutorialStep =
+    tutorialState && tutorialState.status === 'in_progress' ? APP_TUTORIAL_STEPS[tutorialState.currentStep] : null;
+  const tutorialModalVisible = !welcomeModalVisible && Boolean(activeTutorialStep);
+
+  const navigateToTutorialStep = (stepIndex: number) => {
+    const step = APP_TUTORIAL_STEPS[stepIndex];
+
+    if (!step) {
+      return;
+    }
+
+    router.navigate({
+      pathname: step.route.pathname,
+      params: step.route.params,
+    });
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -102,6 +131,61 @@ function RootNavigator() {
       unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void getAppTutorialState().then((state) => {
+      if (!cancelled) {
+        setTutorialState(state);
+      }
+    });
+
+    const unsubscribe = subscribeToAppTutorial((state) => {
+      setTutorialState(state);
+    });
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (welcomeModalVisible || !tutorialState) {
+      return;
+    }
+
+    if (tutorialState.status === 'not_started') {
+      void startAppTutorial().then((state) => {
+        if (state.status === 'in_progress') {
+          navigateToTutorialStep(state.currentStep);
+        }
+      });
+      return;
+    }
+
+    if (tutorialState.status === 'in_progress') {
+      navigateToTutorialStep(tutorialState.currentStep);
+    }
+  }, [tutorialState, welcomeModalVisible]);
+
+  const handleAdvanceTutorial = async () => {
+    if (!tutorialState || tutorialState.status !== 'in_progress') {
+      return;
+    }
+
+    const nextStepIndex = tutorialState.currentStep + 1;
+
+    if (nextStepIndex >= APP_TUTORIAL_STEPS.length) {
+      await completeAppTutorial();
+      router.navigate(appRoutes.home);
+      return;
+    }
+
+    const nextState = await setAppTutorialStep(nextStepIndex);
+    navigateToTutorialStep(nextState.currentStep);
+  };
 
   return (
     <ThemeProvider value={navigationTheme}>
@@ -133,6 +217,21 @@ function RootNavigator() {
             }}
           />
         </View>
+      </Modal>
+      <Modal animationType="fade" presentationStyle="overFullScreen" transparent visible={tutorialModalVisible}>
+        {activeTutorialStep ? (
+          <AppTutorialOverlay
+            currentStepNumber={tutorialState!.currentStep + 1}
+            onNext={() => {
+              void handleAdvanceTutorial();
+            }}
+            onSkip={() => {
+              void skipAppTutorial();
+            }}
+            step={activeTutorialStep}
+            totalSteps={APP_TUTORIAL_STEPS.length}
+          />
+        ) : null}
       </Modal>
       <StatusBar style="dark" />
     </ThemeProvider>
