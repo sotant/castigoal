@@ -386,7 +386,7 @@ export function PunishmentHistoryScreen() {
         <View style={styles.summaryEmptyState}>
           <Text style={styles.summaryEmptyTitle}>Sin castigos pendientes</Text>
           <Text style={styles.summaryEmptyDescription}>
-            Cuando incumplas un objetivo y se te asigne un castigo, aparecera aqui para que puedas completarlo.
+            Cuando incumplas un objetivo, veras aqui la consecuencia asociada para que puedas cumplirla
           </Text>
         </View>
       );
@@ -416,7 +416,7 @@ export function PunishmentHistoryScreen() {
         onPress={() => setIsCompletedHistoryOpen((current) => !current)}
         style={({ pressed }) => [styles.contentSectionHeader, styles.collapsibleSectionHeader, pressed && styles.secondaryNavPressed]}>
         <View style={styles.sectionHeaderCopy}>
-          <Text style={styles.sectionTitle}>Castigos cumplidos</Text>
+          <Text style={styles.sectionTitle}>Cumplidos</Text>
         </View>
         <View style={styles.historyHeaderActions}>
           <View style={[styles.countBadge, styles.historyCountBadge]}>
@@ -592,7 +592,7 @@ export function PunishmentHistoryScreen() {
       <View style={[styles.summaryCard, styles.mineSummaryCard]}>
         <View style={styles.contentSectionHeader}>
           <View style={styles.sectionHeaderCopy}>
-            <Text style={styles.sectionTitle}>Castigos pendientes</Text>
+            <Text style={styles.sectionTitle}>Pendientes</Text>
           </View>
           <View style={[styles.countBadge, styles.historyCountBadge, styles.pendingCountBadge]}>
             <Text style={[styles.countBadgeLabel, styles.historyCountBadgeLabel, styles.pendingCountBadgeLabel]}>
