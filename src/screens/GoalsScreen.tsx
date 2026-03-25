@@ -111,7 +111,8 @@ export function GoalsScreen() {
   );
   const tabBarHeight = useBottomTabBarHeight();
   const insets = useSafeAreaInsets();
-  const floatingButtonBottomOffset = 4;
+  const floatingButtonBottomOffset = 26;
+  const floatingButtonRightOffset = 6;
   const [activeMenuGoalId, setActiveMenuGoalId] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingGoalAction>(null);
   const [processingAction, setProcessingAction] = useState<ProcessingGoalAction>(null);
@@ -434,6 +435,7 @@ export function GoalsScreen() {
       )}
       <FloatingAddButton
         bottomOffset={floatingButtonBottomOffset}
+        rightOffset={floatingButtonRightOffset}
         onPress={() => router.push(appRoutes.createGoal)}
       />
       <ObjectiveActionsMenu

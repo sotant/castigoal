@@ -5,6 +5,7 @@ import { palette, radius, shadows, spacing } from '@/src/constants/theme';
 
 type Props = {
   bottomOffset: number;
+  rightOffset?: number;
   onPress: () => void;
   accessibilityHint?: string;
   accessibilityLabel?: string;
@@ -12,6 +13,7 @@ type Props = {
 
 export function FloatingAddButton({
   bottomOffset,
+  rightOffset = spacing.md,
   onPress,
   accessibilityHint = 'Crea un nuevo elemento',
   accessibilityLabel = 'Agregar elemento',
@@ -24,7 +26,7 @@ export function FloatingAddButton({
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
-        { bottom: bottomOffset },
+        { bottom: bottomOffset, right: rightOffset },
         pressed && styles.buttonPressed,
       ]}>
       <Feather color={palette.snow} name="plus" size={24} />
@@ -35,7 +37,6 @@ export function FloatingAddButton({
 const styles = StyleSheet.create({
   button: {
     position: 'absolute',
-    right: spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
     width: 58,
