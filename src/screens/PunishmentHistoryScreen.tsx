@@ -383,14 +383,7 @@ export function PunishmentHistoryScreen() {
 
   const renderPendingSummary = () => {
     if (pendingPunishments.length === 0) {
-      return (
-        <View style={styles.summaryEmptyState}>
-          <Text style={styles.summaryEmptyTitle}>Sin castigos pendientes</Text>
-          <Text style={styles.summaryEmptyDescription}>
-            Cuando incumplas un objetivo, veras aqui la consecuencia asociada para que puedas cumplirla
-          </Text>
-        </View>
-      );
+      return null;
     }
 
     return (
@@ -590,19 +583,25 @@ export function PunishmentHistoryScreen() {
 
   const renderMineView = () => (
     <View style={styles.pageContent}>
-      <View style={[styles.summaryCard, styles.mineSummaryCard]}>
-        <View style={styles.contentSectionHeader}>
-          <View style={styles.sectionHeaderCopy}>
-            <Text style={styles.sectionTitle}>Pendientes</Text>
+      {pendingPunishments.length > 0 ? (
+        <View style={[styles.summaryCard, styles.mineSummaryCard]}>
+          <View style={styles.contentSectionHeader}>
+            <View style={styles.sectionHeaderCopy}>
+              <Text style={styles.sectionTitle}>Pendientes</Text>
+            </View>
+            <View style={[styles.countBadge, styles.historyCountBadge, styles.pendingCountBadge]}>
+              <Text style={[styles.countBadgeLabel, styles.historyCountBadgeLabel, styles.pendingCountBadgeLabel]}>
+                {pendingPunishments.length}
+              </Text>
+            </View>
           </View>
-          <View style={[styles.countBadge, styles.historyCountBadge, styles.pendingCountBadge]}>
-            <Text style={[styles.countBadgeLabel, styles.historyCountBadgeLabel, styles.pendingCountBadgeLabel]}>
-              {pendingPunishments.length}
-            </Text>
-          </View>
+          {renderPendingSummary()}
         </View>
-        {renderPendingSummary()}
-      </View>
+      ) : (
+        <View style={[styles.summaryCard, styles.mineSuccessCard]}>
+          <Text style={styles.mineSuccessTitle}>¡Enhorabuena! No tienes castigos pendientes</Text>
+        </View>
+      )}
 
       {renderHistoryView()}
     </View>
@@ -1116,6 +1115,12 @@ const styles = StyleSheet.create({
     borderColor: '#FED7AA',
     gap: spacing.xs,
   },
+  mineSuccessCard: {
+    padding: spacing.md,
+    backgroundColor: '#EAF7F0',
+    borderColor: '#B8DCC5',
+    gap: spacing.xs,
+  },
   librarySummaryCard: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
@@ -1175,6 +1180,12 @@ const styles = StyleSheet.create({
   },
   summaryPendingList: {
     gap: 2,
+  },
+  mineSuccessTitle: {
+    fontSize: 16,
+    fontWeight: '400',
+    color: '#4B6B57',
+    textAlign: 'center',
   },
   contentSection: {
     padding: spacing.md,
