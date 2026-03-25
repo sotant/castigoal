@@ -35,7 +35,8 @@ export function ScreenContainer({
   const pathname = usePathname();
   const scrollViewRef = useRef<ScrollView>(null);
   const shouldEnableTabSwipe = enableTabSwipe ?? isMainTabPath(pathname);
-  const shouldUseKeyboardAvoidingView = Platform.OS === 'ios';
+  const shouldAdjustKeyboardInsets = Platform.OS === 'ios';
+  const keyboardAvoidingBehavior = Platform.OS === 'ios' ? 'padding' : 'height';
 
   useFocusEffect(
     useCallback(() => {
@@ -87,6 +88,7 @@ export function ScreenContainer({
           {header}
           <ScrollView
             ref={scrollViewRef}
+            automaticallyAdjustKeyboardInsets={shouldAdjustKeyboardInsets}
             contentContainerStyle={styles.scroll}
             keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
             keyboardShouldPersistTaps="handled"
@@ -97,6 +99,7 @@ export function ScreenContainer({
       ) : scroll ? (
         <ScrollView
           ref={scrollViewRef}
+          automaticallyAdjustKeyboardInsets={shouldAdjustKeyboardInsets}
           contentContainerStyle={styles.scroll}
           keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
           keyboardShouldPersistTaps="handled">
@@ -113,13 +116,12 @@ export function ScreenContainer({
     <FlingGestureHandler direction={Directions.LEFT} onActivated={() => handleTabSwipe('left')}>
       <FlingGestureHandler direction={Directions.RIGHT} onActivated={() => handleTabSwipe('right')}>
         <SafeAreaView edges={['top']} style={styles.safe}>
-          {shouldUseKeyboardAvoidingView ? (
-            <KeyboardAvoidingView behavior="padding" keyboardVerticalOffset={spacing.md} style={styles.keyboardArea}>
-              {keyboardContent}
-            </KeyboardAvoidingView>
-          ) : (
-            <View style={styles.keyboardArea}>{keyboardContent}</View>
-          )}
+          <KeyboardAvoidingView
+            behavior={keyboardAvoidingBehavior}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? spacing.md : 0}
+            style={styles.keyboardArea}>
+            {keyboardContent}
+          </KeyboardAvoidingView>
         </SafeAreaView>
       </FlingGestureHandler>
     </FlingGestureHandler>
