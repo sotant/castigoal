@@ -8,6 +8,8 @@ import { EmptyState } from '@/src/components/EmptyState';
 import { GoalActionConfirmationModal } from '@/src/components/GoalActionConfirmationModal';
 import { ProgressRing } from '@/src/components/ProgressRing';
 import { ScreenContainer } from '@/src/components/ScreenContainer';
+import { StatusBadge } from '@/src/components/StatusBadge';
+import { PUNISHMENT_CATEGORY_OPTIONS } from '@/src/constants/punishments';
 import { palette, radius, shadows, spacing } from '@/src/constants/theme';
 import { buildMonthCalendar } from '@/src/features/goals/goal-form';
 import { getMonthStart, WEEKDAY_LABELS } from '@/src/features/stats/calendar';
@@ -15,6 +17,7 @@ import { Goal, GoalCalendarDay } from '@/src/models/types';
 import { appRoutes } from '@/src/navigation/app-routes';
 import { selectGoalDetail, selectStatsCalendar, useAppStore } from '@/src/store/app-store';
 import { addMonths, formatCompactDate, startOfToday } from '@/src/utils/date';
+import { getGoalDeadline, getGoalRequiredDays } from '@/src/utils/goal-evaluation';
 
 type Props = {
   goal?: Goal;
@@ -84,11 +87,65 @@ function formatCalendarMonthLabel(date: Date) {
   return `${month.charAt(0).toUpperCase()}${month.slice(1)} ${year}`.trim();
 }
 
+function formatResolutionSource(source?: Goal['resolutionSource']) {
+  if (source === 'manual') {
+    return 'Manual';
+  }
+
+  if (source === 'expired') {
+    return 'Por expiracion';
+  }
+
+  return 'Pendiente';
+}
+
+function formatLifecycle(goal: Goal) {
+  if (goal.lifecycleStatus === 'active') {
+    return 'Activo';
+  }
+
+  if (goal.lifecycleStatus === 'paused') {
+    return 'Pausado';
+  }
+
+  return 'Finalizado';
+}
+
+function formatResolution(goal: Goal) {
+  if (goal.resolutionStatus === 'passed') {
+    return 'Aprobado';
+  }
+
+  if (goal.resolutionStatus === 'failed') {
+    return 'Fallido';
+  }
+
+  return 'Pendiente';
+}
+
+function buildPunishmentPoolSummary(goal: Goal) {
+  const scopeLabel =
+    goal.punishmentConfig.scope === 'base'
+      ? 'Castigos estandar'
+      : goal.punishmentConfig.scope === 'personal'
+        ? 'Castigos personales'
+        : 'Ambos origenes';
+
+  if (goal.punishmentConfig.categoryMode === 'all') {
+    return `${scopeLabel} + todas las categorias`;
+  }
+
+  const labels = PUNISHMENT_CATEGORY_OPTIONS.filter((option) => goal.punishmentConfig.categoryNames.includes(option.name)).map((option) => option.label);
+  return `${scopeLabel} + ${labels.join(', ')}`;
+}
+
 export function GoalDetailScreen({ goal }: Props) {
   const detail = useAppStore(selectGoalDetail(goal?.id ?? ''));
   const loadGoalDetail = useAppStore((state) => state.loadGoalDetail);
-  const toggleGoalActive = useAppStore((state) => state.toggleGoalActive);
   const loadStatsCalendar = useAppStore((state) => state.loadStatsCalendar);
+  const pauseGoal = useAppStore((state) => state.pauseGoal);
+  const resumeGoal = useAppStore((state) => state.resumeGoal);
+  const finalizeGoal = useAppStore((state) => state.finalizeGoal);
   const evaluation = useAppStore((state) => (goal ? state.goalEvaluations[goal.id] : undefined));
   const goalSubtitle = goal?.description?.trim() || undefined;
   const [monthOffset, setMonthOffset] = useState(0);
@@ -127,9 +184,10 @@ export function GoalDetailScreen({ goal }: Props) {
     );
   }
 
+  const requiredDays = evaluation?.requiredDays ?? detail?.evaluation.requiredDays ?? getGoalRequiredDays(goal);
   const viewModel = detail ?? {
     goalId: goal.id,
-    deadline: goal.startDate,
+    deadline: getGoalDeadline(goal),
     daysUntilStart: 0,
     remainingDays: 0,
     scheduleStatus: 'Cargando historial del objetivo...',
@@ -142,6 +200,7 @@ export function GoalDetailScreen({ goal }: Props) {
       windowStart: goal.startDate,
       windowEnd: goal.startDate,
       plannedDays: 0,
+      requiredDays,
       completedDays: 0,
       completionRate: 0,
       passed: false,
@@ -149,27 +208,37 @@ export function GoalDetailScreen({ goal }: Props) {
   };
 
   const calendarDays = loadedCalendarDays.length > 0 ? loadedCalendarDays : getCalendarFallback(monthDate);
-  const requiredDays = Math.max(Math.ceil((goal.targetDays * goal.minimumSuccessRate) / 100), 1);
-  const approvalProgress = Math.min(Math.round((viewModel.evaluation.completedDays / requiredDays) * 100), 100);
-  const pendingRequiredDays = Math.max(requiredDays - viewModel.evaluation.completedDays, 0);
-  const isFinalizedAndFailed = !goal.active && viewModel.evaluation.completedDays < requiredDays;
-  const isCompleted = approvalProgress >= 100;
-  const progressTone = isFinalizedAndFailed ? palette.danger : approvalProgress >= 100 ? palette.success : palette.primary;
-  const showFinalizeAction = goal.active && viewModel.daysUntilStart === 0 && pendingRequiredDays > viewModel.remainingDays;
+  const safeRequiredDays = Math.max(requiredDays, 1);
+  const approvalProgress = Math.min(Math.round((viewModel.evaluation.completedDays / safeRequiredDays) * 100), 100);
+  const pendingRequiredDays = Math.max(safeRequiredDays - viewModel.evaluation.completedDays, 0);
+  const isResolvedPassed = goal.resolutionStatus === 'passed';
+  const isResolvedFailed = goal.resolutionStatus === 'failed';
+  const canPause = goal.lifecycleStatus === 'active';
+  const canResume = goal.lifecycleStatus === 'paused';
+  const canFinalize = goal.lifecycleStatus !== 'closed';
+  const canEdit = goal.lifecycleStatus !== 'closed';
+  const showUnreachableHint = goal.lifecycleStatus === 'active' && viewModel.daysUntilStart === 0 && pendingRequiredDays > viewModel.remainingDays;
   const monthLabel = formatCalendarMonthLabel(monthDate);
-  const progressHint = isFinalizedAndFailed
-    ? 'Este objetivo no se cumplio'
-    : showFinalizeAction
-      ? `Objetivo no alcanzable\nNecesitas ${pendingRequiredDays} ${pendingRequiredDays === 1 ? 'dia cumplido' : 'dias cumplidos'} y solo quedan ${viewModel.remainingDays}`
-      : approvalProgress < 25
-        ? 'Los inicios cuestan pero tu puedes'
-        : approvalProgress < 50
-          ? 'Vas por buen camino Sigue asi!'
-          : approvalProgress < 75
-            ? 'Animo! Ya has completado la mitad'
-            : approvalProgress < 100
-              ? `Ya casi esta! Solo quedan ${pendingRequiredDays} ${pendingRequiredDays === 1 ? 'dia' : 'dias'}`
-              : 'Genial! Has cumplido el objetivo';
+  const progressTone = isResolvedFailed ? palette.danger : isResolvedPassed ? palette.success : goal.lifecycleStatus === 'paused' ? palette.warning : palette.primary;
+  const progressHint = isResolvedPassed
+    ? 'Objetivo aprobado. El ciclo ya quedo resuelto.'
+    : isResolvedFailed
+      ? viewModel.outcome?.assignedPunishmentId
+        ? 'Objetivo fallido. El castigo de este ciclo ya fue asignado.'
+        : 'Objetivo fallido sin castigo asignado. El pool guardado ya no tenia opciones elegibles.'
+      : goal.lifecycleStatus === 'paused'
+        ? 'Objetivo pausado. No admite nuevos check-ins hasta que lo reanudes.'
+        : showUnreachableHint
+          ? `Objetivo no alcanzable. Necesitas ${pendingRequiredDays} ${pendingRequiredDays === 1 ? 'dia cumplido' : 'dias cumplidos'} y solo quedan ${viewModel.remainingDays}.`
+          : approvalProgress < 25
+            ? 'El ciclo acaba de arrancar. Ve sumando dias cumplidos.'
+            : approvalProgress < 50
+              ? 'Vas por buen camino.'
+              : approvalProgress < 75
+                ? 'Ya superaste la mitad del objetivo.'
+                : approvalProgress < 100
+                  ? `Quedan ${pendingRequiredDays} ${pendingRequiredDays === 1 ? 'dia' : 'dias'} para aprobarlo.`
+                  : 'Ya tienes el minimo necesario para aprobar si cierras hoy.';
 
   const handleCalendarSwipe = (direction: 'left' | 'right') => {
     setMonthOffset((current) => (direction === 'left' ? current + 1 : current - 1));
@@ -178,6 +247,11 @@ export function GoalDetailScreen({ goal }: Props) {
   return (
     <ScreenContainer resetScrollOnFocus title={goal.title} subtitle={goalSubtitle}>
       <View style={styles.progressCard}>
+        <View style={styles.progressHeader}>
+          <StatusBadge lifecycleStatus={goal.lifecycleStatus} resolutionStatus={goal.resolutionStatus} />
+          <Text style={styles.progressStatusText}>{formatLifecycle(goal)} · {formatResolution(goal)}</Text>
+        </View>
+
         <ProgressRing
           helperText={`${approvalProgress}% completado`}
           helperColor={palette.slate}
@@ -187,24 +261,35 @@ export function GoalDetailScreen({ goal }: Props) {
           value={approvalProgress}
           valueColor={palette.slate}
           valueFontSize={28}
-          valueText={`${viewModel.evaluation.completedDays}/${requiredDays}`}
+          valueText={`${viewModel.evaluation.completedDays}/${safeRequiredDays}`}
         />
-        <Text
-          style={[
-            styles.progressHint,
-            isFinalizedAndFailed ? styles.progressHintDanger : null,
-            isCompleted && !isFinalizedAndFailed ? styles.progressHintSuccess : null,
-          ]}>
+
+        <Text style={[styles.progressHint, isResolvedFailed ? styles.progressHintDanger : null, isResolvedPassed ? styles.progressHintSuccess : null]}>
           {progressHint}
         </Text>
-        {showFinalizeAction ? (
+
+        {(canPause || canResume || canFinalize || canEdit) ? (
           <View style={styles.actionRow}>
-            <Pressable onPress={() => router.push(appRoutes.editGoal(goal.id))} style={styles.extendButton}>
-              <Text style={styles.extendButtonLabel}>Extender</Text>
-            </Pressable>
-            <Pressable onPress={() => setShowFinalizeConfirmation(true)} style={styles.finalizeButton}>
-              <Text style={styles.finalizeButtonLabel}>Finalizar</Text>
-            </Pressable>
+            {canEdit ? (
+              <Pressable onPress={() => router.push(appRoutes.editGoal(goal.id))} style={styles.secondaryActionButton}>
+                <Text style={styles.secondaryActionLabel}>Editar</Text>
+              </Pressable>
+            ) : null}
+            {canPause ? (
+              <Pressable onPress={() => void pauseGoal(goal.id)} style={styles.secondaryActionButton}>
+                <Text style={styles.secondaryActionLabel}>Pausar</Text>
+              </Pressable>
+            ) : null}
+            {canResume ? (
+              <Pressable onPress={() => void resumeGoal(goal.id)} style={styles.secondaryActionButton}>
+                <Text style={styles.secondaryActionLabel}>Reanudar</Text>
+              </Pressable>
+            ) : null}
+            {canFinalize ? (
+              <Pressable onPress={() => setShowFinalizeConfirmation(true)} style={styles.primaryActionButton}>
+                <Text style={styles.primaryActionLabel}>Finalizar</Text>
+              </Pressable>
+            ) : null}
           </View>
         ) : null}
       </View>
@@ -224,7 +309,7 @@ export function GoalDetailScreen({ goal }: Props) {
       </View>
 
       <View style={styles.infoCard}>
-        <Text style={styles.infoTitle}>Información</Text>
+        <Text style={styles.infoTitle}>Estado del objetivo</Text>
         <View style={styles.infoGrid}>
           <InfoItem
             iconBackgroundColor="#E8F1FF"
@@ -243,19 +328,56 @@ export function GoalDetailScreen({ goal }: Props) {
           <InfoItem
             iconBackgroundColor="#EEF8F0"
             iconColor={palette.success}
-            iconName="timer-sand"
-            label="Duración"
-            value={`${goal.targetDays} ${goal.targetDays === 1 ? 'día' : 'días'}`}
+            iconName="progress-check"
+            label="Estado"
+            value={formatLifecycle(goal)}
           />
           <InfoItem
             iconBackgroundColor="#FFF6E5"
             iconColor={palette.warning}
             iconName="check-decagram"
-            label="Mínimo"
-            value={`${requiredDays} ${requiredDays === 1 ? 'día' : 'días'}`}
+            label="Resultado"
+            value={formatResolution(goal)}
           />
         </View>
       </View>
+
+      <View style={styles.infoCard}>
+        <Text style={styles.infoTitle}>Regla y resolucion</Text>
+        <Text style={styles.copyLine}>{`Debes completar ${safeRequiredDays} de ${goal.targetDays} ${goal.targetDays === 1 ? 'dia' : 'dias'} para aprobar.`}</Text>
+        <Text style={styles.copyLine}>{`Origen de resolucion: ${formatResolutionSource(goal.resolutionSource)}`}</Text>
+        {goal.closedOn ? <Text style={styles.copyLine}>{`Fecha de cierre: ${formatCompactDate(goal.closedOn)}`}</Text> : null}
+        {goal.resolvedAt ? <Text style={styles.copyLine}>{`Resuelto el: ${formatCompactDate(goal.resolvedAt.slice(0, 10))}`}</Text> : null}
+      </View>
+
+      <View style={styles.infoCard}>
+        <Text style={styles.infoTitle}>Pool de castigos</Text>
+        <Text style={styles.copyLine}>{buildPunishmentPoolSummary(goal)}</Text>
+      </View>
+
+      {goal.lifecycleStatus === 'closed' ? (
+        <View style={styles.infoCard}>
+          <Text style={styles.infoTitle}>Outcome persistido</Text>
+          <Text style={styles.copyLine}>{`Dias completados: ${viewModel.evaluation.completedDays}/${safeRequiredDays}`}</Text>
+          <Text style={styles.copyLine}>{`Tasa de cumplimiento: ${viewModel.evaluation.completionRate}%`}</Text>
+          {isResolvedPassed ? (
+            <Text style={[styles.copyLine, styles.successText]}>El objetivo quedo aprobado.</Text>
+          ) : isResolvedFailed ? (
+            viewModel.outcome?.assignedPunishmentId ? (
+              <>
+                <Text style={[styles.copyLine, styles.dangerText]}>El objetivo quedo fallido y este ciclo tiene un castigo asignado.</Text>
+                <Pressable onPress={() => router.push(appRoutes.punishment(viewModel.outcome!.assignedPunishmentId!))} style={styles.secondaryActionButton}>
+                  <Text style={styles.secondaryActionLabel}>Ver castigo</Text>
+                </Pressable>
+              </>
+            ) : (
+              <Text style={[styles.copyLine, styles.dangerText]}>
+                El objetivo quedo fallido sin castigo asignado porque el pool guardado en este objetivo ya no tenia castigos elegibles.
+              </Text>
+            )
+          ) : null}
+        </View>
+      ) : null}
 
       <View style={styles.calendarSection}>
         <View style={styles.calendarHeader}>
@@ -316,14 +438,15 @@ export function GoalDetailScreen({ goal }: Props) {
           </FlingGestureHandler>
         </FlingGestureHandler>
       </View>
+
       <GoalActionConfirmationModal
         confirmLabel="Finalizar"
-        description="El objetivo dejara de estar activo y saldra de esta seccion. Podras seguir consultandolo despues."
+        description="El objetivo se cerrara y se resolvera ahora mismo con la misma logica que usa la app cuando expira."
         eyebrow="Cerrar ciclo"
         onCancel={() => setShowFinalizeConfirmation(false)}
         onConfirm={() => {
           setShowFinalizeConfirmation(false);
-          void toggleGoalActive(goal.id);
+          void finalizeGoal(goal.id);
         }}
         title="Finalizar objetivo"
         visible={showFinalizeConfirmation}
@@ -344,6 +467,16 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     ...shadows.card,
   },
+  progressHeader: {
+    width: '100%',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  progressStatusText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: palette.slate,
+  },
   progressHint: {
     textAlign: 'center',
     fontSize: 14,
@@ -359,32 +492,38 @@ const styles = StyleSheet.create({
   },
   actionRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
     alignSelf: 'stretch',
+    justifyContent: 'center',
   },
-  extendButton: {
-    flex: 1,
+  primaryActionButton: {
+    minWidth: 110,
     paddingVertical: 10,
+    paddingHorizontal: spacing.md,
     borderRadius: 18,
     alignItems: 'center',
     backgroundColor: palette.primary,
   },
-  extendButtonLabel: {
+  primaryActionLabel: {
     fontSize: 15,
     fontWeight: '800',
     color: palette.snow,
   },
-  finalizeButton: {
-    flex: 1,
+  secondaryActionButton: {
+    minWidth: 110,
     paddingVertical: 10,
+    paddingHorizontal: spacing.md,
     borderRadius: 18,
     alignItems: 'center',
-    backgroundColor: palette.primary,
+    borderWidth: 1,
+    borderColor: palette.line,
+    backgroundColor: '#F7F9FD',
   },
-  finalizeButtonLabel: {
+  secondaryActionLabel: {
     fontSize: 15,
     fontWeight: '800',
-    color: palette.snow,
+    color: palette.ink,
   },
   statsSection: {
     gap: 4,
@@ -438,7 +577,7 @@ const styles = StyleSheet.create({
   infoTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#000000',
+    color: palette.ink,
   },
   infoGrid: {
     flexDirection: 'row',
@@ -483,6 +622,19 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontWeight: '800',
     color: palette.slate,
+  },
+  copyLine: {
+    fontSize: 14,
+    lineHeight: 21,
+    color: palette.slate,
+  },
+  successText: {
+    color: palette.success,
+    fontWeight: '700',
+  },
+  dangerText: {
+    color: palette.danger,
+    fontWeight: '700',
   },
   calendarSection: {
     gap: spacing.sm,

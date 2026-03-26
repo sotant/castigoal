@@ -7,12 +7,14 @@ import { palette, radius, shadows, spacing } from '@/src/constants/theme';
 type Props = {
   visible: boolean;
   goalTitle: string;
+  showPause?: boolean;
+  showResume?: boolean;
   showFinalize?: boolean;
-  showReactivate?: boolean;
   showEdit?: boolean;
   onClose: () => void;
+  onPause: () => void;
+  onResume: () => void;
   onFinalize: () => void;
-  onReactivate: () => void;
   onEdit: () => void;
   onDelete: () => void;
 };
@@ -20,12 +22,14 @@ type Props = {
 export function ObjectiveActionsMenu({
   visible,
   goalTitle,
+  showPause = false,
+  showResume = false,
   showFinalize = false,
-  showReactivate = false,
   showEdit = true,
   onClose,
+  onPause,
+  onResume,
   onFinalize,
-  onReactivate,
   onEdit,
   onDelete,
 }: Props) {
@@ -70,9 +74,41 @@ export function ObjectiveActionsMenu({
             {goalTitle}
           </Text>
 
+          {showPause ? (
+            <Pressable
+              accessibilityHint="Pausa este objetivo y bloquea nuevos check-ins hasta reanudarlo"
+              accessibilityRole="button"
+              onPress={onPause}
+              style={styles.actionButton}>
+              <View style={[styles.actionIcon, styles.pauseIcon]}>
+                <Feather color="#B7791F" name="pause-circle" size={18} />
+              </View>
+              <View style={styles.actionCopy}>
+                <Text style={styles.actionTitle}>Pausar</Text>
+                <Text style={styles.actionSubtitle}>Detiene el ciclo sin moverlo al historico.</Text>
+              </View>
+            </Pressable>
+          ) : null}
+
+          {showResume ? (
+            <Pressable
+              accessibilityHint="Reanuda este objetivo para volver a registrar check-ins"
+              accessibilityRole="button"
+              onPress={onResume}
+              style={styles.actionButton}>
+              <View style={[styles.actionIcon, styles.resumeIcon]}>
+                <Feather color={palette.primaryDeep} name="rotate-ccw" size={18} />
+              </View>
+              <View style={styles.actionCopy}>
+                <Text style={styles.actionTitle}>Reanudar</Text>
+                <Text style={styles.actionSubtitle}>Vuelve a dejarlo pendiente hasta su fecha fin.</Text>
+              </View>
+            </Pressable>
+          ) : null}
+
           {showFinalize ? (
             <Pressable
-              accessibilityHint="Finaliza este objetivo y lo saca de la lista de activos"
+              accessibilityHint="Cierra y resuelve este objetivo ahora"
               accessibilityRole="button"
               onPress={onFinalize}
               style={styles.actionButton}>
@@ -81,23 +117,7 @@ export function ObjectiveActionsMenu({
               </View>
               <View style={styles.actionCopy}>
                 <Text style={styles.actionTitle}>Finalizar</Text>
-                <Text style={styles.actionSubtitle}>Finaliza antes de que termine su plazo.</Text>
-              </View>
-            </Pressable>
-          ) : null}
-
-          {showReactivate ? (
-            <Pressable
-              accessibilityHint="Reactiva este objetivo para devolverlo a la lista de activos"
-              accessibilityRole="button"
-              onPress={onReactivate}
-              style={styles.actionButton}>
-              <View style={[styles.actionIcon, styles.reactivateIcon]}>
-                <Feather color={palette.primaryDeep} name="rotate-ccw" size={18} />
-              </View>
-              <View style={styles.actionCopy}>
-                <Text style={styles.actionTitle}>Reactivar</Text>
-                <Text style={styles.actionSubtitle}>Reactiva porque no se ha llegado a la fecha fin</Text>
+                <Text style={styles.actionSubtitle}>Cierra el ciclo y calcula el resultado al momento.</Text>
               </View>
             </Pressable>
           ) : null}
@@ -202,7 +222,10 @@ const styles = StyleSheet.create({
   successIcon: {
     backgroundColor: '#ECFDF3',
   },
-  reactivateIcon: {
+  pauseIcon: {
+    backgroundColor: '#FFF7E8',
+  },
+  resumeIcon: {
     backgroundColor: '#E8F0FF',
   },
   actionCopy: {

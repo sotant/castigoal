@@ -1,6 +1,6 @@
-import { UserSettings } from '@/src/models/types';
+import { Goal, UserSettings } from '@/src/models/types';
 import { updateUserSettingsRecord } from '@/src/services/progress-service';
-import { clearReminderSchedule, syncReminderSchedule } from '@/src/services/notifications';
+import { clearGoalResolutionSchedules, clearReminderSchedule, syncGoalResolutionSchedules, syncReminderSchedule } from '@/src/services/notifications';
 
 export function buildNextUserSettings(current: UserSettings, input: Partial<UserSettings>): UserSettings {
   return {
@@ -15,14 +15,16 @@ export function buildNextUserSettings(current: UserSettings, input: Partial<User
 export async function updateSettingsUseCase(current: UserSettings, input: Partial<UserSettings>) {
   const nextSettings = buildNextUserSettings(current, input);
   const persistedSettings = await updateUserSettingsRecord(nextSettings);
-  await syncReminderSchedule(persistedSettings);
   return persistedSettings;
 }
 
-export async function syncPersistedReminderSettingsUseCase(settings: UserSettings) {
-  await syncReminderSchedule(settings);
+export async function syncPersistedReminderSettingsUseCase(settings: UserSettings, goals: Goal[]) {
+  await Promise.all([
+    syncReminderSchedule(settings),
+    syncGoalResolutionSchedules(goals, settings),
+  ]);
 }
 
 export async function clearReminderScheduleUseCase() {
-  await clearReminderSchedule();
+  await Promise.all([clearReminderSchedule(), clearGoalResolutionSchedules()]);
 }

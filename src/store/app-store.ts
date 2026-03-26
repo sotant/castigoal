@@ -32,9 +32,11 @@ import {
   clearGoalCheckinUseCase,
   createGoalUseCase,
   deleteGoalUseCase,
+  finalizeGoalUseCase,
   loadGoalDetailSummaryUseCase,
+  pauseGoalUseCase,
   recordGoalCheckinUseCase,
-  toggleGoalActiveUseCase,
+  resumeGoalUseCase,
   updateGoalUseCase,
 } from '@/src/use-cases/goal-actions';
 import {
@@ -73,7 +75,9 @@ interface AppState {
   createGoal: (input: GoalInput) => Promise<string>;
   updateGoal: (goalId: string, input: GoalInput) => Promise<void>;
   deleteGoal: (goalId: string) => Promise<void>;
-  toggleGoalActive: (goalId: string) => Promise<void>;
+  pauseGoal: (goalId: string) => Promise<void>;
+  resumeGoal: (goalId: string) => Promise<void>;
+  finalizeGoal: (goalId: string) => Promise<void>;
   refreshGoalEvaluations: (referenceDate?: string) => Promise<void>;
   refreshHomeSummary: () => Promise<void>;
   refreshStatsSummary: (referenceDate?: string) => Promise<void>;
@@ -251,14 +255,14 @@ export const useAppStore = create<AppState>()((set, get) => ({
       };
     });
   },
-  toggleGoalActive: async (goalId) => {
+  pauseGoal: async (goalId) => {
     const goal = get().goals.find((item) => item.id === goalId);
 
-    if (!goal) {
+    if (!goal || goal.lifecycleStatus !== 'active') {
       return;
     }
 
-    const result = await toggleGoalActiveUseCase(goalId, !goal.active);
+    const result = await pauseGoalUseCase(goalId);
     set((state) => ({
       goals: state.goals.map((item) => (item.id === goalId ? result.goal : item)),
       goalEvaluations: result.goalEvaluations,
@@ -275,6 +279,65 @@ export const useAppStore = create<AppState>()((set, get) => ({
           }
         : state.goalDetails,
     }));
+  },
+  resumeGoal: async (goalId) => {
+    const goal = get().goals.find((item) => item.id === goalId);
+
+    if (!goal || goal.lifecycleStatus !== 'paused') {
+      return;
+    }
+
+    const result = await resumeGoalUseCase(goalId);
+    set((state) => ({
+      goals: state.goals.map((item) => (item.id === goalId ? result.goal : item)),
+      goalEvaluations: result.goalEvaluations,
+      homeSummary: result.homeSummary,
+      statsSummary: result.statsSummary,
+      statsLoaded: true,
+      goalDetails: state.goalDetails[goalId]
+        ? {
+            ...state.goalDetails,
+            [goalId]: {
+              ...state.goalDetails[goalId],
+              evaluation: result.goalEvaluations[goalId] ?? state.goalDetails[goalId].evaluation,
+            },
+          }
+        : state.goalDetails,
+    }));
+  },
+  finalizeGoal: async (goalId) => {
+    const goal = get().goals.find((item) => item.id === goalId);
+
+    if (!goal || goal.lifecycleStatus === 'closed') {
+      return;
+    }
+
+    const result = await finalizeGoalUseCase(goalId);
+    set((state) => ({
+      goals: state.goals.map((item) => (item.id === goalId ? result.goal : item)),
+      goalEvaluations: result.goalEvaluations,
+      homeSummary: result.homeSummary,
+      statsSummary: result.statsSummary,
+      statsLoaded: true,
+      assignedPunishmentDetails:
+        result.assignedPunishment && state.assignedPunishmentDetails[result.assignedPunishment.id]
+          ? {
+              ...state.assignedPunishmentDetails,
+              [result.assignedPunishment.id]: {
+                ...state.assignedPunishmentDetails[result.assignedPunishment.id],
+                assigned: result.assignedPunishment,
+              },
+            }
+          : state.assignedPunishmentDetails,
+    }));
+
+    if (get().goalDetails[goalId]) {
+      await get().loadGoalDetail(goalId);
+    }
+
+    if (get().punishmentHistoryLoaded || result.assignedPunishment) {
+      await get().refreshPunishmentHistory();
+    }
   },
   refreshGoalEvaluations: async (referenceDate) => {
     const goalEvaluations = await loadGoalEvaluations(referenceDate);

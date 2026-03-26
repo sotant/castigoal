@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { palette, radius, shadows, spacing } from '@/src/constants/theme';
@@ -15,13 +15,13 @@ type Props = {
 const BOTTOM_NAV_CLEARANCE = 92;
 
 export function AppTutorialOverlay({ currentStepNumber, totalSteps, step, onNext, onSkip }: Props) {
-  const highlightStyle = {
+  const highlightStyle: ViewStyle = {
     borderRadius: step.highlight.borderRadius,
-    height: step.highlight.height,
-    left: step.highlight.left,
-    top: step.highlight.top,
-    width: step.highlight.width,
-  } as const;
+    height: step.highlight.height as ViewStyle['height'],
+    left: step.highlight.left as ViewStyle['left'],
+    top: step.highlight.top as ViewStyle['top'],
+    width: step.highlight.width as ViewStyle['width'],
+  };
 
   return (
     <View pointerEvents="box-none" style={styles.root}>

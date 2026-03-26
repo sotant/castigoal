@@ -19,6 +19,7 @@ import type {
   GoalCalendarDay,
   GoalDetailSummary,
   GoalEvaluation,
+  GoalOutcome,
   HomeGoalSummary,
   HomeSummary,
   PendingAssignedPunishmentSummary,
@@ -30,14 +31,21 @@ import type {
 } from '@/src/models/types';
 import {
   assignPunishment,
+  buildGoalOutcome,
+  getEligiblePunishments,
+  hasGoalDeadlinePassed,
+  isGoalActive,
+  isGoalClosed,
   completePunishment,
   evaluateGoalPeriod,
-  generateRandomPunishment,
   getBestStreak,
   getCurrentStreak,
   getGoalDeadline,
   getGoalDaysUntilStart,
   getGoalRemainingDays,
+  mapGoalOutcomeToEvaluation,
+  normalizeGoalPunishmentConfig,
+  selectDeterministicPunishment,
 } from '@/src/utils/goal-evaluation';
 import { addDays, diffInDays, startOfToday, toISODate } from '@/src/utils/date';
 
@@ -47,14 +55,14 @@ type EntityKind =
   | 'goals'
   | 'checkins'
   | 'assignedPunishments'
+  | 'goalOutcomes'
   | 'punishments'
   | 'punishmentHistory'
   | 'userSettings';
 
-export type GoalInput = Pick<
-  Goal,
-  'title' | 'description' | 'startDate' | 'targetDays' | 'minimumSuccessRate' | 'active'
->;
+export type GoalInput = Pick<Goal, 'title' | 'description' | 'startDate' | 'targetDays' | 'minimumSuccessRate'> & {
+  punishmentConfig: Goal['punishmentConfig'];
+};
 
 export type CheckinInput = {
   date?: string;
@@ -110,6 +118,7 @@ type LocalContainer = {
     assignedPunishments: Record<string, SyncRecord<AssignedPunishment>>;
     checkins: Record<string, SyncRecord<Checkin>>;
     goals: Record<string, SyncRecord<Goal>>;
+    goalOutcomes: Record<string, SyncRecord<GoalOutcome>>;
     punishmentHistory: Record<string, SyncRecord<CompletedPunishmentHistoryEntry>>;
     punishments: Record<string, SyncRecord<Punishment>>;
     userSettings: SyncRecord<UserSettings> | null;
@@ -123,7 +132,7 @@ type LocalContainer = {
     status: SyncStatus;
   };
   updatedAt: string;
-  version: 1;
+  version: 2;
 };
 
 export type AppSessionState = {
@@ -152,6 +161,7 @@ const defaultSettings: UserSettings = {
 };
 
 let categoryIdByNameCache: Partial<Record<Punishment['categoryName'], string>> | null = null;
+let categoryNameByIdCache: Record<string, Punishment['categoryName']> | null = null;
 
 function nowIso() {
   return new Date().toISOString();
@@ -165,6 +175,7 @@ function createEmptyDeletedBucket() {
   return {
     assignedPunishments: {},
     checkins: {},
+    goalOutcomes: {},
     goals: {},
     punishmentHistory: {},
     punishments: {},
@@ -250,6 +261,7 @@ function createContainer(input: {
       assignedPunishments: createEmptyEntityBucket<AssignedPunishment>(),
       checkins: createEmptyEntityBucket<Checkin>(),
       goals: createEmptyEntityBucket<Goal>(),
+      goalOutcomes: createEmptyEntityBucket<GoalOutcome>(),
       punishmentHistory: createEmptyEntityBucket<CompletedPunishmentHistoryEntry>(),
       punishments: createEmptyEntityBucket<Punishment>(),
       userSettings: null,
@@ -259,21 +271,97 @@ function createContainer(input: {
       status: 'idle',
     },
     updatedAt: createdAt,
-    version: 1,
+    version: 2,
   };
 }
 
 async function loadContainer(mode: SessionMode, actorId: string) {
   const key = ownerKey(mode, actorId);
-  const container = await readJson<LocalContainer>(key);
+  const container = await readJson<LocalContainer & {
+    records?: Partial<LocalContainer['records']>;
+    deleted?: Partial<LocalContainer['deleted']>;
+    version?: number;
+  }>(key);
 
   if (!container) {
     return null;
   }
 
   let changed = false;
+  const mutableContainer = container as LocalContainer & {
+    deleted?: Partial<LocalContainer['deleted']>;
+    records?: Partial<LocalContainer['records']>;
+    version?: number;
+  };
 
-  for (const record of Object.values(container.records.punishments)) {
+  const deletedBucket = mutableContainer.deleted;
+  if (!deletedBucket) {
+    mutableContainer.deleted = createEmptyDeletedBucket();
+    changed = true;
+  } else if (!deletedBucket.goalOutcomes) {
+    deletedBucket.goalOutcomes = {};
+    changed = true;
+  }
+
+  const recordsBucket = mutableContainer.records;
+  if (!recordsBucket) {
+    mutableContainer.records = createContainer({
+      actorId,
+      actorType: mode,
+      deviceId: mutableContainer.deviceId,
+      guestId: mutableContainer.guestId,
+    }).records;
+    changed = true;
+  } else if (!recordsBucket.goalOutcomes) {
+    recordsBucket.goalOutcomes = {};
+    changed = true;
+  }
+
+  if (mutableContainer.version !== 2) {
+    mutableContainer.version = 2;
+    changed = true;
+  }
+
+  for (const [goalId, record] of Object.entries((mutableContainer.records as LocalContainer['records']).goals)) {
+    const goal = record.data as Goal & Partial<Pick<Goal, 'lifecycleStatus' | 'resolutionStatus' | 'closedOn' | 'resolvedAt' | 'resolutionSource' | 'punishmentConfig'>>;
+    const deadline = getGoalDeadline({
+      ...goal,
+      active: Boolean(goal.active),
+      lifecycleStatus: goal.lifecycleStatus ?? (goal.active ? 'active' : 'paused'),
+      resolutionStatus: goal.resolutionStatus ?? 'pending',
+      punishmentConfig: normalizeGoalPunishmentConfig(goal.punishmentConfig),
+    } as Goal);
+
+    const lifecycleStatus =
+      goal.lifecycleStatus ??
+      (goal.active ? 'active' : startOfToday() > deadline ? 'closed' : 'paused');
+    const resolutionStatus = goal.resolutionStatus ?? 'pending';
+    const nextGoal: Goal = {
+      ...goal,
+      active: lifecycleStatus === 'active',
+      lifecycleStatus,
+      resolutionStatus,
+      closedOn: goal.closedOn,
+      resolvedAt: goal.resolvedAt,
+      resolutionSource: goal.resolutionSource,
+      punishmentConfig: normalizeGoalPunishmentConfig(goal.punishmentConfig),
+    };
+
+    if (
+      goal.active !== nextGoal.active ||
+      goal.lifecycleStatus !== nextGoal.lifecycleStatus ||
+      goal.resolutionStatus !== nextGoal.resolutionStatus ||
+      JSON.stringify(goal.punishmentConfig ?? null) !== JSON.stringify(nextGoal.punishmentConfig)
+    ) {
+      (mutableContainer.records as LocalContainer['records']).goals[goalId] = {
+        ...record,
+        data: nextGoal,
+      };
+      changed = true;
+    }
+  }
+
+  for (const record of Object.values(mutableContainer.records.punishments)) {
     const punishment = record.data as Punishment & {
       category?: string;
       categoryId?: Punishment['categoryId'];
@@ -328,10 +416,10 @@ async function loadContainer(mode: SessionMode, actorId: string) {
   }
 
   if (changed) {
-    await writeJson(key, container);
+    await writeJson(key, mutableContainer);
   }
 
-  return container;
+  return mutableContainer;
 }
 
 async function saveContainer(container: LocalContainer) {
@@ -409,30 +497,75 @@ function getValues<T>(records: Record<string, SyncRecord<T>>) {
 }
 
 function sortGoals(goals: Goal[]) {
-  return [...goals].sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+  return [...goals].sort((left, right) => {
+    if (left.lifecycleStatus === 'closed' && right.lifecycleStatus !== 'closed') {
+      return 1;
+    }
+
+    if (left.lifecycleStatus !== 'closed' && right.lifecycleStatus === 'closed') {
+      return -1;
+    }
+
+    return right.createdAt.localeCompare(left.createdAt);
+  });
 }
 
-function expireGoalsIfNeeded(container: LocalContainer, referenceDate = startOfToday()) {
-  const today = toISODate(referenceDate);
+function getGoalOutcomeByGoalId(goalOutcomes: GoalOutcome[]) {
+  const latestByGoalId: Record<string, GoalOutcome> = {};
+
+  for (const outcome of goalOutcomes) {
+    const current = latestByGoalId[outcome.goalId];
+
+    if (!current || current.evaluatedAt.localeCompare(outcome.evaluatedAt) < 0) {
+      latestByGoalId[outcome.goalId] = outcome;
+    }
+  }
+
+  return latestByGoalId;
+}
+
+function getGoalEvaluationSnapshot(
+  goal: Goal,
+  checkins: Checkin[],
+  outcomeByGoalId: Record<string, GoalOutcome>,
+  referenceDate = startOfToday(),
+) {
+  const outcome = outcomeByGoalId[goal.id];
+
+  if (outcome && goal.resolutionStatus !== 'pending') {
+    return mapGoalOutcomeToEvaluation(outcome);
+  }
+
+  return evaluateGoalPeriod(goal, checkins, referenceDate);
+}
+
+function resolveExpiredGoalsIfNeeded(container: LocalContainer, referenceDate = startOfToday()) {
   let changed = false;
 
-  for (const [goalId, record] of Object.entries(container.records.goals)) {
+  for (const record of Object.values(container.records.goals)) {
     const goal = record.data;
 
-    if (!goal.active || today <= getGoalDeadline(goal)) {
+    if (goal.resolutionStatus !== 'pending') {
       continue;
     }
 
-    container.records.goals[goalId] = touchRecord(
-      record,
+    if (!hasGoalDeadlinePassed(goal, referenceDate)) {
+      continue;
+    }
+
+    const result = resolveGoalIfNeeded(
+      container,
+      goal.id,
       {
-        ...goal,
-        active: false,
-        updatedAt: nowIso(),
+        closedOn: goal.closedOn ?? getGoalDeadline(goal),
+        referenceDate,
+        resolutionSource: 'expired',
       },
-      container.actorType === 'guest' ? container.guestId : undefined,
     );
-    changed = true;
+
+    if (result.changed) {
+      changed = true;
+    }
   }
 
   if (changed && container.actorType === 'authenticated') {
@@ -442,8 +575,15 @@ function expireGoalsIfNeeded(container: LocalContainer, referenceDate = startOfT
   return changed;
 }
 
-function getGoalEvaluationsMap(goals: Goal[], checkins: Checkin[], referenceDate = startOfToday()) {
-  return Object.fromEntries(goals.map((goal) => [goal.id, evaluateGoalPeriod(goal, checkins, referenceDate)]));
+function getGoalEvaluationsMap(
+  goals: Goal[],
+  checkins: Checkin[],
+  outcomeByGoalId: Record<string, GoalOutcome>,
+  referenceDate = startOfToday(),
+) {
+  return Object.fromEntries(
+    goals.map((goal) => [goal.id, getGoalEvaluationSnapshot(goal, checkins, outcomeByGoalId, referenceDate)]),
+  );
 }
 
 function getStatusForDate(goalId: string, checkins: Checkin[], referenceDate = startOfToday()) {
@@ -453,13 +593,14 @@ function getStatusForDate(goalId: string, checkins: Checkin[], referenceDate = s
 
 function buildRecentGoalDays(goal: Goal, checkins: Checkin[], referenceDate = startOfToday()) {
   const deadline = getGoalDeadline(goal);
-  const lastTrackedDate = deadline < referenceDate ? deadline : referenceDate;
+  const lastRelevantDate = goal.closedOn ?? (deadline < referenceDate ? deadline : referenceDate);
+  const lastTrackedDate = lastRelevantDate < goal.startDate ? goal.startDate : lastRelevantDate;
   const checkinsByDate = new Map(
     checkins.filter((item) => item.goalId === goal.id).map((item) => [item.date, item.status]),
   );
   const sequenceEnd = lastTrackedDate >= goal.startDate ? lastTrackedDate : goal.startDate;
 
-  if (lastTrackedDate < goal.startDate) {
+  if (lastRelevantDate < goal.startDate) {
     return Array.from({ length: 5 }, (_, index) => {
       const date = addDays(sequenceEnd, index - 4);
 
@@ -501,27 +642,44 @@ function buildRecentGoalDays(goal: Goal, checkins: Checkin[], referenceDate = st
   return recentDays;
 }
 
-function buildHomeGoalSummary(goal: Goal, checkins: Checkin[], evaluation: GoalEvaluation, referenceDate = startOfToday()): HomeGoalSummary {
+function buildHomeGoalSummary(
+  goal: Goal,
+  checkins: Checkin[],
+  evaluation: GoalEvaluation,
+  referenceDate = startOfToday(),
+): HomeGoalSummary {
+  const resolvedPassed = goal.resolutionStatus === 'passed';
+  const resolvedFailed = goal.resolutionStatus === 'failed';
+
   return {
-    active: goal.active,
+    active: isGoalActive(goal),
     bestStreak: getBestStreak(goal.id, checkins),
+    closedOn: goal.closedOn,
     completedDays: evaluation.completedDays,
     completionRate: evaluation.completionRate,
     currentStreak: getCurrentStreak(goal.id, checkins, referenceDate),
     daysUntilStart: getGoalDaysUntilStart(goal, referenceDate),
     description: goal.description,
     goalId: goal.id,
-    passed: evaluation.passed,
+    lifecycleStatus: goal.lifecycleStatus,
+    passed: resolvedPassed ? true : resolvedFailed ? false : evaluation.passed,
     remainingDays: getGoalRemainingDays(goal, referenceDate),
+    requiredDays: evaluation.requiredDays,
     recentDays: buildRecentGoalDays(goal, checkins, referenceDate),
+    resolutionStatus: goal.resolutionStatus,
     targetDays: goal.targetDays,
     title: goal.title,
     todayStatus: getStatusForDate(goal.id, checkins, referenceDate),
   };
 }
 
-function buildStatsSummary(goals: Goal[], checkins: Checkin[], completedHistory: CompletedPunishmentHistoryEntry[]): StatsSummary {
-  const evaluations = Object.values(getGoalEvaluationsMap(goals, checkins));
+function buildStatsSummary(
+  goals: Goal[],
+  checkins: Checkin[],
+  completedHistory: CompletedPunishmentHistoryEntry[],
+  evaluationsByGoalId: Record<string, GoalEvaluation>,
+): StatsSummary {
+  const evaluations = Object.values(evaluationsByGoalId);
   const completedCheckins = checkins.filter((checkin) => checkin.status === 'completed').length;
   const totalCheckins = checkins.length;
 
@@ -531,7 +689,7 @@ function buildStatsSummary(goals: Goal[], checkins: Checkin[], completedHistory:
       : 0,
     completedPunishments: completedHistory.length,
     completionRatio: totalCheckins ? Math.round((completedCheckins / totalCheckins) * 100) : 0,
-    goalsActiveCount: goals.filter((goal) => goal.active).length,
+    goalsActiveCount: goals.filter((goal) => goal.lifecycleStatus === 'active').length,
     totalCheckins,
   };
 }
@@ -563,7 +721,12 @@ function buildCalendarMonth(checkins: Checkin[], goalId: string, monthStart: str
   return days;
 }
 
-function buildGoalDetailSummary(goal: Goal, checkins: Checkin[], evaluation: GoalEvaluation): GoalDetailSummary {
+function buildGoalDetailSummary(
+  goal: Goal,
+  checkins: Checkin[],
+  evaluation: GoalEvaluation,
+  outcome?: GoalOutcome,
+): GoalDetailSummary {
   const goalCheckins = checkins
     .filter((checkin) => checkin.goalId === goal.id)
     .sort((left, right) => right.date.localeCompare(left.date));
@@ -578,18 +741,32 @@ function buildGoalDetailSummary(goal: Goal, checkins: Checkin[], evaluation: Goa
     deadline: getGoalDeadline(goal),
     evaluation,
     goalId: goal.id,
+    outcome,
     recentCheckins: goalCheckins.slice(0, 7),
     remainingDays,
-    scheduleStatus:
-      daysUntilStart > 0
-        ? daysUntilStart === 1
-          ? 'Empieza manana.'
-          : `Empieza en ${daysUntilStart} dias.`
-        : remainingDays > 0
+    scheduleStatus: isGoalClosed(goal)
+      ? goal.resolutionStatus === 'passed'
+        ? 'Objetivo finalizado y aprobado.'
+        : goal.resolutionStatus === 'failed'
+          ? outcome?.assignedPunishmentId
+            ? 'Objetivo finalizado y fallado. Tiene un castigo pendiente.'
+            : 'Objetivo finalizado y fallado. No habia castigos elegibles.'
+          : 'Objetivo finalizado y pendiente de resolucion.'
+      : goal.lifecycleStatus === 'paused'
+        ? remainingDays > 0
           ? remainingDays === 1
-            ? 'Queda 1 dia para cerrar el plazo.'
-            : `Quedan ${remainingDays} dias para cerrar el plazo.`
-          : 'El plazo configurado ya ha terminado.',
+            ? 'Objetivo pausado. Queda 1 dia para cerrar el plazo.'
+            : `Objetivo pausado. Quedan ${remainingDays} dias para cerrar el plazo.`
+          : 'Objetivo pausado, pero su plazo ya ha terminado.'
+        : daysUntilStart > 0
+          ? daysUntilStart === 1
+            ? 'Empieza manana.'
+            : `Empieza en ${daysUntilStart} dias.`
+          : remainingDays > 0
+            ? remainingDays === 1
+              ? 'Queda 1 dia para cerrar el plazo.'
+              : `Quedan ${remainingDays} dias para cerrar el plazo.`
+            : 'El plazo configurado ya ha terminado.',
   };
 }
 
@@ -629,15 +806,15 @@ function getPendingPunishmentSummaries(
 function buildHomeSummary(
   goals: Goal[],
   checkins: Checkin[],
+  goalEvaluations: Record<string, GoalEvaluation>,
   pending: PendingAssignedPunishmentSummary[],
   referenceDate = startOfToday(),
 ) {
-  const evaluations = getGoalEvaluationsMap(goals, checkins, referenceDate);
   const latestPending = pending[0];
 
   return {
-    activeGoalsCount: goals.filter((goal) => goal.active).length,
-    goalSummaries: goals.map((goal) => buildHomeGoalSummary(goal, checkins, evaluations[goal.id], referenceDate)),
+    activeGoalsCount: goals.filter((goal) => goal.lifecycleStatus === 'active').length,
+    goalSummaries: goals.map((goal) => buildHomeGoalSummary(goal, checkins, goalEvaluations[goal.id], referenceDate)),
     latestPending: latestPending
       ? {
           assignedId: latestPending.assignedId,
@@ -657,6 +834,9 @@ function getDerivedData(container: LocalContainer, referenceDate = startOfToday(
   const goals = sortGoals(getValues(container.records.goals));
   const checkins = getValues(container.records.checkins);
   const assignedPunishments = getValues(container.records.assignedPunishments);
+  const goalOutcomes = getValues(container.records.goalOutcomes).sort((left, right) =>
+    right.evaluatedAt.localeCompare(left.evaluatedAt),
+  );
   const punishments = getValues(container.records.punishments).sort((left, right) => {
     if (left.scope === 'personal' && right.scope === 'personal') {
       return (right.createdAt ?? '').localeCompare(left.createdAt ?? '');
@@ -676,19 +856,22 @@ function getDerivedData(container: LocalContainer, referenceDate = startOfToday(
     right.completedAt.localeCompare(left.completedAt),
   );
   const pendingPunishments = getPendingPunishmentSummaries(assignedPunishments, goals, punishments);
-  const goalEvaluations = getGoalEvaluationsMap(goals, checkins, referenceDate);
+  const latestOutcomesByGoalId = getGoalOutcomeByGoalId(goalOutcomes);
+  const goalEvaluations = getGoalEvaluationsMap(goals, checkins, latestOutcomesByGoalId, referenceDate);
 
   return {
     assignedPunishments,
     checkins,
     completedHistory,
     goalEvaluations,
+    goalOutcomes,
     goals,
-    homeSummary: buildHomeSummary(goals, checkins, pendingPunishments, referenceDate),
+    homeSummary: buildHomeSummary(goals, checkins, goalEvaluations, pendingPunishments, referenceDate),
+    latestOutcomesByGoalId,
     pendingPunishments,
     punishments,
     settings: container.records.userSettings?.data ?? defaultSettings,
-    statsSummary: buildStatsSummary(goals, checkins, completedHistory),
+    statsSummary: buildStatsSummary(goals, checkins, completedHistory, goalEvaluations),
   };
 }
 
@@ -715,7 +898,7 @@ async function getActiveContainer() {
   if (!session) {
     const guestId = await getCurrentGuestId();
     const container = await getOrCreateContainer('guest', guestId, guestId);
-    if (expireGoalsIfNeeded(container)) {
+    if (resolveExpiredGoalsIfNeeded(container)) {
       await saveContainer(container);
     }
     return {
@@ -727,7 +910,7 @@ async function getActiveContainer() {
 
   const guestId = await getCurrentGuestId();
   const container = await getOrCreateContainer('authenticated', session.user.id, guestId);
-  if (expireGoalsIfNeeded(container)) {
+  if (resolveExpiredGoalsIfNeeded(container)) {
     await saveContainer(container);
   }
   return {
@@ -779,6 +962,7 @@ function mergeGuestIntoAccount(guest: LocalContainer, account: LocalContainer) {
     Object.keys(guest.records.goals).length > 0 ||
     Object.keys(guest.records.checkins).length > 0 ||
     Object.keys(guest.records.assignedPunishments).length > 0 ||
+    Object.keys(guest.records.goalOutcomes).length > 0 ||
     Object.keys(guest.records.punishmentHistory).length > 0 ||
     Object.values(guest.records.punishments).some((item) => item.data.scope === 'personal');
 
@@ -812,6 +996,18 @@ function mergeGuestIntoAccount(guest: LocalContainer, account: LocalContainer) {
 
   for (const [id, record] of Object.entries(guest.records.assignedPunishments)) {
     account.records.assignedPunishments[id] = {
+      data: record.data,
+      meta: {
+        ...record.meta,
+        lastModifiedAt: nowIso(),
+        sourceGuestId: guest.actorId,
+        state: 'pending_upsert',
+      },
+    };
+  }
+
+  for (const [id, record] of Object.entries(guest.records.goalOutcomes)) {
+    account.records.goalOutcomes[id] = {
       data: record.data,
       meta: {
         ...record.meta,
@@ -900,19 +1096,37 @@ type RemoteSnapshot = {
   assignedPunishments: Record<string, SyncRecord<AssignedPunishment>>;
   checkins: Record<string, SyncRecord<Checkin>>;
   goals: Record<string, SyncRecord<Goal>>;
+  goalOutcomes: Record<string, SyncRecord<GoalOutcome>>;
   punishmentHistory: Record<string, SyncRecord<CompletedPunishmentHistoryEntry>>;
   punishments: Record<string, SyncRecord<Punishment>>;
   settings: SyncRecord<UserSettings> | null;
 };
 
-function mapGoalRow(row: Tables<'goals'>): SyncRecord<Goal> {
+function mapGoalRow(
+  row: Tables<'goals'>,
+  categoryNameById: Record<string, Punishment['categoryName']>,
+): SyncRecord<Goal> {
+  const categoryNames = (row.punishment_category_ids ?? [])
+    .map((categoryId) => categoryNameById[categoryId])
+    .filter((value): value is Punishment['categoryName'] => Boolean(value));
+
   return {
     data: {
-      active: row.active,
+      active: row.lifecycle_status === 'active',
+      closedOn: row.closed_on ?? undefined,
       createdAt: row.created_at,
       description: row.description ?? undefined,
       id: row.id,
+      lifecycleStatus: row.lifecycle_status as Goal['lifecycleStatus'],
       minimumSuccessRate: row.minimum_success_rate,
+      punishmentConfig: normalizeGoalPunishmentConfig({
+        categoryMode: row.punishment_category_mode as Goal['punishmentConfig']['categoryMode'],
+        categoryNames,
+        scope: row.punishment_pool_scope as Goal['punishmentConfig']['scope'],
+      }),
+      resolvedAt: row.resolved_at ?? undefined,
+      resolutionSource: (row.resolution_source ?? undefined) as Goal['resolutionSource'] | undefined,
+      resolutionStatus: row.resolution_status as Goal['resolutionStatus'],
       startDate: row.start_date,
       targetDays: row.target_days,
       title: row.title,
@@ -921,6 +1135,33 @@ function mapGoalRow(row: Tables<'goals'>): SyncRecord<Goal> {
     meta: {
       lastModifiedAt: row.updated_at,
       lastSyncedAt: row.updated_at,
+      state: 'synced',
+    },
+  };
+}
+
+function mapGoalOutcomeRow(row: Tables<'goal_period_outcomes'>): SyncRecord<GoalOutcome> {
+  return {
+    data: {
+      assignedPunishmentId: row.assigned_punishment_id ?? undefined,
+      completedDays: row.completed_days,
+      completionRate: row.completion_rate,
+      evaluatedAt: row.evaluated_at,
+      goalId: row.goal_id,
+      id: row.id,
+      minimumSuccessRate: row.minimum_success_rate,
+      passed: row.passed,
+      periodKey: row.period_key,
+      plannedDays: row.planned_days,
+      requiredDays: row.required_days,
+      resolutionSource: row.resolution_source as GoalOutcome['resolutionSource'],
+      targetDays: row.target_days,
+      windowEnd: row.window_end,
+      windowStart: row.window_start,
+    },
+    meta: {
+      lastModifiedAt: row.evaluated_at,
+      lastSyncedAt: row.evaluated_at,
       state: 'synced',
     },
   };
@@ -1030,8 +1271,61 @@ async function getCategoryIdByNameMap() {
       .filter((row): row is { id: string; name: Punishment['categoryName'] } => isPunishmentCategoryName(row.name))
       .map((row) => [row.name, row.id]),
   ) as Partial<Record<Punishment['categoryName'], string>>;
+  categoryNameByIdCache = Object.fromEntries(
+    (data ?? [])
+      .filter((row): row is { id: string; name: Punishment['categoryName'] } => isPunishmentCategoryName(row.name))
+      .map((row) => [row.id, row.name]),
+  );
 
   return categoryIdByNameCache;
+}
+
+async function getCategoryNameByIdMap() {
+  if (categoryNameByIdCache) {
+    return categoryNameByIdCache;
+  }
+
+  await getCategoryIdByNameMap();
+  return categoryNameByIdCache ?? {};
+}
+
+async function resolveGoalCategoryIds(categoryNames: Goal['punishmentConfig']['categoryNames']) {
+  const categoryMap = await getCategoryIdByNameMap();
+
+  return categoryNames.map((categoryName) => {
+    const categoryId = categoryMap[categoryName];
+
+    if (!categoryId) {
+      throw new Error(`No se pudo resolver la categoria ${categoryName}.`);
+    }
+
+    return categoryId;
+  });
+}
+
+async function resolveAssignedPunishmentWritePunishmentId(container: LocalContainer, assignedPunishment: AssignedPunishment) {
+  const linkedPunishment = container.records.punishments[assignedPunishment.punishmentId]?.data;
+
+  if (!linkedPunishment) {
+    return assignedPunishment.punishmentId;
+  }
+
+  if (linkedPunishment.scope === 'personal') {
+    return linkedPunishment.id;
+  }
+
+  const { data, error } = await supabase
+    .from('punishments')
+    .select('id')
+    .is('owner_id', null)
+    .eq('title', linkedPunishment.title)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return data?.id ?? linkedPunishment.id;
 }
 
 function mapHistoryRow(
@@ -1087,6 +1381,7 @@ async function upsertWithSyncMetadataFallback<
     | 'goals'
     | 'checkins'
     | 'assigned_punishments'
+    | 'goal_period_outcomes'
     | 'punishments'
     | 'punishment_completion_history'
     | 'user_settings',
@@ -1105,10 +1400,12 @@ async function upsertWithSyncMetadataFallback<
 }
 
 async function fetchRemoteSnapshot(userId: string): Promise<RemoteSnapshot> {
-  const [goalsResult, checkinsResult, assignedResult, punishmentsResult, historyResult, settingsResult] = await Promise.all([
+  const [categoriesById, goalsResult, checkinsResult, assignedResult, outcomesResult, punishmentsResult, historyResult, settingsResult] = await Promise.all([
+    getCategoryNameByIdMap(),
     supabase.from('goals').select('*').eq('user_id', userId),
     supabase.from('checkins').select('*').eq('user_id', userId),
     supabase.from('assigned_punishments').select('*').eq('user_id', userId),
+    supabase.from('goal_period_outcomes').select('*').eq('user_id', userId),
     supabase.rpc('list_punishment_catalog'),
     supabase.from('punishment_completion_history').select('*').eq('user_id', userId),
     supabase.from('user_settings').select('*').eq('user_id', userId).maybeSingle(),
@@ -1117,13 +1414,15 @@ async function fetchRemoteSnapshot(userId: string): Promise<RemoteSnapshot> {
   if (goalsResult.error) throw goalsResult.error;
   if (checkinsResult.error) throw checkinsResult.error;
   if (assignedResult.error) throw assignedResult.error;
+  if (outcomesResult.error) throw outcomesResult.error;
   if (punishmentsResult.error) throw punishmentsResult.error;
   if (historyResult.error) throw historyResult.error;
   if (settingsResult.error) throw settingsResult.error;
 
-  const goals = Object.fromEntries((goalsResult.data ?? []).map((row) => [row.id, mapGoalRow(row)]));
+  const goals = Object.fromEntries((goalsResult.data ?? []).map((row) => [row.id, mapGoalRow(row, categoriesById)]));
   const checkins = Object.fromEntries((checkinsResult.data ?? []).map((row) => [row.id, mapCheckinRow(row)]));
   const assignedPunishments = Object.fromEntries((assignedResult.data ?? []).map((row) => [row.id, mapAssignedPunishmentRow(row)]));
+  const goalOutcomes = Object.fromEntries((outcomesResult.data ?? []).map((row) => [row.id, mapGoalOutcomeRow(row)]));
   const punishments = Object.fromEntries(
     ((punishmentsResult.data ?? []) as PunishmentCatalogRow[]).map((row) => [row.id, mapPunishmentCatalogRow(row)]),
   );
@@ -1135,6 +1434,7 @@ async function fetchRemoteSnapshot(userId: string): Promise<RemoteSnapshot> {
     assignedPunishments,
     checkins,
     goals,
+    goalOutcomes,
     punishmentHistory,
     punishments,
     settings: settingsResult.data ? mapSettingsRow(settingsResult.data) : null,
@@ -1150,6 +1450,9 @@ function mergeRemoteSnapshot(container: LocalContainer, remote: RemoteSnapshot) 
   }
   for (const [id, record] of Object.entries(remote.assignedPunishments)) {
     container.records.assignedPunishments[id] = mergeRemoteRecord(container.records.assignedPunishments[id], record);
+  }
+  for (const [id, record] of Object.entries(remote.goalOutcomes)) {
+    container.records.goalOutcomes[id] = mergeRemoteRecord(container.records.goalOutcomes[id], record);
   }
   for (const [id, record] of Object.entries(remote.punishments)) {
     if (record.data.scope === 'base' && container.records.punishments[id]?.data.scope === 'personal') {
@@ -1170,12 +1473,16 @@ async function deleteRemoteRecords(container: LocalContainer) {
   const deletedGoals = Object.keys(container.deleted.goals);
   const deletedCheckins = Object.keys(container.deleted.checkins);
   const deletedAssigned = Object.keys(container.deleted.assignedPunishments);
+  const deletedOutcomes = Object.keys(container.deleted.goalOutcomes);
   const deletedPunishments = Object.keys(container.deleted.punishments);
   const deletedHistory = Object.keys(container.deleted.punishmentHistory);
   const deletions: any[] = [];
 
   if (deletedHistory.length) {
     deletions.push(supabase.from('punishment_completion_history').delete().eq('user_id', userId).in('id', deletedHistory));
+  }
+  if (deletedOutcomes.length) {
+    deletions.push(supabase.from('goal_period_outcomes').delete().eq('user_id', userId).in('id', deletedOutcomes));
   }
   if (deletedAssigned.length) {
     deletions.push(supabase.from('assigned_punishments').delete().eq('user_id', userId).in('id', deletedAssigned));
@@ -1200,14 +1507,25 @@ async function pushPendingRecords(container: LocalContainer) {
 
   const goals = Object.values(container.records.goals).filter((record) => record.meta.state === 'pending_upsert');
   if (goals.length) {
-    const payload = goals.map((record) => ({
-      active: record.data.active,
+    const resolvedCategoryIds = await Promise.all(
+      goals.map((record) => resolveGoalCategoryIds(normalizeGoalPunishmentConfig(record.data.punishmentConfig).categoryNames)),
+    );
+    const payload = goals.map((record, index) => ({
+      active: record.data.lifecycleStatus === 'active',
+      closed_on: record.data.closedOn ?? null,
       created_at: record.data.createdAt,
       description: record.data.description ?? null,
       frequency: 'daily',
       id: record.data.id,
+      lifecycle_status: record.data.lifecycleStatus,
       minimum_success_rate: record.data.minimumSuccessRate,
       origin_device_id: deviceId,
+      punishment_category_ids: resolvedCategoryIds[index],
+      punishment_category_mode: normalizeGoalPunishmentConfig(record.data.punishmentConfig).categoryMode,
+      punishment_pool_scope: normalizeGoalPunishmentConfig(record.data.punishmentConfig).scope,
+      resolved_at: record.data.resolvedAt ?? null,
+      resolution_source: record.data.resolutionSource ?? null,
+      resolution_status: record.data.resolutionStatus,
       source_guest_id: record.meta.sourceGuestId ?? null,
       start_date: record.data.startDate,
       target_days: record.data.targetDays,
@@ -1215,19 +1533,7 @@ async function pushPendingRecords(container: LocalContainer) {
       updated_at: record.data.updatedAt,
       user_id: userId,
     }));
-    const payloadWithoutMetadata = goals.map((record) => ({
-      active: record.data.active,
-      created_at: record.data.createdAt,
-      description: record.data.description ?? null,
-      frequency: 'daily',
-      id: record.data.id,
-      minimum_success_rate: record.data.minimumSuccessRate,
-      start_date: record.data.startDate,
-      target_days: record.data.targetDays,
-      title: record.data.title,
-      updated_at: record.data.updatedAt,
-      user_id: userId,
-    }));
+    const payloadWithoutMetadata = payload.map(({ origin_device_id: _origin, source_guest_id: _guest, ...record }) => record);
     const { error } = await upsertWithSyncMetadataFallback('goals', payload, payloadWithoutMetadata, 'id');
     if (error) throw error;
     for (const record of goals) {
@@ -1264,7 +1570,10 @@ async function pushPendingRecords(container: LocalContainer) {
 
   const assigned = Object.values(container.records.assignedPunishments).filter((record) => record.meta.state === 'pending_upsert');
   if (assigned.length) {
-    const payload = assigned.map((record) => ({
+    const resolvedPunishmentIds = await Promise.all(
+      assigned.map((record) => resolveAssignedPunishmentWritePunishmentId(container, record.data)),
+    );
+    const payload = assigned.map((record, index) => ({
       assigned_at: record.data.assignedAt,
       completed_at: record.data.completedAt ?? null,
       due_date: record.data.dueDate,
@@ -1272,19 +1581,19 @@ async function pushPendingRecords(container: LocalContainer) {
       id: record.data.id,
       origin_device_id: deviceId,
       period_key: record.data.periodKey,
-      punishment_id: record.data.punishmentId,
+      punishment_id: resolvedPunishmentIds[index],
       source_guest_id: record.meta.sourceGuestId ?? null,
       status: record.data.status,
       user_id: userId,
     }));
-    const payloadWithoutMetadata = assigned.map((record) => ({
+    const payloadWithoutMetadata = assigned.map((record, index) => ({
       assigned_at: record.data.assignedAt,
       completed_at: record.data.completedAt ?? null,
       due_date: record.data.dueDate,
       goal_id: record.data.goalId,
       id: record.data.id,
       period_key: record.data.periodKey,
-      punishment_id: record.data.punishmentId,
+      punishment_id: resolvedPunishmentIds[index],
       status: record.data.status,
       user_id: userId,
     }));
@@ -1297,6 +1606,58 @@ async function pushPendingRecords(container: LocalContainer) {
     if (error) throw error;
     for (const record of assigned) {
       container.records.assignedPunishments[record.data.id] = markSynced(record);
+    }
+  }
+
+  const goalOutcomes = Object.values(container.records.goalOutcomes).filter((record) => record.meta.state === 'pending_upsert');
+  if (goalOutcomes.length) {
+    const payload = goalOutcomes.map((record) => ({
+      assigned_punishment_id: record.data.assignedPunishmentId ?? null,
+      completed_days: record.data.completedDays,
+      completion_rate: record.data.completionRate,
+      evaluated_at: record.data.evaluatedAt,
+      goal_id: record.data.goalId,
+      id: record.data.id,
+      minimum_success_rate: record.data.minimumSuccessRate,
+      origin_device_id: deviceId,
+      passed: record.data.passed,
+      period_key: record.data.periodKey,
+      planned_days: record.data.plannedDays,
+      required_days: record.data.requiredDays,
+      resolution_source: record.data.resolutionSource,
+      source_guest_id: record.meta.sourceGuestId ?? null,
+      target_days: record.data.targetDays,
+      user_id: userId,
+      window_end: record.data.windowEnd,
+      window_start: record.data.windowStart,
+    }));
+    const payloadWithoutMetadata = goalOutcomes.map((record) => ({
+      assigned_punishment_id: record.data.assignedPunishmentId ?? null,
+      completed_days: record.data.completedDays,
+      completion_rate: record.data.completionRate,
+      evaluated_at: record.data.evaluatedAt,
+      goal_id: record.data.goalId,
+      id: record.data.id,
+      minimum_success_rate: record.data.minimumSuccessRate,
+      passed: record.data.passed,
+      period_key: record.data.periodKey,
+      planned_days: record.data.plannedDays,
+      required_days: record.data.requiredDays,
+      resolution_source: record.data.resolutionSource,
+      target_days: record.data.targetDays,
+      user_id: userId,
+      window_end: record.data.windowEnd,
+      window_start: record.data.windowStart,
+    }));
+    const { error } = await upsertWithSyncMetadataFallback(
+      'goal_period_outcomes',
+      payload,
+      payloadWithoutMetadata,
+      'id',
+    );
+    if (error) throw error;
+    for (const record of goalOutcomes) {
+      container.records.goalOutcomes[record.data.id] = markSynced(record);
     }
   }
 
@@ -1430,7 +1791,7 @@ async function bootstrapContainer() {
   if (!authState) {
     const guestId = await getCurrentGuestId();
     const container = await getOrCreateContainer('guest', guestId, guestId);
-    if (expireGoalsIfNeeded(container)) {
+    if (resolveExpiredGoalsIfNeeded(container)) {
       await saveContainer(container);
     }
     return container;
@@ -1447,7 +1808,7 @@ async function bootstrapContainer() {
     await rotateGuestId();
   }
 
-  if (expireGoalsIfNeeded(accountContainer)) {
+  if (resolveExpiredGoalsIfNeeded(accountContainer)) {
     await saveContainer(accountContainer);
   }
 
@@ -1517,8 +1878,7 @@ export async function retryPendingSync() {
 
 export async function loadGoalEvaluations(referenceDate?: string) {
   const { container } = await getActiveContainer();
-  const { goals, checkins } = getDerivedData(container, referenceDate ?? startOfToday());
-  return Object.fromEntries(goals.map((goal) => [goal.id, evaluateGoalPeriod(goal, checkins, referenceDate ?? startOfToday())]));
+  return getDerivedData(container, referenceDate ?? startOfToday()).goalEvaluations;
 }
 
 export async function loadHomeSummary(referenceDate?: string) {
@@ -1586,15 +1946,168 @@ export async function loadPunishmentById(punishmentId: string) {
   return container.records.punishments[punishmentId]?.data ?? null;
 }
 
+function findLatestGoalOutcomeRecord(container: LocalContainer, goalId: string) {
+  return Object.values(container.records.goalOutcomes)
+    .filter((record) => record.data.goalId === goalId)
+    .sort((left, right) => right.data.evaluatedAt.localeCompare(left.data.evaluatedAt))[0];
+}
+
+function findAssignedPunishmentByGoalPeriod(container: LocalContainer, goalId: string, periodKey: string) {
+  return Object.values(container.records.assignedPunishments).find(
+    (record) => record.data.goalId === goalId && record.data.periodKey === periodKey,
+  );
+}
+
+function buildMutationSnapshot(container: LocalContainer, referenceDate = startOfToday()) {
+  const derived = getDerivedData(container, referenceDate);
+
+  return {
+    goalEvaluations: derived.goalEvaluations,
+    homeSummary: derived.homeSummary,
+    pendingPunishments: derived.pendingPunishments,
+    statsSummary: derived.statsSummary,
+  };
+}
+
+function resolveGoalIfNeeded(
+  container: LocalContainer,
+  goalId: string,
+  input: {
+    closedOn?: string;
+    referenceDate?: string;
+    resolutionSource: Goal['resolutionSource'];
+  },
+) {
+  const guestSourceId = container.actorType === 'guest' ? container.guestId : undefined;
+  const goalRecord = container.records.goals[goalId];
+
+  if (!goalRecord) {
+    throw new Error('No he encontrado el objetivo para resolverlo.');
+  }
+
+  const goal = goalRecord.data;
+  const existingOutcomeRecord = findLatestGoalOutcomeRecord(container, goalId);
+  const existingOutcome = existingOutcomeRecord?.data;
+
+  if (goal.resolutionStatus !== 'pending' && existingOutcome) {
+    return {
+      assignedPunishment: existingOutcome.assignedPunishmentId
+        ? container.records.assignedPunishments[existingOutcome.assignedPunishmentId]?.data
+        : undefined,
+      changed: false,
+      evaluation: mapGoalOutcomeToEvaluation(existingOutcome),
+      goal,
+      outcome: existingOutcome,
+    };
+  }
+
+  if (goal.resolutionStatus === 'pending' && existingOutcome) {
+    const hydratedGoal: Goal = {
+      ...goal,
+      active: false,
+      closedOn: goal.closedOn ?? existingOutcome.windowEnd,
+      lifecycleStatus: 'closed',
+      resolvedAt: goal.resolvedAt ?? existingOutcome.evaluatedAt,
+      resolutionSource: goal.resolutionSource ?? existingOutcome.resolutionSource,
+      resolutionStatus: existingOutcome.passed ? 'passed' : 'failed',
+      updatedAt: nowIso(),
+    };
+
+    setRecord(container, container.records.goals, goalId, hydratedGoal, guestSourceId);
+
+    return {
+      assignedPunishment: existingOutcome.assignedPunishmentId
+        ? container.records.assignedPunishments[existingOutcome.assignedPunishmentId]?.data
+        : undefined,
+      changed: true,
+      evaluation: mapGoalOutcomeToEvaluation(existingOutcome),
+      goal: hydratedGoal,
+      outcome: existingOutcome,
+    };
+  }
+
+  const closedOn = input.closedOn ?? goal.closedOn ?? toISODate(input.referenceDate ?? startOfToday());
+  const evaluationBaseGoal: Goal = {
+    ...goal,
+    active: false,
+    closedOn,
+    lifecycleStatus: 'closed',
+  };
+  const evaluation = evaluateGoalPeriod(evaluationBaseGoal, getValues(container.records.checkins), closedOn);
+  const existingAssignedRecord = findAssignedPunishmentByGoalPeriod(container, goalId, evaluation.periodKey);
+  let assignedPunishment = existingAssignedRecord?.data;
+
+  if (!evaluation.passed && !assignedPunishment) {
+    const eligiblePunishments = getEligiblePunishments(goal, getValues(container.records.punishments));
+    const selectedPunishment = selectDeterministicPunishment(eligiblePunishments, evaluation.periodKey);
+
+    if (selectedPunishment) {
+      assignedPunishment = assignPunishment(goal, selectedPunishment, evaluation.periodKey, addDays(evaluation.windowEnd, 1));
+      setRecord(
+        container,
+        container.records.assignedPunishments,
+        assignedPunishment.id,
+        assignedPunishment,
+        guestSourceId,
+      );
+      clearDeleted(container, 'assignedPunishments', assignedPunishment.id);
+    }
+  }
+
+  const evaluatedAt = goal.resolvedAt ?? nowIso();
+  const outcome =
+    existingOutcome ??
+    buildGoalOutcome({
+      assignedPunishmentId: assignedPunishment?.id,
+      evaluation,
+      evaluatedAt,
+      goal,
+      resolutionSource: input.resolutionSource ?? goal.resolutionSource ?? 'manual',
+    });
+  const resolvedGoal: Goal = {
+    ...goal,
+    active: false,
+    closedOn,
+    lifecycleStatus: 'closed',
+    punishmentConfig: normalizeGoalPunishmentConfig(goal.punishmentConfig),
+    resolvedAt: goal.resolvedAt ?? outcome.evaluatedAt,
+    resolutionSource: goal.resolutionSource ?? outcome.resolutionSource,
+    resolutionStatus: outcome.passed ? 'passed' : 'failed',
+    updatedAt: nowIso(),
+  };
+
+  setRecord(container, container.records.goals, goalId, resolvedGoal, guestSourceId);
+  clearDeleted(container, 'goals', goalId);
+
+  if (!existingOutcome) {
+    setRecord(container, container.records.goalOutcomes, outcome.id, outcome, guestSourceId);
+    clearDeleted(container, 'goalOutcomes', outcome.id);
+  }
+
+  return {
+    assignedPunishment,
+    changed: true,
+    evaluation,
+    goal: resolvedGoal,
+    outcome,
+  };
+}
+
 export async function createGoalRecord(input: GoalInput) {
   return withActiveContainer(async (container) => {
     const timestamp = nowIso();
     const goal: Goal = {
-      active: input.active,
+      active: true,
+      closedOn: undefined,
       createdAt: timestamp,
       description: input.description?.trim() || undefined,
       id: createUuid(),
+      lifecycleStatus: 'active',
       minimumSuccessRate: input.minimumSuccessRate,
+      punishmentConfig: normalizeGoalPunishmentConfig(input.punishmentConfig),
+      resolvedAt: undefined,
+      resolutionSource: undefined,
+      resolutionStatus: 'pending',
       startDate: input.startDate,
       targetDays: input.targetDays,
       title: input.title.trim(),
@@ -1608,11 +2121,6 @@ export async function createGoalRecord(input: GoalInput) {
   });
 }
 
-async function loadGoal(goalId: string) {
-  const { container } = await getActiveContainer();
-  return container.records.goals[goalId]?.data ?? null;
-}
-
 export async function updateGoalRecord(goalId: string, input: GoalInput) {
   return withActiveContainer(async (container) => {
     const current = container.records.goals[goalId]?.data;
@@ -1620,11 +2128,15 @@ export async function updateGoalRecord(goalId: string, input: GoalInput) {
       throw new Error('No he encontrado el objetivo para actualizarlo.');
     }
 
+    if (isGoalClosed(current)) {
+      throw new Error('Los objetivos cerrados ya no se pueden editar.');
+    }
+
     const goal: Goal = {
       ...current,
-      active: input.active,
       description: input.description?.trim() || undefined,
       minimumSuccessRate: input.minimumSuccessRate,
+      punishmentConfig: normalizeGoalPunishmentConfig(input.punishmentConfig),
       startDate: input.startDate,
       targetDays: input.targetDays,
       title: input.title.trim(),
@@ -1641,6 +2153,7 @@ export async function deleteGoalRecord(goalId: string) {
     delete container.records.goals[goalId];
     const relatedCheckins = Object.values(container.records.checkins).filter((item) => item.data.goalId === goalId);
     const relatedAssigned = Object.values(container.records.assignedPunishments).filter((item) => item.data.goalId === goalId);
+    const relatedOutcomes = Object.values(container.records.goalOutcomes).filter((item) => item.data.goalId === goalId);
     const relatedHistory = Object.values(container.records.punishmentHistory).filter((item) => item.data.goalId === goalId);
 
     for (const record of relatedCheckins) {
@@ -1651,6 +2164,10 @@ export async function deleteGoalRecord(goalId: string) {
       delete container.records.assignedPunishments[record.data.id];
       setDeleted(container, 'assignedPunishments', record.data.id);
     }
+    for (const record of relatedOutcomes) {
+      delete container.records.goalOutcomes[record.data.id];
+      setDeleted(container, 'goalOutcomes', record.data.id);
+    }
     for (const record of relatedHistory) {
       delete container.records.punishmentHistory[record.data.id];
       setDeleted(container, 'punishmentHistory', record.data.id);
@@ -1660,19 +2177,62 @@ export async function deleteGoalRecord(goalId: string) {
   });
 }
 
-export async function toggleGoalActiveRecord(goalId: string, active: boolean) {
-  const goal = await loadGoal(goalId);
-  if (!goal) {
-    throw new Error('No he encontrado el objetivo.');
-  }
+async function updateGoalLifecycleRecord(goalId: string, lifecycleStatus: Goal['lifecycleStatus']) {
+  return withActiveContainer(async (container) => {
+    const goal = container.records.goals[goalId]?.data;
 
-  return updateGoalRecord(goalId, {
-    active,
-    description: goal.description,
-    minimumSuccessRate: goal.minimumSuccessRate,
-    startDate: goal.startDate,
-    targetDays: goal.targetDays,
-    title: goal.title,
+    if (!goal) {
+      throw new Error('No he encontrado el objetivo.');
+    }
+
+    if (goal.lifecycleStatus === 'closed') {
+      throw new Error('El objetivo ya esta cerrado.');
+    }
+
+    const updatedGoal: Goal = {
+      ...goal,
+      active: lifecycleStatus === 'active',
+      lifecycleStatus,
+      updatedAt: nowIso(),
+    };
+
+    setRecord(
+      container,
+      container.records.goals,
+      goalId,
+      updatedGoal,
+      container.actorType === 'guest' ? container.guestId : undefined,
+    );
+
+    return updatedGoal;
+  });
+}
+
+export async function pauseGoalRecord(goalId: string) {
+  return updateGoalLifecycleRecord(goalId, 'paused');
+}
+
+export async function resumeGoalRecord(goalId: string) {
+  return updateGoalLifecycleRecord(goalId, 'active');
+}
+
+export async function toggleGoalActiveRecord(goalId: string, active: boolean) {
+  return active ? resumeGoalRecord(goalId) : pauseGoalRecord(goalId);
+}
+
+export async function finalizeGoalRecord(goalId: string, referenceDate = startOfToday()) {
+  return withActiveContainer(async (container) => {
+    const goal = container.records.goals[goalId]?.data;
+
+    if (!goal) {
+      throw new Error('No he encontrado el objetivo para finalizarlo.');
+    }
+
+    return resolveGoalIfNeeded(container, goalId, {
+      closedOn: toISODate(referenceDate),
+      referenceDate,
+      resolutionSource: 'manual',
+    });
   });
 }
 
@@ -1685,14 +2245,7 @@ function buildHistoryId(assignedId: string) {
 }
 
 function buildCheckinMutationSnapshot(container: LocalContainer) {
-  const today = startOfToday();
-  const todayDerived = getDerivedData(container, today);
-
-  return {
-    goalEvaluations: todayDerived.goalEvaluations,
-    homeSummary: todayDerived.homeSummary,
-    statsSummary: todayDerived.statsSummary,
-  };
+  return buildMutationSnapshot(container, startOfToday());
 }
 
 export async function recordGoalCheckinRecord(input: CheckinInput & { date: string }): Promise<RecordCheckinResult> {
@@ -1700,6 +2253,10 @@ export async function recordGoalCheckinRecord(input: CheckinInput & { date: stri
     const goal = container.records.goals[input.goalId]?.data;
     if (!goal) {
       throw new Error('No he encontrado el objetivo para registrar el check-in.');
+    }
+
+    if (!isGoalActive(goal)) {
+      throw new Error('Solo los objetivos activos admiten check-ins.');
     }
 
     const existing = findCheckinByGoalDate(container, input.goalId, input.date);
@@ -1719,35 +2276,11 @@ export async function recordGoalCheckinRecord(input: CheckinInput & { date: stri
       container.actorType === 'guest' ? container.guestId : undefined,
     );
 
-    const { checkins, punishments } = getDerivedData(container, input.date);
+    const { checkins } = getDerivedData(container, input.date);
     const evaluation = evaluateGoalPeriod(goal, checkins, input.date);
-    const deadline = getGoalDeadline(goal);
-    let assignedPunishment = Object.values(container.records.assignedPunishments).find(
-      (record) => record.data.goalId === goal.id && record.data.periodKey === evaluation.periodKey,
-    )?.data;
-
-    if (input.date >= deadline && !evaluation.passed && !assignedPunishment) {
-      const punishment = generateRandomPunishment(
-        punishments.filter((item) => item.scope === 'base' || item.scope === 'personal'),
-        evaluation.periodKey,
-      );
-
-      if (punishment) {
-        assignedPunishment = assignPunishment(goal, punishment, evaluation.periodKey, addDays(evaluation.windowEnd, 1));
-        setRecord(
-          container,
-          container.records.assignedPunishments,
-          assignedPunishment.id,
-          assignedPunishment,
-          container.actorType === 'guest' ? container.guestId : undefined,
-        );
-      }
-    }
-
     const snapshot = buildCheckinMutationSnapshot(container);
 
     return {
-      assignedPunishment,
       checkin,
       evaluation,
       goalEvaluations: snapshot.goalEvaluations,
@@ -1764,6 +2297,10 @@ export async function clearGoalCheckinRecord(input: { date: string; goalId: stri
       throw new Error('No he encontrado el objetivo para actualizar el check-in.');
     }
 
+    if (!isGoalActive(goal)) {
+      throw new Error('Solo los objetivos activos permiten cambiar check-ins.');
+    }
+
     const existing = findCheckinByGoalDate(container, input.goalId, input.date);
     if (existing) {
       delete container.records.checkins[existing.data.id];
@@ -1772,26 +2309,12 @@ export async function clearGoalCheckinRecord(input: { date: string; goalId: stri
 
     const { checkins } = getDerivedData(container, input.date);
     const evaluation = evaluateGoalPeriod(goal, checkins, input.date);
-
-    const assignedForPeriod = Object.values(container.records.assignedPunishments).find(
-      (record) => record.data.goalId === goal.id && record.data.periodKey === evaluation.periodKey,
-    );
-
-    let removedAssignedPunishmentId: string | undefined;
-
-    if (assignedForPeriod && assignedForPeriod.data.status === 'pending' && evaluation.passed) {
-      delete container.records.assignedPunishments[assignedForPeriod.data.id];
-      setDeleted(container, 'assignedPunishments', assignedForPeriod.data.id);
-      removedAssignedPunishmentId = assignedForPeriod.data.id;
-    }
-
     const snapshot = buildCheckinMutationSnapshot(container);
 
     return {
       evaluation,
       goalEvaluations: snapshot.goalEvaluations,
       homeSummary: snapshot.homeSummary,
-      removedAssignedPunishmentId,
       statsSummary: snapshot.statsSummary,
     };
   });
@@ -1927,13 +2450,13 @@ export async function loadAssignedPunishmentDetail(assignedId: string): Promise<
 
 export async function loadGoalDetail(goalId: string): Promise<GoalDetailSummary | null> {
   const { container } = await getActiveContainer();
-  const { checkins, goalEvaluations } = getDerivedData(container);
+  const { checkins, goalEvaluations, latestOutcomesByGoalId } = getDerivedData(container);
   const goal = container.records.goals[goalId]?.data;
   if (!goal) {
     return null;
   }
 
-  return buildGoalDetailSummary(goal, checkins, goalEvaluations[goal.id]);
+  return buildGoalDetailSummary(goal, checkins, goalEvaluations[goal.id], latestOutcomesByGoalId[goal.id]);
 }
 
 export async function resetUserData() {

@@ -58,11 +58,11 @@ function isGoalVisibleOnDate(goal: Goal | undefined, summary: HomeGoalSummary, d
     return false;
   }
 
-  return summary.daysUntilStart === 0 && summary.remainingDays > 0;
+  return summary.lifecycleStatus === 'active' && summary.daysUntilStart === 0 && summary.remainingDays > 0;
 }
 
 function isGoalScheduledOnDate(goal: Goal, date: string) {
-  return toISODate(goal.createdAt) <= date && goal.startDate <= date && getGoalDeadline(goal) >= date;
+  return goal.lifecycleStatus === 'active' && toISODate(goal.createdAt) <= date && goal.startDate <= date && getGoalDeadline(goal) >= date;
 }
 
 function getMarkerForSummary(summary: HomeGoalSummary[], goals: Goal[], date: string) {
@@ -368,8 +368,11 @@ export function HomeScreen() {
       title: 'Salir a correr 30 minutos',
       description: 'Objetivo de ejemplo del tutorial.',
       active: true,
+      lifecycleStatus: 'active',
+      resolutionStatus: 'pending',
       passed: true,
       targetDays: 7,
+      requiredDays: 5,
       completedDays: 5,
       completionRate: 71,
       currentStreak: 3,
@@ -406,7 +409,7 @@ export function HomeScreen() {
 
         return {
           summary,
-          canEdit: !isFutureSelected && summary.active,
+          canEdit: !isFutureSelected && summary.lifecycleStatus === 'active',
           completedDays: Math.max(completedDays, 0),
           requiredDays,
           isTodaySelected: selectedDate === startOfToday(),
@@ -456,10 +459,6 @@ export function HomeScreen() {
       } else {
         const result = await recordCheckin({ date: selectedDate, goalId, status });
         freshTodaySummary = result.homeSummary;
-
-        if (result.assignedPunishment) {
-          router.push(appRoutes.punishment(result.assignedPunishment.id));
-        }
       }
 
       setTodayProgressSummary(freshTodaySummary);

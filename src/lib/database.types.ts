@@ -82,6 +82,9 @@ export type Database = {
           passed: boolean;
           period_key: string;
           planned_days: number;
+          required_days: number;
+          resolution_source: string;
+          target_days: number;
           user_id: string;
           window_end: string;
           window_start: string;
@@ -97,6 +100,9 @@ export type Database = {
           passed: boolean;
           period_key: string;
           planned_days: number;
+          required_days: number;
+          resolution_source: string;
+          target_days: number;
           user_id: string;
           window_end: string;
           window_start: string;
@@ -112,6 +118,9 @@ export type Database = {
           passed?: boolean;
           period_key?: string;
           planned_days?: number;
+          required_days?: number;
+          resolution_source?: string;
+          target_days?: number;
           user_id?: string;
           window_end?: string;
           window_start?: string;
@@ -196,11 +205,19 @@ export type Database = {
       goals: {
         Row: {
           active: boolean;
+          closed_on: string | null;
           created_at: string;
           description: string | null;
           frequency: string;
           id: string;
+          lifecycle_status: string;
           minimum_success_rate: number;
+          punishment_category_ids: string[];
+          punishment_category_mode: string;
+          punishment_pool_scope: string;
+          resolution_source: string | null;
+          resolution_status: string;
+          resolved_at: string | null;
           start_date: string;
           target_days: number;
           title: string;
@@ -209,11 +226,19 @@ export type Database = {
         };
         Insert: {
           active?: boolean;
+          closed_on?: string | null;
           created_at?: string;
           description?: string | null;
-          frequency: string;
+          frequency?: string;
           id?: string;
+          lifecycle_status?: string;
           minimum_success_rate: number;
+          punishment_category_ids?: string[];
+          punishment_category_mode?: string;
+          punishment_pool_scope?: string;
+          resolution_source?: string | null;
+          resolution_status?: string;
+          resolved_at?: string | null;
           start_date: string;
           target_days: number;
           title: string;
@@ -222,11 +247,19 @@ export type Database = {
         };
         Update: {
           active?: boolean;
+          closed_on?: string | null;
           created_at?: string;
           description?: string | null;
           frequency?: string;
           id?: string;
+          lifecycle_status?: string;
           minimum_success_rate?: number;
+          punishment_category_ids?: string[];
+          punishment_category_mode?: string;
+          punishment_pool_scope?: string;
+          resolution_source?: string | null;
+          resolution_status?: string;
+          resolved_at?: string | null;
           start_date?: string;
           target_days?: number;
           title?: string;
@@ -502,6 +535,7 @@ export type Database = {
           completed_punishments: number;
           completion_ratio: number;
           goals_active_count: number;
+          total_checkins: number;
         }[];
       };
       evaluate_goal_period: {
@@ -513,6 +547,7 @@ export type Database = {
           passed: boolean;
           period_key: string;
           planned_days: number;
+          required_days: number;
           window_end: string;
           window_start: string;
         }[];
@@ -522,12 +557,19 @@ export type Database = {
         Returns: {
           active: boolean;
           best_streak: number;
+          closed_on: string;
+          completed_days: number;
           completion_rate: number;
           current_streak: number;
           days_until_start: number;
           description: string;
           goal_id: string;
+          lifecycle_status: string;
+          passed: boolean;
           remaining_days: number;
+          required_days: number;
+          resolution_status: string;
+          target_days: number;
           title: string;
           today_status: string;
         }[];
@@ -585,6 +627,7 @@ export type Database = {
           passed: boolean;
           period_key: string;
           planned_days: number;
+          required_days: number;
           window_end: string;
           window_start: string;
         }[];
@@ -602,6 +645,9 @@ export type Database = {
           passed: boolean;
           period_key: string;
           planned_days: number;
+          required_days: number;
+          resolution_source: string;
+          target_days: number;
           window_end: string;
           window_start: string;
         }[];
@@ -632,6 +678,7 @@ export type Database = {
           evaluation_passed: boolean;
           evaluation_period_key: string;
           evaluation_planned_days: number;
+          evaluation_required_days: number;
           evaluation_window_end: string;
           evaluation_window_start: string;
         }[];

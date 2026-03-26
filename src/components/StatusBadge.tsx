@@ -2,24 +2,72 @@ import { Feather } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { radius } from '@/src/constants/theme';
+import { Goal } from '@/src/models/types';
 
 type Props = {
-  active: boolean;
+  lifecycleStatus: Goal['lifecycleStatus'];
+  resolutionStatus: Goal['resolutionStatus'];
 };
 
-export function StatusBadge({ active }: Props) {
+function getBadgeCopy(lifecycleStatus: Goal['lifecycleStatus'], resolutionStatus: Goal['resolutionStatus']) {
+  if (lifecycleStatus === 'active') {
+    return {
+      backgroundColor: '#EAF8F0',
+      borderColor: '#CBECD8',
+      color: '#177245',
+      icon: 'play' as const,
+      label: 'Activo',
+    };
+  }
+
+  if (lifecycleStatus === 'paused') {
+    return {
+      backgroundColor: '#FFF7E8',
+      borderColor: '#F7DFB0',
+      color: '#B7791F',
+      icon: 'pause' as const,
+      label: 'Pausado',
+    };
+  }
+
+  if (resolutionStatus === 'passed') {
+    return {
+      backgroundColor: '#ECFDF3',
+      borderColor: '#C6F6D5',
+      color: '#15803D',
+      icon: 'check' as const,
+      label: 'Aprobado',
+    };
+  }
+
+  if (resolutionStatus === 'failed') {
+    return {
+      backgroundColor: '#FEF2F2',
+      borderColor: '#FECACA',
+      color: '#B91C1C',
+      icon: 'x' as const,
+      label: 'Fallido',
+    };
+  }
+
+  return {
+    backgroundColor: '#EEF4FB',
+    borderColor: '#D9E4F2',
+    color: '#45607E',
+    icon: 'square' as const,
+    label: 'Cerrado',
+  };
+}
+
+export function StatusBadge({ lifecycleStatus, resolutionStatus }: Props) {
+  const badge = getBadgeCopy(lifecycleStatus, resolutionStatus);
+
   return (
     <View
-      accessibilityLabel={`Estado: ${active ? 'Activo' : 'Finalizado'}`}
-      style={[styles.badge, active ? styles.badgeActive : styles.badgeFinalized]}>
-      <Feather
-        color={active ? '#177245' : '#45607E'}
-        name={active ? 'play' : 'check'}
-        size={11}
-      />
-      <Text style={[styles.label, active ? styles.labelActive : styles.labelFinalized]}>
-        {active ? 'Activo' : 'Finalizado'}
-      </Text>
+      accessibilityLabel={`Estado: ${badge.label}`}
+      style={[styles.badge, { backgroundColor: badge.backgroundColor, borderColor: badge.borderColor }]}>
+      <Feather color={badge.color} name={badge.icon} size={11} />
+      <Text style={[styles.label, { color: badge.color }]}>{badge.label}</Text>
     </View>
   );
 }
@@ -35,23 +83,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     borderWidth: 1,
   },
-  badgeActive: {
-    backgroundColor: '#EAF8F0',
-    borderColor: '#CBECD8',
-  },
-  badgeFinalized: {
-    backgroundColor: '#EEF4FB',
-    borderColor: '#D9E4F2',
-  },
   label: {
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.1,
-  },
-  labelActive: {
-    color: '#177245',
-  },
-  labelFinalized: {
-    color: '#45607E',
   },
 });
