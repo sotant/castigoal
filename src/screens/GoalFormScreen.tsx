@@ -5,16 +5,7 @@ import { Pressable, StyleSheet, Switch, Text, TextInput, View, type DimensionVal
 
 import { ScreenContainer } from '@/src/components/ScreenContainer';
 import { palette, radius, shadows, spacing } from '@/src/constants/theme';
-import {
-  buildMonthCalendar,
-  clamp,
-  formatMonthLabel,
-  getMonthAnchor,
-  getRateForRequiredDays,
-  getRequiredDays,
-  targetDayPresets,
-  weekdayLabels,
-} from '@/src/features/goals/goal-form';
+import { buildMonthCalendar, clamp, formatMonthLabel, getMonthAnchor, getRateForRequiredDays, getRequiredDays, weekdayLabels } from '@/src/features/goals/goal-form';
 import { Goal } from '@/src/models/types';
 import { appRoutes } from '@/src/navigation/app-routes';
 import { useAppStore } from '@/src/store/app-store';
@@ -26,14 +17,11 @@ type Props = {
 };
 
 type WizardStep = 1 | 2 | 3;
-type DurationMode = 'days' | 'endDate';
 
 type GoalDraft = {
   title: string;
   description: string;
   startDate: string;
-  durationMode: DurationMode;
-  durationDays: number;
   endDate: string;
   minimumDays: number;
   active: boolean;
@@ -57,8 +45,6 @@ function buildInitialDraft(goal?: Goal): GoalDraft {
     title: goal?.title ?? '',
     description: goal?.description ?? '',
     startDate,
-    durationMode: 'endDate',
-    durationDays,
     endDate: addDays(startDate, durationDays - 1),
     minimumDays,
     active: goal?.active ?? true,
@@ -143,15 +129,7 @@ export function GoalFormScreen({ mode, goal }: Props) {
   const isSubmittingRef = useRef(false);
 
   const minimumStartDate = mode === 'create' ? today : draft.startDate < today ? draft.startDate : today;
-
-  const durationDays = useMemo(() => {
-    if (draft.durationMode === 'endDate') {
-      return Math.max(diffInDays(draft.startDate, draft.endDate) + 1, 1);
-    }
-
-    return Math.max(draft.durationDays, 1);
-  }, [draft.durationDays, draft.durationMode, draft.endDate, draft.startDate]);
-
+  const durationDays = useMemo(() => Math.max(diffInDays(draft.startDate, draft.endDate) + 1, 1), [draft.endDate, draft.startDate]);
   const requiredDays = useMemo(() => clamp(draft.minimumDays, 1, durationDays), [draft.minimumDays, durationDays]);
   const minimumPercentage = useMemo(() => clamp(getRateForRequiredDays(durationDays, requiredDays), 1, 100), [durationDays, requiredDays]);
 
@@ -168,7 +146,6 @@ export function GoalFormScreen({ mode, goal }: Props) {
   useEffect(() => {
     setDraft((current) => ({
       ...current,
-      durationDays: clamp(current.durationDays, 1, 365),
       minimumDays: clamp(current.minimumDays, 1, durationDays),
     }));
   }, [durationDays]);
@@ -183,12 +160,7 @@ export function GoalFormScreen({ mode, goal }: Props) {
 
   const titleError = draft.title.trim().length >= 3 ? '' : 'Escribe un nombre de al menos 3 caracteres.';
   const startDateError = draft.startDate >= minimumStartDate ? '' : 'La fecha de inicio no puede estar en el pasado.';
-  const durationError =
-    draft.durationMode === 'endDate' && draft.endDate < draft.startDate
-      ? 'La fecha de finalización no puede ser anterior al inicio.'
-      : durationDays >= 1
-        ? ''
-        : 'El objetivo debe durar al menos 1 día.';
+  const durationError = draft.endDate < draft.startDate ? 'La fecha de finalización no puede ser anterior al inicio.' : '';
   const minimumError = requiredDays >= 1 && requiredDays <= durationDays ? '' : 'Debes elegir entre 1 y la duración total.';
 
   const canContinueStep1 = !titleError;
@@ -197,16 +169,7 @@ export function GoalFormScreen({ mode, goal }: Props) {
 
   const screenTitle = mode === 'create' ? 'Crear objetivo' : 'Editar objetivo';
   const progressWidth = `${(step / 3) * 100}%` as DimensionValue;
-
-  const durationSummary = useMemo(() => {
-    if (draft.durationMode === 'days') {
-      const startLabel = draft.startDate === today ? 'Empieza hoy' : `Empieza el ${formatShortDate(draft.startDate)}`;
-      return `${startLabel} y dura ${durationDays} ${durationDays === 1 ? 'día' : 'días'}`;
-    }
-
-    return `Del ${formatShortDate(draft.startDate)} al ${formatShortDate(draft.endDate)}`;
-  }, [draft.durationMode, draft.endDate, draft.startDate, durationDays, today]);
-
+  const durationSummary = useMemo(() => `Del ${formatShortDate(draft.startDate)} al ${formatShortDate(draft.endDate)}`, [draft.endDate, draft.startDate]);
   const minimumSummary = useMemo(
     () => `Debes cumplir ${requiredDays} de ${durationDays} ${durationDays === 1 ? 'día' : 'días'}`,
     [durationDays, requiredDays],
@@ -214,11 +177,7 @@ export function GoalFormScreen({ mode, goal }: Props) {
 
   const missesAllowed = durationDays - requiredDays;
   const missesSummary =
-    missesAllowed <= 0
-      ? 'No podrás fallar ningún día.'
-      : missesAllowed === 1
-        ? 'Podrás fallar 1 día.'
-        : `Podrás fallar hasta ${missesAllowed} días.`;
+    missesAllowed <= 0 ? 'No podrás fallar ningún día.' : missesAllowed === 1 ? 'Podrás fallar 1 día.' : `Podrás fallar hasta ${missesAllowed} días.`;
 
   const minimumDayOptions = useMemo(() => {
     const rawOptions = [
@@ -290,7 +249,7 @@ export function GoalFormScreen({ mode, goal }: Props) {
   };
 
   return (
-    <ScreenContainer title={screenTitle}>
+    <ScreenContainer fixedHeader title={screenTitle}>
       <View style={styles.progressCard}>
         <View style={styles.progressHeader}>
           <Text style={styles.progressStep}>Paso {step} de 3</Text>
@@ -391,95 +350,41 @@ export function GoalFormScreen({ mode, goal }: Props) {
             <View style={styles.field}>
               <Text style={styles.label}>Fecha de finalización</Text>
 
-              <View style={styles.segment}>
+              <View style={styles.stack}>
                 <Pressable
                   disabled={saving}
-                  onPress={() => updateDraft({ durationMode: 'endDate' })}
-                  style={[styles.segmentButton, draft.durationMode === 'endDate' ? styles.segmentButtonActive : null]}>
-                  <Text style={[styles.segmentLabel, draft.durationMode === 'endDate' ? styles.segmentLabelActive : null]}>Fecha</Text>
+                  onPress={() => setShowEndCalendar((current) => !current)}
+                  style={[styles.selectorCard, showEndCalendar ? styles.selectorCardActive : null]}>
+                  <View style={styles.selectorCopy}>
+                    <Text style={styles.selectorText}>El objetivo acaba el</Text>
+                    <Text style={styles.selectorTitle}>{formatLongDate(draft.endDate)}</Text>
+                  </View>
+                  <Text style={styles.selectorAction}>{showEndCalendar ? 'Ocultar' : 'Cambiar'}</Text>
                 </Pressable>
-                <Pressable
-                  disabled={saving}
-                  onPress={() => updateDraft({ durationMode: 'days' })}
-                  style={[styles.segmentButton, draft.durationMode === 'days' ? styles.segmentButtonActive : null]}>
-                  <Text style={[styles.segmentLabel, draft.durationMode === 'days' ? styles.segmentLabelActive : null]}>Días</Text>
-                </Pressable>
-              </View>
 
-              {draft.durationMode === 'endDate' ? (
-                <View style={styles.stack}>
-                  <Pressable
+                {showEndCalendar ? (
+                  <CalendarSelector
                     disabled={saving}
-                    onPress={() => setShowEndCalendar((current) => !current)}
-                    style={[styles.selectorCard, showEndCalendar ? styles.selectorCardActive : null]}>
-                    <View style={styles.selectorCopy}>
-                      <Text style={styles.selectorText}>El objetivo acaba el</Text>
-                      <Text style={styles.selectorTitle}>{formatLongDate(draft.endDate)}</Text>
-                    </View>
-                    <Text style={styles.selectorAction}>{showEndCalendar ? 'Ocultar' : 'Cambiar'}</Text>
-                  </Pressable>
-
-                  {showEndCalendar ? (
-                    <CalendarSelector
-                      disabled={saving}
-                      minDate={draft.startDate}
-                      month={endMonth}
-                      selectedDate={draft.endDate}
-                      onMonthChange={(updater) => setEndMonth((current) => updater(current))}
-                      onSelect={(date) => {
-                        updateDraft({ endDate: date });
-                        setShowEndCalendar(false);
-                      }}
-                    />
-                  ) : null}
-                </View>
-              ) : (
-                <View style={styles.stack}>
-                  <Text style={styles.helper}>Días de duración</Text>
-
-                  <View style={styles.chips}>
-                    {targetDayPresets.map((value) => (
-                      <Pressable
-                        key={value}
-                        disabled={saving}
-                        onPress={() => updateDraft({ durationDays: value })}
-                        style={[styles.chip, durationDays === value ? styles.chipActive : null]}>
-                        <Text style={[styles.chipLabel, durationDays === value ? styles.chipLabelActive : null]}>{value} días</Text>
-                      </Pressable>
-                    ))}
-                  </View>
-
-                  <View style={styles.stepperCard}>
-                    <Text style={[styles.stepperLabel, styles.stepperLabelCentered]}>PERSONALIZADO</Text>
-                    <View style={styles.stepperControls}>
-                      <Pressable disabled={saving} onPress={() => updateDraft({ durationDays: Math.max(durationDays - 1, 1) })} style={styles.stepperButton}>
-                        <Text style={styles.stepperButtonText}>-</Text>
-                      </Pressable>
-                      <View style={styles.stepperValueWrap}>
-                        <Text style={styles.stepperValue}>{durationDays}</Text>
-                        <Text style={styles.stepperUnit}>{durationDays === 1 ? 'día' : 'días'}</Text>
-                      </View>
-                      <Pressable disabled={saving} onPress={() => updateDraft({ durationDays: Math.min(durationDays + 1, 365) })} style={styles.stepperButton}>
-                        <Text style={styles.stepperButtonText}>+</Text>
-                      </Pressable>
-                    </View>
-                  </View>
-                </View>
-              )}
+                    minDate={draft.startDate}
+                    month={endMonth}
+                    selectedDate={draft.endDate}
+                    onMonthChange={(updater) => setEndMonth((current) => updater(current))}
+                    onSelect={(date) => {
+                      updateDraft({ endDate: date });
+                      setShowEndCalendar(false);
+                    }}
+                  />
+                ) : null}
+              </View>
 
               {durationError ? <Text style={styles.errorText}>{durationError}</Text> : null}
             </View>
 
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryEyebrow}>Resumen</Text>
-            <Text style={styles.summaryTitle}>{durationSummary}</Text>
-            <Text style={styles.summaryText}>
-              {draft.durationMode === 'days'
-                ? `Fecha de finalización: ${formatShortDate(addDays(draft.startDate, durationDays - 1))}`
-                : `Duración total: ${durationDays} ${durationDays === 1 ? 'día' : 'días'}`}
-            </Text>
-          </View>
-
+            <View style={styles.summaryCard}>
+              <Text style={styles.summaryEyebrow}>Resumen</Text>
+              <Text style={styles.summaryTitle}>{durationSummary}</Text>
+              <Text style={styles.summaryText}>{`Duración total: ${durationDays} ${durationDays === 1 ? 'día' : 'días'}`}</Text>
+            </View>
           </View>
 
           <View style={styles.footerActionsStacked}>
@@ -564,13 +469,12 @@ export function GoalFormScreen({ mode, goal }: Props) {
 
             {minimumError ? <Text style={styles.errorText}>{minimumError}</Text> : null}
 
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryEyebrow}>Resumen</Text>
-            <Text style={styles.summaryTitle}>{minimumSummary}</Text>
-            <Text style={styles.summaryText}>{missesSummary}</Text>
-            <Text style={styles.summaryHint}>({minimumPercentage}%)</Text>
-          </View>
-
+            <View style={styles.summaryCard}>
+              <Text style={styles.summaryEyebrow}>Resumen</Text>
+              <Text style={styles.summaryTitle}>{minimumSummary}</Text>
+              <Text style={styles.summaryText}>{missesSummary}</Text>
+              <Text style={styles.summaryHint}>({minimumPercentage}%)</Text>
+            </View>
           </View>
 
           <View style={styles.footerActionsStacked}>
@@ -704,31 +608,6 @@ const styles = StyleSheet.create({
   stack: {
     gap: spacing.sm,
   },
-  segment: {
-    flexDirection: 'row',
-    padding: 4,
-    borderRadius: 20,
-    backgroundColor: palette.cloud,
-    gap: 4,
-  },
-  segmentButton: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderRadius: 16,
-  },
-  segmentButtonActive: {
-    backgroundColor: palette.snow,
-    ...shadows.card,
-  },
-  segmentLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: palette.slate,
-  },
-  segmentLabelActive: {
-    color: palette.ink,
-  },
   selectorCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -761,30 +640,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
     color: palette.primaryDeep,
-  },
-  chips: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    flexWrap: 'wrap',
-  },
-  chip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: palette.line,
-    backgroundColor: palette.snow,
-  },
-  chipActive: {
-    backgroundColor: palette.primary,
-    borderColor: palette.primary,
-  },
-  chipLabel: {
-    color: palette.ink,
-    fontWeight: '700',
-  },
-  chipLabelActive: {
-    color: palette.snow,
   },
   summaryCard: {
     padding: spacing.md,
@@ -1012,9 +867,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     lineHeight: 20,
   },
-  footerActionsSingle: {
-    justifyContent: 'center',
-  },
   footerActionsStacked: {
     flexDirection: 'column',
     gap: 2,
@@ -1053,4 +905,3 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 });
-
