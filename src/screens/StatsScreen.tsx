@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Feather } from '@expo/vector-icons';
+import { Feather, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useFocusEffect } from '@react-navigation/native';
@@ -11,6 +11,7 @@ import { ScreenContainer } from '@/src/components/ScreenContainer';
 import { palette, radius, shadows, spacing } from '@/src/constants/theme';
 import { formatMonthLabel, getMonthDate, getMonthStart, WEEKDAY_LABELS } from '@/src/features/stats/calendar';
 import { selectStatsCalendar, useAppStore } from '@/src/store/app-store';
+import { getGoalDeadline } from '@/src/utils/goal-evaluation';
 
 type OverviewCard = {
   icon: keyof typeof Feather.glyphMap;
@@ -74,6 +75,10 @@ export function StatsScreen() {
   const monthLabel = formatMonthLabel(monthDate);
   const monthStart = useMemo(() => getMonthStart(monthDate), [monthDate]);
   const calendarDays = useAppStore(selectStatsCalendar(selectedGoal?.id ?? '', monthStart));
+  const selectedGoalDeadline = useMemo(
+    () => (selectedGoal ? getGoalDeadline(selectedGoal) : null),
+    [selectedGoal],
+  );
   const completedGoalsCount = useMemo(
     () => homeSummary.goalSummaries.filter((summary) => !summary.active && summary.passed).length,
     [homeSummary.goalSummaries],
@@ -350,24 +355,39 @@ export function StatsScreen() {
                           </View>
 
                           <View style={styles.calendarGrid}>
-                            {calendarDays.map((day) => (
-                              <View key={day.date} style={styles.dayCell}>
-                                <View
-                                  style={[
-                                    styles.dayBubble,
-                                    day.status === 'completed'
-                                      ? styles.dayCompleted
-                                      : day.status === 'missed'
-                                        ? styles.dayMissed
-                                        : styles.dayEmpty,
-                                    !day.inMonth && styles.dayOutsideMonth,
-                                  ]}>
-                                  <Text style={[styles.dayLabel, !day.inMonth && styles.dayLabelOutsideMonth]}>
-                                    {day.dayNumber}
-                                  </Text>
+                            {calendarDays.map((day) => {
+                              const isStart = day.date === selectedGoal.startDate;
+                              const isDeadline = day.date === selectedGoalDeadline;
+
+                              return (
+                                <View key={day.date} style={styles.dayCell}>
+                                  <View
+                                    style={[
+                                      styles.dayBubble,
+                                      day.status === 'completed'
+                                        ? styles.dayCompleted
+                                        : day.status === 'missed'
+                                          ? styles.dayMissed
+                                          : styles.dayEmpty,
+                                      !day.inMonth && styles.dayOutsideMonth,
+                                    ]}>
+                                    <Text style={[styles.dayLabel, !day.inMonth && styles.dayLabelOutsideMonth]}>
+                                      {day.dayNumber}
+                                    </Text>
+                                    {isStart ? (
+                                      <View style={styles.dayMarker}>
+                                        <MaterialIcons color={palette.snow} name="play-arrow" size={10} />
+                                      </View>
+                                    ) : null}
+                                    {isDeadline ? (
+                                      <View style={styles.dayMarker}>
+                                        <MaterialCommunityIcons color={palette.snow} name="flag-checkered" size={10} />
+                                      </View>
+                                    ) : null}
+                                  </View>
                                 </View>
-                              </View>
-                            ))}
+                              );
+                            })}
                           </View>
                         </View>
                       </FlingGestureHandler>
@@ -789,8 +809,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   dayBubble: {
-    width: 32,
-    height: 32,
+    position: 'relative',
+    width: 38,
+    height: 38,
     borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: palette.line,
@@ -812,11 +833,22 @@ const styles = StyleSheet.create({
     opacity: 0.35,
   },
   dayLabel: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '700',
     color: palette.ink,
   },
   dayLabelOutsideMonth: {
     color: palette.slate,
+  },
+  dayMarker: {
+    position: 'absolute',
+    right: -2,
+    bottom: -2,
+    width: 14,
+    height: 14,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#000000',
   },
 });
