@@ -1,6 +1,8 @@
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
+import { getEmailValidationError, normalizeEmail } from '@/src/lib/email';
+
 export type FeedbackType = 'suggestion' | 'bug_report';
 
 export type FeedbackCategory =
@@ -111,13 +113,9 @@ export function normalizeFeedbackValues(values: FeedbackFormValues): FeedbackFor
     message: values.message.trim(),
     category: values.category,
     affectedSection: values.affectedSection.trim(),
-    contactEmail: values.contactEmail.trim(),
+    contactEmail: normalizeEmail(values.contactEmail),
     reproductionSteps: values.reproductionSteps.trim(),
   };
-}
-
-function isValidEmail(value: string) {
-  return /\S+@\S+\.\S+/.test(value);
 }
 
 export function validateFeedbackForm(type: FeedbackType, values: FeedbackFormValues): FeedbackFormErrors {
@@ -133,8 +131,10 @@ export function validateFeedbackForm(type: FeedbackType, values: FeedbackFormVal
     errors.message = copy.messageError;
   }
 
-  if (normalized.contactEmail && !isValidEmail(normalized.contactEmail)) {
-    errors.contactEmail = 'Introduce un email valido';
+  const contactEmailError = getEmailValidationError(normalized.contactEmail);
+
+  if (contactEmailError) {
+    errors.contactEmail = contactEmailError;
   }
 
   return errors;

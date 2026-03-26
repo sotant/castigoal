@@ -15,6 +15,7 @@ import { ScreenContainer } from '@/src/components/ScreenContainer';
 import { palette, radius, shadows, spacing } from '@/src/constants/theme';
 import { useAuth } from '@/src/hooks/use-auth';
 import { buildPasswordRecoveryRedirectUrl } from '@/src/lib/auth-deep-links';
+import { getEmailValidationError, normalizeEmail } from '@/src/lib/email';
 import { appRoutes } from '@/src/navigation/app-routes';
 import {
   requestPasswordReset,
@@ -93,24 +94,33 @@ export function AuthScreen() {
   const initialMode = getAuthModeFromParam(params.mode);
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [email, setEmail] = useState(typeof params.email === 'string' ? params.email : '');
+  const [emailTouched, setEmailTouched] = useState(false);
+  const [hasTriedSubmit, setHasTriedSubmit] = useState(false);
   const [password, setPassword] = useState('');
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [feedback, setFeedback] = useState<{ kind: 'error' | 'success'; message: string } | null>(null);
   const [loadingAction, setLoadingAction] = useState<'signin' | 'signup' | 'reset' | null>(null);
   const inFlightRef = useRef(false);
-  const canSubmit = email.trim().length > 0 && password.trim().length >= 6;
-  const canRecover = useMemo(() => /\S+@\S+\.\S+/.test(email.trim()), [email]);
+  const normalizedEmail = useMemo(() => normalizeEmail(email), [email]);
+  const emailError = useMemo(() => getEmailValidationError(normalizedEmail, { required: true }), [normalizedEmail]);
+  const showEmailError = (emailTouched || hasTriedSubmit) && !!emailError;
+  const canSubmit = !emailError && password.trim().length >= 6;
+  const canRecover = !emailError;
   const passwordResetRedirectTo = buildPasswordRecoveryRedirectUrl();
   const returnTo = typeof params.returnTo === 'string' ? params.returnTo : appRoutes.settings;
 
   useEffect(() => {
     setMode(getAuthModeFromParam(params.mode));
+    setHasTriedSubmit(false);
+    setEmailTouched(false);
     setFeedback(null);
   }, [params.mode]);
 
   useEffect(() => {
     if (typeof params.email === 'string') {
       setEmail(params.email);
+      setHasTriedSubmit(false);
+      setEmailTouched(false);
     }
   }, [params.email]);
 
@@ -126,7 +136,24 @@ export function AuthScreen() {
 
   const switchMode = (nextMode: AuthMode) => {
     setMode(nextMode);
+    setHasTriedSubmit(false);
+    setEmailTouched(false);
     setFeedback(null);
+  };
+
+  const handleEmailChange = (value: string) => {
+    setEmail(value);
+    setFeedback(null);
+  };
+
+  const handleEmailBlur = () => {
+    setEmailTouched(true);
+
+    const nextEmail = normalizeEmail(email);
+
+    if (nextEmail !== email) {
+      setEmail(nextEmail);
+    }
   };
 
   const submit = async (action: 'signin' | 'signup') => {
@@ -134,12 +161,25 @@ export function AuthScreen() {
       return;
     }
 
-    const trimmedEmail = email.trim();
+    const trimmedEmail = normalizeEmail(email);
+    const nextEmailError = getEmailValidationError(trimmedEmail, { required: true });
 
-    if (!trimmedEmail || password.trim().length < 6) {
+    setHasTriedSubmit(true);
+    setEmailTouched(true);
+
+    if (trimmedEmail !== email) {
+      setEmail(trimmedEmail);
+    }
+
+    if (nextEmailError || password.trim().length < 6) {
+      const message =
+        nextEmailError && password.trim().length < 6
+          ? 'Introduce un email valido y una contrasena de al menos 6 caracteres.'
+          : nextEmailError ?? 'La contrasena debe tener al menos 6 caracteres.';
+
       setFeedback({
         kind: 'error',
-        message: 'Introduce un email valido y una contrasena de al menos 6 caracteres.',
+        message,
       });
       return;
     }
@@ -185,9 +225,17 @@ export function AuthScreen() {
       return;
     }
 
-    const trimmedEmail = email.trim();
+    const trimmedEmail = normalizeEmail(email);
+    const nextEmailError = getEmailValidationError(trimmedEmail, { required: true });
 
-    if (!canRecover) {
+    setHasTriedSubmit(true);
+    setEmailTouched(true);
+
+    if (trimmedEmail !== email) {
+      setEmail(trimmedEmail);
+    }
+
+    if (nextEmailError) {
       setFeedback({
         kind: 'error',
         message: 'Escribe un email valido para recuperar tu contrasena.',
@@ -262,19 +310,21 @@ export function AuthScreen() {
 
                 <View style={styles.group}>
                   <Text style={styles.label}>Email</Text>
-                  <View style={styles.inputField}>
+                  <View style={[styles.inputField, showEmailError && styles.inputFieldError]}>
                     <Feather color="#97A3BC" name="mail" size={18} style={styles.inputIcon} />
                     <TextInput
+                      autoComplete="email"
                       autoCapitalize="none"
                       autoCorrect={false}
                       editable={!loadingAction}
                       keyboardType="email-address"
+                      onBlur={handleEmailBlur}
+                      onChangeText={handleEmailChange}
                       placeholder="tu@email.com"
                       placeholderTextColor="#98A2B3"
                       returnKeyType={mode === 'recovery' ? 'go' : 'next'}
                       style={styles.input}
                       value={email}
-                      onChangeText={setEmail}
                       onSubmitEditing={() => {
                         if (mode === 'recovery' && canRecover) {
                           void handlePasswordReset();
@@ -282,6 +332,7 @@ export function AuthScreen() {
                       }}
                     />
                   </View>
+                  {showEmailError ? <Text style={styles.fieldError}>{emailError}</Text> : null}
                 </View>
 
                 {mode !== 'recovery' ? (
@@ -589,6 +640,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     backgroundColor: '#F8FAFF',
   },
+  inputFieldError: {
+    borderColor: palette.danger,
+  },
   inputIcon: {
     position: 'absolute',
     left: spacing.md,
@@ -648,6 +702,12 @@ const styles = StyleSheet.create({
     color: '#065F46',
     lineHeight: 20,
     textAlign: 'center',
+  },
+  fieldError: {
+    color: palette.danger,
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 18,
   },
   submitPrimary: {
     minHeight: ACCESS_CONTROL_HEIGHT,

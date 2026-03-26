@@ -17,6 +17,7 @@ import {
   validateFeedbackForm,
 } from '@/src/features/feedback/form';
 import { getErrorMessage } from '@/src/lib/app-error';
+import { normalizeEmail } from '@/src/lib/email';
 import { appRoutes } from '@/src/navigation/app-routes';
 import { submitUserFeedback } from '@/src/repositories/feedback-repository';
 
@@ -91,6 +92,16 @@ export function FeedbackFormScreen({ type }: Props) {
 
   const markTouched = (field: keyof FeedbackFormValues) => {
     setTouched((current) => ({ ...current, [field]: true }));
+  };
+
+  const handleContactEmailBlur = () => {
+    markTouched('contactEmail');
+
+    const normalized = normalizeEmail(values.contactEmail);
+
+    if (normalized !== values.contactEmail) {
+      setValues((current) => ({ ...current, contactEmail: normalized }));
+    }
   };
 
   const handleSubmit = async () => {
@@ -264,11 +275,12 @@ export function FeedbackFormScreen({ type }: Props) {
           <FieldLabel label={copy.contactEmailLabel} tone="optional" />
           <TextInput
             accessibilityLabel={copy.contactEmailLabel}
+            autoComplete="email"
             autoCapitalize="none"
             autoCorrect={false}
             editable={!isSubmitting}
             keyboardType="email-address"
-            onBlur={() => markTouched('contactEmail')}
+            onBlur={handleContactEmailBlur}
             onChangeText={(value) => updateField('contactEmail', value)}
             placeholder={copy.contactEmailPlaceholder}
             placeholderTextColor="#93A1B5"
