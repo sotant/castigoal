@@ -1,6 +1,5 @@
-import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -16,87 +15,68 @@ import {
 import { ScreenContainer } from '@/src/components/ScreenContainer';
 import { getErrorMessage } from '@/src/lib/app-error';
 import { appRoutes } from '@/src/navigation/app-routes';
-import { setRecoverySession, updatePassword } from '@/src/repositories/auth-repository';
+import { useAuth } from '@/src/hooks/use-auth';
+import { signOutLocal, updatePassword } from '@/src/repositories/auth-repository';
 import { palette, radius, shadows, spacing } from '@/src/constants/theme';
 
-function parseRecoveryTokens(url: string | null) {
-  if (!url) {
-    return null;
-  }
-
-  const fragment = url.split('#')[1];
-  const query = url.includes('?') ? url.split('?')[1]?.split('#')[0] : null;
-  const params = new URLSearchParams(fragment || query || '');
-  const accessToken = params.get('access_token');
-  const refreshToken = params.get('refresh_token');
-  const type = params.get('type');
-
-  if (!accessToken || !refreshToken || type !== 'recovery') {
-    return null;
-  }
-
-  return { accessToken, refreshToken };
-}
-
 export function ResetPasswordScreen() {
+  const { clearPasswordRecovery, passwordRecovery, session } = useAuth();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [focusedField, setFocusedField] = useState<'password' | 'confirmPassword' | null>(null);
-  const [status, setStatus] = useState<'loading' | 'ready' | 'error' | 'success'>('loading');
-  const [feedback, setFeedback] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{ kind: 'error' | 'success'; message: string } | null>(null);
   const [saving, setSaving] = useState(false);
-  const processedUrlRef = useRef<string | null>(null);
+  const [redirectingToLogin, setRedirectingToLogin] = useState(false);
+  const [hasCompletedRecovery, setHasCompletedRecovery] = useState(false);
+  const [completedRecoveryEmail, setCompletedRecoveryEmail] = useState<string | null>(null);
 
   const canSubmit = useMemo(
     () => password.trim().length >= 6 && confirmPassword.trim().length >= 6 && password === confirmPassword,
     [confirmPassword, password],
   );
+  const validationMessage = useMemo(() => {
+    if (!password && !confirmPassword) {
+      return null;
+    }
 
-  useEffect(() => {
-    let isMounted = true;
+    if (password.trim().length > 0 && password.trim().length < 6) {
+      return 'La contrasena debe tener al menos 6 caracteres.';
+    }
 
-    const handleUrl = async (url: string | null) => {
-      if (!url || processedUrlRef.current === url) {
-        return;
-      }
+    if (confirmPassword.trim().length > 0 && confirmPassword.trim().length < 6) {
+      return 'La confirmacion debe tener al menos 6 caracteres.';
+    }
 
-      processedUrlRef.current = url;
-      const tokens = parseRecoveryTokens(url);
+    if (confirmPassword.trim().length > 0 && password !== confirmPassword) {
+      return 'Las contrasenas no coinciden.';
+    }
 
-      if (!tokens) {
-        if (isMounted) {
-          setStatus('error');
-          setFeedback('El enlace de recuperacion no es valido o ha caducado. Solicita uno nuevo.');
+    return null;
+  }, [confirmPassword, password]);
+  const screenState = useMemo<'loading' | 'ready' | 'error' | 'success'>(() => {
+    if (hasCompletedRecovery) {
+      return 'success';
+    }
+
+    if (!passwordRecovery.hasCheckedInitialUrl || passwordRecovery.status === 'checking') {
+      return 'loading';
+    }
+
+    if (passwordRecovery.status === 'ready') {
+      return 'ready';
+    }
+
+    return 'error';
+  }, [hasCompletedRecovery, passwordRecovery.hasCheckedInitialUrl, passwordRecovery.status]);
+  const recoveryEmail = completedRecoveryEmail ?? session?.user.email ?? null;
+  const visibleFeedback =
+    feedback ??
+    (screenState === 'ready' && validationMessage
+      ? {
+          kind: 'error' as const,
+          message: validationMessage,
         }
-        return;
-      }
-
-      try {
-        await setRecoverySession(tokens.accessToken, tokens.refreshToken);
-
-        if (isMounted) {
-          setStatus('ready');
-          setFeedback(null);
-        }
-      } catch (error) {
-        if (isMounted) {
-          setStatus('error');
-          setFeedback(getErrorMessage(error, 'No se pudo validar el enlace de recuperacion.'));
-        }
-      }
-    };
-
-    void Linking.getInitialURL().then(handleUrl);
-
-    const subscription = Linking.addEventListener('url', ({ url }) => {
-      void handleUrl(url);
-    });
-
-    return () => {
-      isMounted = false;
-      subscription.remove();
-    };
-  }, []);
+      : null);
 
   const handleSubmit = async () => {
     if (!canSubmit || saving) {
@@ -104,7 +84,10 @@ export function ResetPasswordScreen() {
     }
 
     if (password !== confirmPassword) {
-      setFeedback('Las contrasenas no coinciden.');
+      setFeedback({
+        kind: 'error',
+        message: 'Las contrasenas no coinciden.',
+      });
       return;
     }
 
@@ -114,13 +97,43 @@ export function ResetPasswordScreen() {
 
     try {
       await updatePassword(password.trim());
-      setStatus('success');
-      setFeedback('Tu contrasena se ha actualizado. Ya puedes continuar con tu cuenta.');
+      clearPasswordRecovery();
+      setHasCompletedRecovery(true);
+      setCompletedRecoveryEmail(session?.user.email ?? null);
+      setFeedback({
+        kind: 'success',
+        message: 'Tu contrasena se ha actualizado. Vuelve al login para entrar con tu nueva contrasena.',
+      });
     } catch (error) {
-      setStatus('ready');
-      setFeedback(getErrorMessage(error, 'No se pudo actualizar la contrasena.'));
+      setFeedback({
+        kind: 'error',
+        message: getErrorMessage(error, 'No se pudo actualizar la contrasena.'),
+      });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleReturnToLogin = async () => {
+    if (redirectingToLogin) {
+      return;
+    }
+
+    setRedirectingToLogin(true);
+
+    try {
+      await signOutLocal();
+      router.replace({
+        pathname: appRoutes.auth,
+        params: recoveryEmail ? { email: recoveryEmail } : {},
+      });
+    } catch (error) {
+      setFeedback({
+        kind: 'error',
+        message: getErrorMessage(error, 'La contrasena se actualizo, pero no se pudo cerrar la sesion temporal. Intentalo de nuevo.'),
+      });
+    } finally {
+      setRedirectingToLogin(false);
     }
   };
 
@@ -141,87 +154,117 @@ export function ResetPasswordScreen() {
             </View>
 
             <View style={styles.formCard}>
-              {status === 'loading' ? (
+              {screenState === 'loading' ? (
                 <View style={styles.stateBlock}>
                   <Text style={styles.cardTitle}>Validando enlace...</Text>
                   <Text style={styles.cardSubtitle}>Estamos preparando un acceso seguro para que puedas cambiar tu contrasena.</Text>
                 </View>
               ) : null}
 
-              {status === 'error' ? (
+              {screenState === 'error' ? (
                 <View style={styles.stateBlock}>
                   <Text style={styles.cardTitle}>No se pudo abrir el enlace</Text>
-                  <Text style={styles.cardSubtitle}>{feedback ?? 'Solicita un nuevo email de recuperacion desde la pantalla de acceso.'}</Text>
-                  <Pressable onPress={() => router.replace(appRoutes.auth)} style={styles.submitPrimary}>
-                    <Text style={styles.submitPrimaryLabel}>Ir a acceso</Text>
+                  <Text style={styles.cardSubtitle}>
+                    {passwordRecovery.error ?? 'Solicita un nuevo email de recuperacion desde la pantalla de acceso.'}
+                  </Text>
+                  <Pressable
+                    onPress={() =>
+                      router.replace({
+                        pathname: appRoutes.auth,
+                        params: { mode: 'recovery' },
+                      })
+                    }
+                    style={styles.submitPrimary}>
+                    <Text style={styles.submitPrimaryLabel}>Solicitar otro correo</Text>
                   </Pressable>
                 </View>
               ) : null}
 
-              {(status === 'ready' || status === 'success') ? (
+              {(screenState === 'ready' || screenState === 'success') ? (
                 <>
                   <View style={styles.formHeader}>
                     <Text style={styles.eyebrow}>Recuperacion</Text>
-                    <Text style={styles.cardTitle}>Crea una contrasena nueva.</Text>
-                    <Text style={styles.cardSubtitle}>Usa al menos 6 caracteres y guarda un cambio que recuerdes facilmente.</Text>
+                    <Text style={styles.cardTitle}>
+                      {screenState === 'success' ? 'Contrasena actualizada.' : 'Crea una contrasena nueva.'}
+                    </Text>
+                    <Text style={styles.cardSubtitle}>
+                      {screenState === 'success'
+                        ? 'Tu cuenta ya esta lista para volver a iniciar sesion.'
+                        : 'Usa al menos 6 caracteres y guarda un cambio que recuerdes facilmente.'}
+                    </Text>
                   </View>
 
-                  <View style={styles.group}>
-                    <Text style={styles.label}>Nueva contrasena</Text>
-                    <TextInput
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      editable={!saving && status !== 'success'}
-                      onBlur={() => setFocusedField((current) => (current === 'password' ? null : current))}
-                      onChangeText={setPassword}
-                      onFocus={() => setFocusedField('password')}
-                      placeholder="Minimo 6 caracteres"
-                      placeholderTextColor="#8A94A6"
-                      returnKeyType="next"
-                      secureTextEntry
-                      style={[styles.input, focusedField === 'password' && styles.inputFocused]}
-                      value={password}
-                    />
-                  </View>
+                  {screenState === 'ready' ? (
+                    <>
+                      <View style={styles.group}>
+                        <Text style={styles.label}>Nueva contrasena</Text>
+                        <TextInput
+                          autoCapitalize="none"
+                          autoCorrect={false}
+                          editable={!saving}
+                          onBlur={() => setFocusedField((current) => (current === 'password' ? null : current))}
+                          onChangeText={setPassword}
+                          onFocus={() => setFocusedField('password')}
+                          placeholder="Minimo 6 caracteres"
+                          placeholderTextColor="#8A94A6"
+                          returnKeyType="next"
+                          secureTextEntry
+                          style={[styles.input, focusedField === 'password' && styles.inputFocused]}
+                          value={password}
+                        />
+                      </View>
 
-                  <View style={styles.group}>
-                    <Text style={styles.label}>Confirmar contrasena</Text>
-                    <TextInput
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      editable={!saving && status !== 'success'}
-                      onBlur={() => setFocusedField((current) => (current === 'confirmPassword' ? null : current))}
-                      onChangeText={setConfirmPassword}
-                      onFocus={() => setFocusedField('confirmPassword')}
-                      onSubmitEditing={() => {
-                        if (canSubmit && status === 'ready') {
-                          void handleSubmit();
-                        }
-                      }}
-                      placeholder="Repite tu contrasena"
-                      placeholderTextColor="#8A94A6"
-                      returnKeyType="go"
-                      secureTextEntry
-                      style={[styles.input, focusedField === 'confirmPassword' && styles.inputFocused]}
-                      value={confirmPassword}
-                    />
-                  </View>
+                      <View style={styles.group}>
+                        <Text style={styles.label}>Confirmar contrasena</Text>
+                        <TextInput
+                          autoCapitalize="none"
+                          autoCorrect={false}
+                          editable={!saving}
+                          onBlur={() => setFocusedField((current) => (current === 'confirmPassword' ? null : current))}
+                          onChangeText={setConfirmPassword}
+                          onFocus={() => setFocusedField('confirmPassword')}
+                          onSubmitEditing={() => {
+                            if (canSubmit) {
+                              void handleSubmit();
+                            }
+                          }}
+                          placeholder="Repite tu contrasena"
+                          placeholderTextColor="#8A94A6"
+                          returnKeyType="go"
+                          secureTextEntry
+                          style={[styles.input, focusedField === 'confirmPassword' && styles.inputFocused]}
+                          value={confirmPassword}
+                        />
+                      </View>
+                    </>
+                  ) : null}
 
-                  {feedback ? (
-                    <View style={[styles.feedback, status === 'success' ? styles.feedbackSuccess : styles.feedbackError]}>
-                      <Text style={status === 'success' ? styles.feedbackSuccessText : styles.feedbackErrorText}>{feedback}</Text>
+                  {visibleFeedback ? (
+                    <View
+                      style={[
+                        styles.feedback,
+                        visibleFeedback.kind === 'success' ? styles.feedbackSuccess : styles.feedbackError,
+                      ]}>
+                      <Text style={visibleFeedback.kind === 'success' ? styles.feedbackSuccessText : styles.feedbackErrorText}>
+                        {visibleFeedback.message}
+                      </Text>
                     </View>
                   ) : null}
 
-                  {status === 'success' ? (
-                    <Pressable onPress={() => router.replace('/')} style={styles.submitPrimary}>
-                      <Text style={styles.submitPrimaryLabel}>Continuar</Text>
+                  {screenState === 'success' ? (
+                    <Pressable
+                      disabled={redirectingToLogin}
+                      onPress={() => void handleReturnToLogin()}
+                      style={[styles.submitPrimary, redirectingToLogin && styles.buttonDisabled]}>
+                      <Text style={styles.submitPrimaryLabel}>
+                        {redirectingToLogin ? 'Volviendo...' : 'Ir al login'}
+                      </Text>
                     </Pressable>
                   ) : (
                     <Pressable
-                      disabled={!canSubmit || saving}
+                      disabled={!canSubmit || saving || screenState !== 'ready'}
                       onPress={() => void handleSubmit()}
-                      style={[styles.submitPrimary, (!canSubmit || saving) && styles.buttonDisabled]}>
+                      style={[styles.submitPrimary, (!canSubmit || saving || screenState !== 'ready') && styles.buttonDisabled]}>
                       <Text style={styles.submitPrimaryLabel}>{saving ? 'Guardando...' : 'Guardar nueva contrasena'}</Text>
                     </Pressable>
                   )}

@@ -89,43 +89,6 @@ export async function requestPasswordReset(email: string, redirectTo: string): P
   }
 }
 
-export async function requestValidatedPasswordReset(email: string, redirectTo: string): Promise<void> {
-  const { error } = await supabase.functions.invoke('request-password-reset', {
-    body: {
-      email: email.trim(),
-      redirectTo,
-    },
-  });
-
-  if (error) {
-    if (error instanceof FunctionsHttpError) {
-      const payload = await error.context.json().catch(() => null);
-      const message =
-        payload && typeof payload === 'object' && 'error' in payload && typeof payload.error === 'string'
-          ? payload.error
-          : error.message;
-
-      throw normalizeRepositoryError(
-        {
-          message,
-          status: error.context.status,
-        },
-        {
-          authMessage: 'No se pudo iniciar la recuperacion de contrasena.',
-          code: 'AUTH_PASSWORD_RESET_REQUEST_FAILED',
-          fallback: 'No se pudo iniciar la recuperacion de contrasena.',
-        },
-      );
-    }
-
-    throw normalizeRepositoryError(error, {
-      authMessage: 'No se pudo iniciar la recuperacion de contrasena.',
-      code: 'AUTH_PASSWORD_RESET_REQUEST_FAILED',
-      fallback: 'No se pudo iniciar la recuperacion de contrasena.',
-    });
-  }
-}
-
 export async function setRecoverySession(accessToken: string, refreshToken: string): Promise<void> {
   const { error } = await supabase.auth.setSession({
     access_token: accessToken,
@@ -161,6 +124,18 @@ export async function signOut(): Promise<void> {
       authMessage: 'No se pudo cerrar sesion.',
       code: 'AUTH_SIGN_OUT_FAILED',
       fallback: 'No se pudo cerrar sesion.',
+    });
+  }
+}
+
+export async function signOutLocal(): Promise<void> {
+  const { error } = await supabase.auth.signOut({ scope: 'local' });
+
+  if (error) {
+    throw normalizeRepositoryError(error, {
+      authMessage: 'No se pudo cerrar la sesion temporal.',
+      code: 'AUTH_SIGN_OUT_LOCAL_FAILED',
+      fallback: 'No se pudo cerrar la sesion temporal.',
     });
   }
 }

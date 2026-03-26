@@ -1,10 +1,8 @@
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
-import * as Linking from 'expo-linking';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Keyboard,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -16,9 +14,10 @@ import {
 import { ScreenContainer } from '@/src/components/ScreenContainer';
 import { palette, radius, shadows, spacing } from '@/src/constants/theme';
 import { useAuth } from '@/src/hooks/use-auth';
+import { buildPasswordRecoveryRedirectUrl } from '@/src/lib/auth-deep-links';
 import { appRoutes } from '@/src/navigation/app-routes';
 import {
-  requestValidatedPasswordReset,
+  requestPasswordReset,
   signInWithEmail,
   signUpWithEmail,
 } from '@/src/repositories/auth-repository';
@@ -49,17 +48,24 @@ function getFriendlyAuthMessage(message: string) {
   if (normalized.includes('password should be at least')) {
     return 'La contrasena es demasiado corta. Usa al menos 6 caracteres.';
   }
-
-  if (normalized.includes('no existe ninguna cuenta con ese email')) {
-    return 'No existe ninguna cuenta con ese email.';
-  }
-
   return `No se pudo continuar: ${message}`;
 }
 
 type AuthMode = 'signin' | 'signup' | 'recovery';
 
 const ACCESS_CONTROL_HEIGHT = 40;
+
+function getAuthModeFromParam(mode: string | string[] | undefined): AuthMode {
+  if (mode === 'signup') {
+    return 'signup';
+  }
+
+  if (mode === 'recovery') {
+    return 'recovery';
+  }
+
+  return 'signin';
+}
 
 function HeroArtwork() {
   return (
@@ -82,11 +88,11 @@ function HeroArtwork() {
 }
 
 export function AuthScreen() {
-  const params = useLocalSearchParams<{ returnTo?: string; mode?: string }>();
+  const params = useLocalSearchParams<{ email?: string; returnTo?: string; mode?: string }>();
   const { session } = useAuth();
-  const initialMode: AuthMode = params.mode === 'signup' ? 'signup' : 'signin';
+  const initialMode = getAuthModeFromParam(params.mode);
   const [mode, setMode] = useState<AuthMode>(initialMode);
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(typeof params.email === 'string' ? params.email : '');
   const [password, setPassword] = useState('');
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [feedback, setFeedback] = useState<{ kind: 'error' | 'success'; message: string } | null>(null);
@@ -94,14 +100,19 @@ export function AuthScreen() {
   const inFlightRef = useRef(false);
   const canSubmit = email.trim().length > 0 && password.trim().length >= 6;
   const canRecover = useMemo(() => /\S+@\S+\.\S+/.test(email.trim()), [email]);
-  const passwordResetRedirectTo =
-    Platform.OS === 'web' ? Linking.createURL(appRoutes.resetPassword) : 'castigoal://reset-password';
+  const passwordResetRedirectTo = buildPasswordRecoveryRedirectUrl();
   const returnTo = typeof params.returnTo === 'string' ? params.returnTo : appRoutes.settings;
 
   useEffect(() => {
-    setMode(params.mode === 'signup' ? 'signup' : 'signin');
+    setMode(getAuthModeFromParam(params.mode));
     setFeedback(null);
   }, [params.mode]);
+
+  useEffect(() => {
+    if (typeof params.email === 'string') {
+      setEmail(params.email);
+    }
+  }, [params.email]);
 
   useEffect(() => {
     if (session) {
@@ -190,10 +201,10 @@ export function AuthScreen() {
     Keyboard.dismiss();
 
     try {
-      await requestValidatedPasswordReset(trimmedEmail, passwordResetRedirectTo);
+      await requestPasswordReset(trimmedEmail, passwordResetRedirectTo);
       setFeedback({
         kind: 'success',
-        message: 'Te hemos enviado un correo para recuperar tu contrasena.',
+        message: 'Si existe una cuenta asociada a este correo, te hemos enviado instrucciones para restablecer tu contrasena.',
       });
     } catch (error) {
       setFeedback({
@@ -264,6 +275,11 @@ export function AuthScreen() {
                       style={styles.input}
                       value={email}
                       onChangeText={setEmail}
+                      onSubmitEditing={() => {
+                        if (mode === 'recovery' && canRecover) {
+                          void handlePasswordReset();
+                        }
+                      }}
                     />
                   </View>
                 </View>
