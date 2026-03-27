@@ -160,6 +160,7 @@ export function GoalFormScreen({ mode, goal }: Props) {
   const [showStartCalendar, setShowStartCalendar] = useState(false);
   const [showEndCalendar, setShowEndCalendar] = useState(false);
   const [hasTouchedTitle, setHasTouchedTitle] = useState(false);
+  const [showEligiblePunishments, setShowEligiblePunishments] = useState(false);
   const [minimumDaysInput, setMinimumDaysInput] = useState(() => String(buildInitialDraft(goal).minimumDays));
   const [startMonth, setStartMonth] = useState(() => getMonthAnchor(goal?.startDate ?? today));
   const [endMonth, setEndMonth] = useState(() => getMonthAnchor(addDays(goal?.startDate ?? today, Math.max((goal?.targetDays ?? 7) - 1, 0))));
@@ -340,7 +341,11 @@ export function GoalFormScreen({ mode, goal }: Props) {
 
   return (
     <ScreenContainer fixedHeader title={mode === 'create' ? 'Crear objetivo' : 'Editar objetivo'}>
-      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled
+        showsVerticalScrollIndicator={false}>
         <View style={styles.progressCard}>
           <View style={styles.progressHeader}>
             <Text style={styles.progressStep}>Paso {step} de 4</Text>
@@ -631,11 +636,57 @@ export function GoalFormScreen({ mode, goal }: Props) {
             <View style={styles.summaryCard}>
               <Text style={styles.summaryEyebrow}>Resumen</Text>
               <Text style={styles.summaryTitle}>{punishmentSummary}</Text>
-              <Text style={styles.summaryText}>
-                {punishmentsLoaded
-                  ? `${eligiblePunishments.length} ${eligiblePunishments.length === 1 ? 'castigo disponible' : 'castigos disponibles'}`
-                  : 'Cargando catalogo de castigos...'}
-              </Text>
+              <Pressable
+                disabled={!punishmentsLoaded}
+                onPress={() => setShowEligiblePunishments((current) => !current)}
+                style={styles.summaryDisclosure}>
+                <Text style={[styles.summaryText, !punishmentsLoaded ? styles.submitDisabled : null]}>
+                  {punishmentsLoaded
+                    ? `${eligiblePunishments.length} ${eligiblePunishments.length === 1 ? 'castigo disponible' : 'castigos disponibles'}`
+                    : 'Cargando catalogo de castigos...'}
+                </Text>
+                {punishmentsLoaded ? (
+                  <Feather color={palette.primaryDeep} name={showEligiblePunishments ? 'chevron-up' : 'chevron-down'} size={16} />
+                ) : null}
+              </Pressable>
+
+              {showEligiblePunishments && punishmentsLoaded ? (
+                <View style={styles.availablePunishmentsCard}>
+                  {eligiblePunishments.length > 0 ? (
+                    <View style={styles.availablePunishmentsScrollWrap}>
+                      <ScrollView
+                        nestedScrollEnabled
+                        showsVerticalScrollIndicator={false}
+                        contentContainerStyle={styles.availablePunishmentsContent}
+                        style={styles.availablePunishmentsScroll}>
+                        {eligiblePunishments.map((punishment) => (
+                          <View key={punishment.id} style={styles.availablePunishmentRow}>
+                            <View
+                              style={[
+                                styles.availablePunishmentIconWrap,
+                                {
+                                  backgroundColor:
+                                    PUNISHMENT_CATEGORY_OPTIONS.find((option) => option.name === punishment.categoryName)?.tint ?? '#EEF4FF',
+                                },
+                              ]}>
+                              <Ionicons
+                                color={
+                                  PUNISHMENT_CATEGORY_OPTIONS.find((option) => option.name === punishment.categoryName)?.accent ?? palette.primaryDeep
+                                }
+                                name={PUNISHMENT_CATEGORY_OPTIONS.find((option) => option.name === punishment.categoryName)?.icon ?? 'sparkles-outline'}
+                                size={14}
+                              />
+                            </View>
+                            <Text style={styles.availablePunishmentTitle}>{punishment.title}</Text>
+                          </View>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  ) : (
+                    <Text style={styles.availablePunishmentEmpty}>No hay castigos disponibles con esta seleccion.</Text>
+                  )}
+                </View>
+              ) : null}
             </View>
 
             {punishmentPoolError ? <Text style={styles.errorText}>{punishmentPoolError}</Text> : null}
@@ -957,6 +1008,53 @@ const styles = StyleSheet.create({
     color: palette.ink,
   },
   summaryText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: palette.slate,
+  },
+  summaryDisclosure: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  availablePunishmentsCard: {
+    padding: spacing.sm,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#DCE7F6',
+    backgroundColor: '#F8FBFF',
+    gap: spacing.xs,
+  },
+  availablePunishmentsScrollWrap: {
+    maxHeight: 180,
+  },
+  availablePunishmentsScroll: {
+    flexGrow: 0,
+  },
+  availablePunishmentsContent: {
+    gap: spacing.xs,
+  },
+  availablePunishmentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: 2,
+  },
+  availablePunishmentIconWrap: {
+    width: 24,
+    height: 24,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  availablePunishmentTitle: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '700',
+    color: palette.ink,
+  },
+  availablePunishmentEmpty: {
     fontSize: 14,
     lineHeight: 20,
     color: palette.slate,
