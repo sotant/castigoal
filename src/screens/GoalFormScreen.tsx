@@ -160,6 +160,7 @@ export function GoalFormScreen({ mode, goal }: Props) {
   const [showStartCalendar, setShowStartCalendar] = useState(false);
   const [showEndCalendar, setShowEndCalendar] = useState(false);
   const [hasTouchedTitle, setHasTouchedTitle] = useState(false);
+  const [minimumDaysInput, setMinimumDaysInput] = useState(() => String(buildInitialDraft(goal).minimumDays));
   const [startMonth, setStartMonth] = useState(() => getMonthAnchor(goal?.startDate ?? today));
   const [endMonth, setEndMonth] = useState(() => getMonthAnchor(addDays(goal?.startDate ?? today, Math.max((goal?.targetDays ?? 7) - 1, 0))));
   const isSubmittingRef = useRef(false);
@@ -244,6 +245,10 @@ export function GoalFormScreen({ mode, goal }: Props) {
   );
   const punishmentSummary = useMemo(() => getPunishmentSummary(punishmentConfig), [punishmentConfig]);
   const startDateDisplayLabel = draft.startDate === today ? 'Hoy' : formatLongDate(draft.startDate);
+
+  useEffect(() => {
+    setMinimumDaysInput(String(requiredDays));
+  }, [requiredDays]);
 
   const updateDraft = (partial: Partial<GoalDraft>) => {
     setDraft((current) => ({ ...current, ...partial }));
@@ -465,53 +470,45 @@ export function GoalFormScreen({ mode, goal }: Props) {
 
         {step === 3 ? (
           <View style={styles.panel}>
-            <Text style={styles.panelTitle}>Cuantos dias debes cumplir?</Text>
-
-            <View style={styles.contextCard}>
-              <Text style={styles.contextLabel}>Duracion del objetivo</Text>
-              <Text style={styles.contextValue}>
-                {durationDays} {durationDays === 1 ? 'dia' : 'dias'}
-              </Text>
-            </View>
-
-            <View style={styles.optionsList}>
-              {Array.from(new Set([Math.max(Math.round(durationDays * 0.25), 1), Math.max(Math.round(durationDays * 0.5), 1), Math.max(Math.round(durationDays * 0.75), 1), durationDays]))
-                .filter((value) => value >= 1 && value <= durationDays)
-                .sort((left, right) => left - right)
-                .map((value) => {
-                  const selected = value === requiredDays;
-
-                  return (
-                    <Pressable
-                      key={value}
-                      disabled={saving}
-                      onPress={() => updateDraft({ minimumDays: value })}
-                      style={[styles.optionCard, selected ? styles.optionCardSelected : null]}>
-                      <Text style={[styles.optionTitle, selected ? styles.optionTitleSelected : null]}>
-                        {value} {value === 1 ? 'dia' : 'dias'}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-            </View>
+            <Text style={styles.panelTitle}>Dias que debes cumplir</Text>
+            <Text style={styles.helper}>Elige el minimo de dias que tienes que cumplir con el objetivo para aprobarlo</Text>
 
             <View style={styles.stepperCard}>
-              <Text style={styles.stepperLabel}>Personalizado</Text>
+              <View style={styles.stepperHeader}>
+                <Text style={styles.stepperLabel}>Minimo</Text>
+                <Text style={styles.stepperMeta}>({minimumPercentage}%)</Text>
+              </View>
               <View style={styles.stepperControls}>
                 <Pressable disabled={saving} onPress={() => updateDraft({ minimumDays: Math.max(requiredDays - 1, 1) })} style={styles.stepperButton}>
                   <Text style={styles.stepperButtonText}>-</Text>
                 </Pressable>
-                <View style={styles.stepperValueWrap}>
-                  <Text style={styles.stepperValue}>{requiredDays}</Text>
-                  <Text style={styles.stepperUnit}>
-                    de {durationDays} {durationDays === 1 ? 'dia' : 'dias'}
-                  </Text>
+                <View style={styles.stepperMainValueWrap}>
+                  <TextInput
+                    editable={!saving}
+                    keyboardType="number-pad"
+                    placeholder="0"
+                    placeholderTextColor="#8EA0B7"
+                    onBlur={() => {
+                      const parsedValue = Number.parseInt(minimumDaysInput, 10);
+                      const nextValue = Number.isNaN(parsedValue) ? requiredDays : clamp(parsedValue, 1, durationDays);
+                      updateDraft({ minimumDays: nextValue });
+                      setMinimumDaysInput(String(nextValue));
+                    }}
+                    onChangeText={(value) => {
+                      const sanitizedValue = value.replace(/[^0-9]/g, '');
+                      setMinimumDaysInput(sanitizedValue);
+                    }}
+                    style={styles.stepperValueInput}
+                    value={minimumDaysInput}
+                  />
                 </View>
                 <Pressable disabled={saving} onPress={() => updateDraft({ minimumDays: Math.min(requiredDays + 1, durationDays) })} style={styles.stepperButton}>
                   <Text style={styles.stepperButtonText}>+</Text>
                 </Pressable>
               </View>
-              <Text style={styles.helperCentered}>Equivale al {minimumPercentage}%</Text>
+              <Text style={styles.stepperUnit}>
+                de {durationDays} {durationDays === 1 ? 'dia' : 'dias'}
+              </Text>
             </View>
 
             {minimumError ? <Text style={styles.errorText}>{minimumError}</Text> : null}
@@ -951,36 +948,9 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: palette.ink,
   },
-  optionsList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  optionCard: {
-    minWidth: '47%',
-    flexGrow: 1,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: palette.line,
-    backgroundColor: '#FAFBFE',
-    alignItems: 'center',
-  },
-  optionCardSelected: {
-    borderColor: palette.primary,
-    backgroundColor: '#EDF5FF',
-  },
-  optionTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: palette.ink,
-  },
-  optionTitleSelected: {
-    color: palette.primaryDeep,
-  },
   stepperCard: {
-    padding: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
     borderRadius: 24,
     borderWidth: 1,
     borderColor: palette.line,
@@ -991,7 +961,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: palette.ink,
-    textAlign: 'center',
+  },
+  stepperHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+  },
+  stepperMeta: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: palette.primaryDeep,
   },
   stepperControls: {
     flexDirection: 'row',
@@ -1015,20 +995,29 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: palette.primaryDeep,
   },
-  stepperValueWrap: {
+  stepperMainValueWrap: {
     flex: 1,
     alignItems: 'center',
-    gap: 2,
+    justifyContent: 'center',
   },
-  stepperValue: {
+  stepperValueInput: {
+    minWidth: 72,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#CFE0FF',
+    backgroundColor: '#EEF4FF',
     fontSize: 30,
     fontWeight: '800',
     color: palette.ink,
+    textAlign: 'center',
   },
   stepperUnit: {
     fontSize: 14,
     lineHeight: 20,
     color: palette.slate,
+    textAlign: 'center',
   },
   scopeGrid: {
     gap: spacing.sm,
