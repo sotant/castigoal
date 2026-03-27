@@ -157,6 +157,7 @@ export function GoalFormScreen({ mode, goal }: Props) {
   const [pendingExitHref, setPendingExitHref] = useState<string | null>(null);
   const [showStartCalendar, setShowStartCalendar] = useState(false);
   const [showEndCalendar, setShowEndCalendar] = useState(true);
+  const [hasTouchedTitle, setHasTouchedTitle] = useState(false);
   const [startMonth, setStartMonth] = useState(() => getMonthAnchor(goal?.startDate ?? today));
   const [endMonth, setEndMonth] = useState(() => getMonthAnchor(addDays(goal?.startDate ?? today, Math.max((goal?.targetDays ?? 7) - 1, 0))));
   const isSubmittingRef = useRef(false);
@@ -215,6 +216,7 @@ export function GoalFormScreen({ mode, goal }: Props) {
   }, [basePunishments, personalPunishments, punishmentConfig]);
 
   const titleError = draft.title.trim().length >= 3 ? '' : 'Escribe un nombre de al menos 3 caracteres.';
+  const showTitleError = hasTouchedTitle && Boolean(titleError);
   const startDateError = draft.startDate >= minimumStartDate ? '' : 'La fecha de inicio no puede estar en el pasado.';
   const durationError = draft.endDate < draft.startDate ? 'La fecha de finalizacion no puede ser anterior al inicio.' : '';
   const minimumError = requiredDays >= 1 && requiredDays <= durationDays ? '' : 'Debes elegir entre 1 y la duracion total.';
@@ -257,6 +259,10 @@ export function GoalFormScreen({ mode, goal }: Props) {
     if (step === 1 && canContinueStep1) {
       setStep(2);
       return;
+    }
+
+    if (step === 1) {
+      setHasTouchedTitle(true);
     }
 
     if (step === 2 && canContinueStep2) {
@@ -344,20 +350,30 @@ export function GoalFormScreen({ mode, goal }: Props) {
             <Text style={styles.panelTitle}>Define tu objetivo</Text>
 
             <View style={styles.field}>
-              <Text style={styles.label}>Nombre del objetivo</Text>
+              <View style={styles.inlineHeader}>
+                <Text style={styles.label}>Nombre del objetivo</Text>
+                <Text style={styles.requiredTag}>Obligatorio</Text>
+              </View>
               <TextInput
                 editable={!saving}
+                onBlur={() => {
+                  if (!hasTouchedTitle) {
+                    setHasTouchedTitle(true);
+                  }
+                }}
                 placeholder="Hacer ejercicio"
                 value={draft.title}
                 onChangeText={(value) => updateDraft({ title: value })}
-                style={[styles.input, titleError ? styles.inputError : null]}
+                style={[styles.input, styles.compactInput, showTitleError ? styles.inputError : null]}
               />
-              <Text style={styles.helper}>Ejemplo: Hacer ejercicio</Text>
-              {titleError ? <Text style={styles.errorText}>{titleError}</Text> : null}
+              {showTitleError ? <Text style={styles.errorText}>{titleError}</Text> : null}
             </View>
 
             <View style={styles.field}>
-              <Text style={styles.label}>Descripcion (opcional)</Text>
+              <View style={styles.inlineHeader}>
+                <Text style={styles.label}>Descripcion</Text>
+                <Text style={styles.optionalTag}>Opcional</Text>
+              </View>
               <TextInput
                 editable={!saving}
                 multiline
@@ -375,7 +391,10 @@ export function GoalFormScreen({ mode, goal }: Props) {
             <Text style={styles.panelTitle}>Duracion</Text>
 
             <View style={styles.field}>
-              <Text style={styles.label}>Fecha de inicio</Text>
+              <View style={styles.inlineHeader}>
+                <Text style={styles.label}>Fecha de inicio</Text>
+                <Text style={styles.requiredTag}>Obligatorio</Text>
+              </View>
               <Pressable
                 disabled={saving}
                 onPress={() => setShowStartCalendar((current) => !current)}
@@ -407,7 +426,10 @@ export function GoalFormScreen({ mode, goal }: Props) {
             </View>
 
             <View style={styles.field}>
-              <Text style={styles.label}>Fecha de finalizacion</Text>
+              <View style={styles.inlineHeader}>
+                <Text style={styles.label}>Fecha de finalizacion</Text>
+                <Text style={styles.requiredTag}>Obligatorio</Text>
+              </View>
               <Pressable
                 disabled={saving}
                 onPress={() => setShowEndCalendar((current) => !current)}
@@ -534,7 +556,10 @@ export function GoalFormScreen({ mode, goal }: Props) {
             </View>
 
             <View style={styles.field}>
-              <Text style={styles.label}>Categorias</Text>
+              <View style={styles.inlineHeader}>
+                <Text style={styles.label}>Categorias</Text>
+                <Text style={styles.requiredTag}>Obligatorio</Text>
+              </View>
               <View style={styles.categoryModeRow}>
                 <Pressable
                   disabled={saving}
@@ -641,7 +666,8 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
   },
   progressCard: {
-    padding: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
     borderRadius: 24,
     backgroundColor: palette.snow,
     borderWidth: 1,
@@ -695,10 +721,34 @@ const styles = StyleSheet.create({
   field: {
     gap: spacing.xs,
   },
+  inlineHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
   label: {
     fontSize: 14,
     fontWeight: '700',
     color: palette.ink,
+  },
+  optionalTag: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+    backgroundColor: '#EDF3FF',
+    fontSize: 12,
+    fontWeight: '800',
+    color: palette.primaryDeep,
+  },
+  requiredTag: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+    backgroundColor: '#FDECEC',
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#B42318',
   },
   helper: {
     fontSize: 14,
@@ -719,6 +769,9 @@ const styles = StyleSheet.create({
     borderColor: palette.line,
     backgroundColor: '#FAFBFE',
     fontSize: 16,
+  },
+  compactInput: {
+    paddingVertical: 10,
   },
   inputError: {
     borderColor: palette.danger,
@@ -1055,10 +1108,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   footerActionsStacked: {
-    gap: spacing.sm,
+    gap: 4,
   },
   submit: {
-    minHeight: 56,
+    minHeight: 40,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 20,
@@ -1074,7 +1127,7 @@ const styles = StyleSheet.create({
     color: palette.snow,
   },
   secondaryButton: {
-    minHeight: 52,
+    minHeight: 40,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 18,
