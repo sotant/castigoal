@@ -14,6 +14,17 @@ export type PunishmentCategoryName =
   | 'otros';
 export type PunishmentScope = 'base' | 'personal';
 export type AssignedPunishmentStatus = 'pending' | 'completed';
+export type GoalLifecycleStatus = 'active' | 'closed';
+export type GoalResolutionStatus = 'pending' | 'passed' | 'failed';
+export type GoalResolutionSource = 'manual' | 'expired';
+export type GoalPunishmentScope = 'base' | 'personal' | 'both';
+export type GoalPunishmentCategoryMode = 'all' | 'selected';
+
+export interface GoalPunishmentConfig {
+  categoryMode: GoalPunishmentCategoryMode;
+  categoryNames: PunishmentCategoryName[];
+  scope: GoalPunishmentScope;
+}
 
 export interface User {
   id: string;
@@ -30,6 +41,12 @@ export interface Goal {
   targetDays: number;
   minimumSuccessRate: number;
   active: boolean;
+  lifecycleStatus: GoalLifecycleStatus;
+  resolutionStatus: GoalResolutionStatus;
+  closedOn?: string;
+  resolvedAt?: string;
+  resolutionSource?: GoalResolutionSource;
+  punishmentConfig: GoalPunishmentConfig;
   createdAt: string;
   updatedAt: string;
 }
@@ -84,9 +101,28 @@ export interface GoalEvaluation {
   windowStart: string;
   windowEnd: string;
   plannedDays: number;
+  requiredDays: number;
   completedDays: number;
   completionRate: number;
   passed: boolean;
+}
+
+export interface GoalOutcome {
+  id: string;
+  goalId: string;
+  periodKey: string;
+  windowStart: string;
+  windowEnd: string;
+  plannedDays: number;
+  targetDays: number;
+  requiredDays: number;
+  completedDays: number;
+  completionRate: number;
+  minimumSuccessRate: number;
+  passed: boolean;
+  assignedPunishmentId?: string;
+  resolutionSource: GoalResolutionSource;
+  evaluatedAt: string;
 }
 
 export type {

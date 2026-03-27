@@ -40,6 +40,15 @@ function getRecentDayStyles(status: HomeGoalSummary['recentDays'][number]['statu
 }
 
 export function ObjectiveListItem({ goal, summary, showCompletionFlag = false, onOpenDetail, onOpenActions }: Props) {
+  const closingCopy =
+    goal.lifecycleStatus === 'closed'
+      ? summary.resolutionStatus === 'passed'
+        ? 'Cerrado y aprobado'
+        : summary.resolutionStatus === 'failed'
+          ? 'Cerrado y fallido'
+          : 'Cerrado'
+      : `${summary.completedDays}/${summary.requiredDays} dias cumplidos`;
+
   return (
     <View style={styles.card}>
       <View style={styles.header}>
@@ -62,12 +71,15 @@ export function ObjectiveListItem({ goal, summary, showCompletionFlag = false, o
               {goal.title}
             </Text>
           </View>
+          <Text numberOfLines={1} style={styles.subtitle}>
+            {closingCopy}
+          </Text>
         </View>
-        <StatusBadge active={goal.active} />
+        <StatusBadge lifecycleStatus={goal.lifecycleStatus} resolutionStatus={goal.resolutionStatus} />
       </View>
 
       <View style={styles.recentSection}>
-        <Text style={styles.recentLabel}>Ultimos 5 dias</Text>
+        <Text style={styles.recentLabel}>{goal.lifecycleStatus === 'closed' ? 'Ultimos dias del ciclo' : 'Ultimos 5 dias'}</Text>
         <View style={styles.recentCompact}>
           {summary.recentDays.map((day, index) => {
             const stateStyles = getRecentDayStyles(day.status);
@@ -112,7 +124,9 @@ export function ObjectiveListItem({ goal, summary, showCompletionFlag = false, o
                   <MaterialCommunityIcons color={palette.ink} name="flag-checkered" size={16} />
                 </View>
               </View>
-              <Text style={styles.streakValue}>{summary.remainingDays}</Text>
+              <Text style={styles.streakValue}>
+                {goal.lifecycleStatus === 'closed' ? `${summary.completedDays}/${summary.requiredDays}` : summary.remainingDays}
+              </Text>
             </View>
           ) : null}
         </View>
@@ -190,6 +204,13 @@ const styles = StyleSheet.create({
     color: palette.ink,
     lineHeight: 22,
     flex: 1,
+  },
+  subtitle: {
+    marginTop: 2,
+    fontSize: 12,
+    lineHeight: 16,
+    color: palette.slate,
+    fontWeight: '600',
   },
   recentSection: {
     gap: 5,

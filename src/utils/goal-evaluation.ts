@@ -3,19 +3,91 @@ import {
   Checkin,
   Goal,
   GoalEvaluation,
+  GoalOutcome,
+  GoalPunishmentConfig,
   Punishment,
 } from '@/src/models/types';
 import { addDays, diffInDays, enumerateDates, startOfToday, toISODate } from '@/src/utils/date';
+
+export const DEFAULT_GOAL_PUNISHMENT_CONFIG: GoalPunishmentConfig = {
+  categoryMode: 'all',
+  categoryNames: [],
+  scope: 'base',
+};
+
+function clampPositiveInt(value: number) {
+  return Math.max(1, Math.round(value));
+}
+
+function normalizeText(value: string) {
+  return value.trim().toLocaleLowerCase('es');
+}
+
+function hashSeed(seed: string) {
+  let hash1 = 0xdeadbeef ^ seed.length;
+  let hash2 = 0x41c6ce57 ^ seed.length;
+
+  for (let index = 0; index < seed.length; index += 1) {
+    const charCode = seed.charCodeAt(index);
+    hash1 = Math.imul(hash1 ^ charCode, 2654435761);
+    hash2 = Math.imul(hash2 ^ charCode, 1597334677);
+  }
+
+  hash1 = Math.imul(hash1 ^ (hash1 >>> 16), 2246822507) ^ Math.imul(hash2 ^ (hash2 >>> 13), 3266489909);
+  hash2 = Math.imul(hash2 ^ (hash2 >>> 16), 2246822507) ^ Math.imul(hash1 ^ (hash1 >>> 13), 3266489909);
+
+  return [hash1 >>> 0, hash2 >>> 0];
+}
+
+export function buildDeterministicUuid(seed: string) {
+  const [hash1, hash2] = hashSeed(seed);
+  const [hash3, hash4] = hashSeed(`${seed}:salt`);
+  const hex = [hash1, hash2, hash3, hash4].map((part) => part.toString(16).padStart(8, '0')).join('');
+  const chars = hex.split('');
+
+  chars[12] = '4';
+  chars[16] = ((parseInt(chars[16], 16) & 0x3) | 0x8).toString(16);
+
+  return `${chars.slice(0, 8).join('')}-${chars.slice(8, 12).join('')}-${chars.slice(12, 16).join('')}-${chars.slice(16, 20).join('')}-${chars.slice(20, 32).join('')}`;
+}
+
+export function normalizeGoalPunishmentConfig(config?: Partial<GoalPunishmentConfig> | null): GoalPunishmentConfig {
+  const scope = config?.scope ?? DEFAULT_GOAL_PUNISHMENT_CONFIG.scope;
+  const categoryMode = config?.categoryMode ?? DEFAULT_GOAL_PUNISHMENT_CONFIG.categoryMode;
+  const categoryNames = Array.from(new Set(config?.categoryNames ?? DEFAULT_GOAL_PUNISHMENT_CONFIG.categoryNames));
+
+  return {
+    categoryMode,
+    categoryNames: categoryMode === 'all' ? [] : categoryNames,
+    scope,
+  };
+}
+
+export function isGoalActive(goal: Goal) {
+  return goal.lifecycleStatus === 'active';
+}
+
+export function isGoalClosed(goal: Goal) {
+  return goal.lifecycleStatus === 'closed';
+}
+
+export function isGoalResolved(goal: Goal) {
+  return goal.resolutionStatus === 'passed' || goal.resolutionStatus === 'failed';
+}
 
 export function getGoalDeadline(goal: Goal) {
   return addDays(goal.startDate, Math.max(goal.targetDays, 1) - 1);
 }
 
 export function hasGoalDeadlinePassed(goal: Goal, referenceDate = startOfToday()) {
-  return toISODate(referenceDate) >= getGoalDeadline(goal);
+  return toISODate(referenceDate) > getGoalDeadline(goal);
 }
 
 export function getGoalRemainingDays(goal: Goal, referenceDate = startOfToday()) {
+  if (isGoalClosed(goal)) {
+    return 0;
+  }
+
   const today = toISODate(referenceDate);
   const deadline = getGoalDeadline(goal);
 
@@ -44,6 +116,10 @@ export function calculateCompletionRate(completedDays: number, plannedDays: numb
   return Math.round((completedDays / plannedDays) * 100);
 }
 
+export function getGoalRequiredDays(goal: Pick<Goal, 'targetDays' | 'minimumSuccessRate'>) {
+  return clampPositiveInt(Math.ceil((Math.max(goal.targetDays, 1) * goal.minimumSuccessRate) / 100));
+}
+
 export function getGoalCheckins(goalId: string, checkins: Checkin[], start?: string, end?: string) {
   return checkins.filter((checkin) => {
     if (checkin.goalId !== goalId) {
@@ -65,21 +141,24 @@ export function getGoalCheckins(goalId: string, checkins: Checkin[], start?: str
 export function getEvaluationWindow(goal: Goal, referenceDate = startOfToday()) {
   const deadline = getGoalDeadline(goal);
   const requestedDate = toISODate(referenceDate);
-  const windowEnd = requestedDate > deadline ? deadline : requestedDate;
+  const closedOn = goal.closedOn ?? null;
+  const rawWindowEnd = closedOn ?? (requestedDate > deadline ? deadline : requestedDate);
+  const windowEnd = rawWindowEnd < goal.startDate ? goal.startDate : rawWindowEnd;
   const windowStart = goal.startDate;
   const plannedDays = Math.max(diffInDays(windowStart, windowEnd) + 1, 1);
   const periodKey = `${goal.id}:${windowStart}:${windowEnd}:${plannedDays}`;
 
   return {
     periodKey,
-    windowStart,
-    windowEnd,
     plannedDays,
+    windowEnd,
+    windowStart,
   };
 }
 
 export function evaluateGoalPeriod(goal: Goal, checkins: Checkin[], referenceDate = startOfToday()): GoalEvaluation {
   const { periodKey, windowStart, windowEnd, plannedDays } = getEvaluationWindow(goal, referenceDate);
+  const requiredDays = getGoalRequiredDays(goal);
   const checkinsByDate = new Map(
     getGoalCheckins(goal.id, checkins, windowStart, windowEnd).map((checkin) => [checkin.date, checkin]),
   );
@@ -96,37 +175,112 @@ export function evaluateGoalPeriod(goal: Goal, checkins: Checkin[], referenceDat
     windowStart,
     windowEnd,
     plannedDays,
+    requiredDays,
     completedDays,
     completionRate,
-    passed: completionRate >= goal.minimumSuccessRate,
+    passed: completedDays >= requiredDays,
   };
 }
 
-export function generateRandomPunishment(punishments: Punishment[], seed?: string) {
+export function mapGoalOutcomeToEvaluation(outcome: GoalOutcome): GoalEvaluation {
+  return {
+    goalId: outcome.goalId,
+    periodKey: outcome.periodKey,
+    windowStart: outcome.windowStart,
+    windowEnd: outcome.windowEnd,
+    plannedDays: outcome.plannedDays,
+    requiredDays: outcome.requiredDays,
+    completedDays: outcome.completedDays,
+    completionRate: outcome.completionRate,
+    passed: outcome.passed,
+  };
+}
+
+function getPunishmentStableKey(punishment: Punishment) {
+  if (punishment.scope === 'personal') {
+    return `personal:${punishment.id}`;
+  }
+
+  return `base:${normalizeText(punishment.title)}:${punishment.categoryName}:${punishment.difficulty}`;
+}
+
+export function getEligiblePunishments(goal: Goal, punishments: Punishment[]) {
+  const config = normalizeGoalPunishmentConfig(goal.punishmentConfig);
+  const allowedCategories = new Set(config.categoryNames);
+
+  return punishments
+    .filter((punishment) => {
+      if (config.scope === 'base' && punishment.scope !== 'base') {
+        return false;
+      }
+
+      if (config.scope === 'personal' && punishment.scope !== 'personal') {
+        return false;
+      }
+
+      if (config.categoryMode === 'selected' && !allowedCategories.has(punishment.categoryName)) {
+        return false;
+      }
+
+      return true;
+    })
+    .sort((left, right) => getPunishmentStableKey(left).localeCompare(getPunishmentStableKey(right), 'es'));
+}
+
+export function selectDeterministicPunishment(punishments: Punishment[], seed: string) {
   if (punishments.length === 0) {
     return undefined;
   }
 
-  const numericSeed = Array.from(seed ?? `${Date.now()}`).reduce((total, char) => total + char.charCodeAt(0), 0);
-  return punishments[numericSeed % punishments.length];
+  const [hash] = hashSeed(seed);
+  return punishments[hash % punishments.length];
 }
 
-export function assignPunishment(
-  goal: Goal,
-  punishment: Punishment,
-  periodKey: string,
-  dueDate: string,
-): AssignedPunishment {
+export function buildAssignedPunishmentId(goalId: string, periodKey: string) {
+  return buildDeterministicUuid(`assigned-punishment:${goalId}:${periodKey}`);
+}
+
+export function assignPunishment(goal: Goal, punishment: Punishment, periodKey: string, dueDate: string): AssignedPunishment {
   const now = new Date().toISOString();
 
   return {
-    id: `${goal.id}-${punishment.id}-${periodKey}`,
+    id: buildAssignedPunishmentId(goal.id, periodKey),
     goalId: goal.id,
     punishmentId: punishment.id,
     assignedAt: now,
     dueDate,
     status: 'pending',
     periodKey,
+  };
+}
+
+export function buildGoalOutcomeId(goalId: string, periodKey: string) {
+  return buildDeterministicUuid(`goal-outcome:${goalId}:${periodKey}`);
+}
+
+export function buildGoalOutcome(input: {
+  assignedPunishmentId?: string;
+  evaluation: GoalEvaluation;
+  evaluatedAt: string;
+  goal: Goal;
+  resolutionSource: GoalOutcome['resolutionSource'];
+}): GoalOutcome {
+  return {
+    id: buildGoalOutcomeId(input.goal.id, input.evaluation.periodKey),
+    goalId: input.goal.id,
+    periodKey: input.evaluation.periodKey,
+    windowStart: input.evaluation.windowStart,
+    windowEnd: input.evaluation.windowEnd,
+    plannedDays: input.evaluation.plannedDays,
+    targetDays: input.goal.targetDays,
+    requiredDays: input.evaluation.requiredDays,
+    completedDays: input.evaluation.completedDays,
+    completionRate: input.evaluation.completionRate,
+    minimumSuccessRate: input.goal.minimumSuccessRate,
+    passed: input.evaluation.passed,
+    assignedPunishmentId: input.assignedPunishmentId,
+    resolutionSource: input.resolutionSource,
+    evaluatedAt: input.evaluatedAt,
   };
 }
 
@@ -153,8 +307,7 @@ export function getCurrentStreak(goalId: string, checkins: Checkin[], referenceD
 }
 
 export function getBestStreak(goalId: string, checkins: Checkin[]) {
-  const goalCheckins = getGoalCheckins(goalId, checkins)
-    .sort((left, right) => left.date.localeCompare(right.date));
+  const goalCheckins = getGoalCheckins(goalId, checkins).sort((left, right) => left.date.localeCompare(right.date));
 
   let best = 0;
   let current = 0;

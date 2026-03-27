@@ -34,8 +34,8 @@ export function useHomeSummary() {
   );
 
   return useMemo(() => {
-    const activeGoals = goals.filter((goal) => goal.active);
-    const inactiveGoals = goals.filter((goal) => !goal.active);
+    const activeGoals = goals.filter((goal) => goal.lifecycleStatus === 'active');
+    const inactiveGoals = goals.filter((goal) => goal.lifecycleStatus !== 'active');
 
     return {
       activeGoalsCount: homeSummary.activeGoalsCount,

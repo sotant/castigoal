@@ -867,7 +867,6 @@ export function PunishmentHistoryScreen() {
         goalTitle={activeMenuPunishment?.title ?? ''}
         onClose={() => setActiveMenuPunishmentId(null)}
         onFinalize={() => {}}
-        onReactivate={() => {}}
         onEdit={() => {
           if (!activeMenuPunishment) {
             return;

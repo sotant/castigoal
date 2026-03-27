@@ -6,6 +6,7 @@ import {
   isPunishmentCategoryName,
   normalizePunishmentCategoryId,
 } from '@/src/constants/punishments';
+import { DEFAULT_GOAL_PUNISHMENT_CONFIG } from '@/src/utils/goal-evaluation';
 import {
   AppBootstrapData,
   AssignedPunishment,
@@ -38,6 +39,7 @@ type GoalEvaluationRow = {
   passed: boolean;
   period_key: string;
   planned_days: number;
+  required_days: number;
   window_end: string;
   window_start: string;
 };
@@ -62,6 +64,7 @@ type RecordGoalCheckinRow = {
   evaluation_passed: boolean;
   evaluation_period_key: string;
   evaluation_planned_days: number;
+  evaluation_required_days: number;
   evaluation_window_end: string;
   evaluation_window_start: string;
 };
@@ -87,8 +90,12 @@ type HomeGoalSummaryRow = {
   title: string;
   description: string | null;
   active: boolean;
+  lifecycle_status: Goal['lifecycleStatus'];
+  resolution_status: Goal['resolutionStatus'];
+  closed_on: string | null;
   passed: boolean;
   target_days?: number;
+  required_days?: number;
   completed_days?: number;
   completion_rate: number;
   current_streak: number;
@@ -149,7 +156,7 @@ type CompletedPunishmentHistoryRow = Pick<
 
 export type GoalInput = Pick<
   Goal,
-  'title' | 'description' | 'startDate' | 'targetDays' | 'minimumSuccessRate' | 'active'
+  'title' | 'description' | 'startDate' | 'targetDays' | 'minimumSuccessRate' | 'punishmentConfig'
 >;
 
 export type CheckinInput = {
@@ -164,7 +171,41 @@ export type RecordCheckinResult = {
   evaluation: GoalEvaluation;
 };
 
-function mapGoal(row: GoalRow): Goal {
+let punishmentCategoryNameByIdCache: Record<string, Punishment['categoryName']> | null = null;
+
+async function loadPunishmentCategoryNameByIdMap() {
+  if (punishmentCategoryNameByIdCache) {
+    return punishmentCategoryNameByIdCache;
+  }
+
+  const { data, error } = await supabase.from('categories').select('id, name');
+
+  if (error) {
+    throw normalizeRepositoryError(error, {
+      authMessage: 'No se pudieron cargar las categorias.',
+      code: 'CATEGORIES_LOAD_FAILED',
+      fallback: 'No se pudieron cargar las categorias.',
+    });
+  }
+
+  punishmentCategoryNameByIdCache = Object.fromEntries(
+    (data ?? [])
+      .filter((row): row is { id: string; name: Punishment['categoryName'] } => isPunishmentCategoryName(row.name))
+      .map((row) => [row.id, row.name]),
+  );
+
+  return punishmentCategoryNameByIdCache;
+}
+
+function mapGoal(
+  row: GoalRow,
+  categoryNameById: Record<string, Punishment['categoryName']> = {},
+): Goal {
+  const lifecycleStatus = row.lifecycle_status === 'closed' ? 'closed' : 'active';
+  const categoryNames = (row.punishment_category_ids ?? [])
+    .map((categoryId) => categoryNameById[categoryId])
+    .filter((value): value is Punishment['categoryName'] => Boolean(value));
+
   return {
     id: row.id,
     title: row.title,
@@ -172,7 +213,18 @@ function mapGoal(row: GoalRow): Goal {
     startDate: row.start_date,
     targetDays: row.target_days,
     minimumSuccessRate: row.minimum_success_rate,
-    active: row.active,
+    active: lifecycleStatus === 'active',
+    lifecycleStatus,
+    resolutionStatus: row.resolution_status as Goal['resolutionStatus'],
+    closedOn: row.closed_on ?? undefined,
+    resolvedAt: row.resolved_at ?? undefined,
+    resolutionSource: row.resolution_source as Goal['resolutionSource'] | undefined,
+    punishmentConfig: {
+      scope: (row.punishment_pool_scope as Goal['punishmentConfig']['scope']) ?? DEFAULT_GOAL_PUNISHMENT_CONFIG.scope,
+      categoryMode:
+        (row.punishment_category_mode as Goal['punishmentConfig']['categoryMode']) ?? DEFAULT_GOAL_PUNISHMENT_CONFIG.categoryMode,
+      categoryNames,
+    },
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -279,6 +331,7 @@ function mapGoalEvaluation(row: GoalEvaluationRow): GoalEvaluation {
     windowStart: row.window_start,
     windowEnd: row.window_end,
     plannedDays: row.planned_days,
+    requiredDays: row.required_days,
     completedDays: row.completed_days,
     completionRate: row.completion_rate,
     passed: row.passed,
@@ -300,8 +353,12 @@ function mapHomeGoalSummary(row: HomeGoalSummaryRow): HomeGoalSummary {
     title: row.title,
     description: row.description ?? undefined,
     active: row.active,
+    lifecycleStatus: row.lifecycle_status,
+    resolutionStatus: row.resolution_status,
+    closedOn: row.closed_on ?? undefined,
     passed: row.passed,
     targetDays: Math.max(row.target_days ?? 1, 1),
+    requiredDays: Math.max(row.required_days ?? 1, 1),
     completedDays: Math.max(row.completed_days ?? 0, 0),
     completionRate: row.completion_rate,
     currentStreak: row.current_streak,
@@ -370,6 +427,14 @@ async function resolveCategoryIdForWrite(categoryName: Punishment['categoryName'
   return data.id;
 }
 
+async function resolveGoalPunishmentCategoryIds(input: GoalInput['punishmentConfig']) {
+  if (input.categoryMode === 'all') {
+    return [];
+  }
+
+  return Promise.all(input.categoryNames.map((categoryName) => resolveCategoryIdForWrite(categoryName)));
+}
+
 function mapHomeSummary(summaryRow: HomeSummaryRow, goalRows: HomeGoalSummaryRow[]): HomeSummary {
   return {
     activeGoalsCount: summaryRow.active_goals_count,
@@ -414,6 +479,7 @@ function mapCheckinRpcRow(row: RecordGoalCheckinRow): RecordCheckinResult {
     windowStart: row.evaluation_window_start,
     windowEnd: row.evaluation_window_end,
     plannedDays: row.evaluation_planned_days,
+    requiredDays: row.evaluation_required_days,
     completedDays: row.evaluation_completed_days,
     completionRate: row.evaluation_completion_rate,
     passed: row.evaluation_passed,
@@ -621,11 +687,12 @@ export async function loadCompletedPunishmentHistory(limit = 50) {
 }
 
 export async function loadBootstrapData(userId: string): Promise<AppBootstrapData> {
-  const [goalsResult, evaluations, homeSummary, settingsRow] = await Promise.all([
+  const [goalsResult, evaluations, homeSummary, settingsRow, categoryNameById] = await Promise.all([
     supabase.from('goals').select('*').order('created_at', { ascending: false }),
     loadGoalEvaluations(),
     loadHomeSummary(),
     ensureUserSettings(userId),
+    loadPunishmentCategoryNameByIdMap(),
   ]);
 
   if (goalsResult.error) {
@@ -637,7 +704,7 @@ export async function loadBootstrapData(userId: string): Promise<AppBootstrapDat
   }
 
   return {
-    goals: goalsResult.data.map(mapGoal),
+    goals: goalsResult.data.map((row) => mapGoal(row, categoryNameById)),
     goalEvaluations: evaluations,
     homeSummary,
     userSettings: mapUserSettings(settingsRow),
@@ -705,6 +772,8 @@ export async function loadPunishmentById(punishmentId: string) {
 
 export async function createGoalRecord(input: GoalInput) {
   const userId = await getRequiredUserId();
+  const punishmentCategoryIds = await resolveGoalPunishmentCategoryIds(input.punishmentConfig);
+  const categoryNameById = await loadPunishmentCategoryNameByIdMap();
   const { data, error } = await supabase
     .from('goals')
     .insert({
@@ -715,7 +784,12 @@ export async function createGoalRecord(input: GoalInput) {
       frequency: 'daily',
       target_days: input.targetDays,
       minimum_success_rate: input.minimumSuccessRate,
-      active: input.active,
+      active: true,
+      lifecycle_status: 'active',
+      resolution_status: 'pending',
+      punishment_pool_scope: input.punishmentConfig.scope,
+      punishment_category_mode: input.punishmentConfig.categoryMode,
+      punishment_category_ids: punishmentCategoryIds,
     })
     .select('*')
     .single();
@@ -728,10 +802,12 @@ export async function createGoalRecord(input: GoalInput) {
     });
   }
 
-  return mapGoal(data);
+  return mapGoal(data, categoryNameById);
 }
 
 export async function updateGoalRecord(goalId: string, input: GoalInput) {
+  const punishmentCategoryIds = await resolveGoalPunishmentCategoryIds(input.punishmentConfig);
+  const categoryNameById = await loadPunishmentCategoryNameByIdMap();
   const { data, error } = await supabase
     .from('goals')
     .update({
@@ -741,7 +817,9 @@ export async function updateGoalRecord(goalId: string, input: GoalInput) {
       frequency: 'daily',
       target_days: input.targetDays,
       minimum_success_rate: input.minimumSuccessRate,
-      active: input.active,
+      punishment_pool_scope: input.punishmentConfig.scope,
+      punishment_category_mode: input.punishmentConfig.categoryMode,
+      punishment_category_ids: punishmentCategoryIds,
     })
     .eq('id', goalId)
     .select('*')
@@ -755,7 +833,7 @@ export async function updateGoalRecord(goalId: string, input: GoalInput) {
     });
   }
 
-  return mapGoal(data);
+  return mapGoal(data, categoryNameById);
 }
 
 export async function deleteGoalRecord(goalId: string) {
@@ -768,25 +846,6 @@ export async function deleteGoalRecord(goalId: string) {
       fallback: 'No se pudo borrar el objetivo.',
     });
   }
-}
-
-export async function toggleGoalActiveRecord(goalId: string, active: boolean) {
-  const { data, error } = await supabase
-    .from('goals')
-    .update({ active })
-    .eq('id', goalId)
-    .select('*')
-    .single();
-
-  if (error) {
-    throw normalizeRepositoryError(error, {
-      authMessage: 'No se pudo cambiar el estado del objetivo.',
-      code: 'GOAL_TOGGLE_FAILED',
-      fallback: 'No se pudo cambiar el estado del objetivo.',
-    });
-  }
-
-  return mapGoal(data);
 }
 
 export async function recordGoalCheckinRecord(input: CheckinInput & { date: string }) {

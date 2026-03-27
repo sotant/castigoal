@@ -52,7 +52,7 @@ export function StatsScreen() {
   }, [refreshStatsSummary, statsLoaded]);
 
   const filteredGoals = useMemo(
-    () => goals.filter((goal) => (goalFilter === 'active' ? goal.active : !goal.active)),
+    () => goals.filter((goal) => (goalFilter === 'active' ? goal.lifecycleStatus === 'active' : goal.lifecycleStatus === 'closed')),
     [goalFilter, goals],
   );
   const hasGoals = goals.length > 0;
@@ -80,11 +80,11 @@ export function StatsScreen() {
     [selectedGoal],
   );
   const completedGoalsCount = useMemo(
-    () => homeSummary.goalSummaries.filter((summary) => !summary.active && summary.passed).length,
+    () => homeSummary.goalSummaries.filter((summary) => summary.lifecycleStatus === 'closed' && summary.resolutionStatus === 'passed').length,
     [homeSummary.goalSummaries],
   );
   const failedGoalsCount = useMemo(
-    () => homeSummary.goalSummaries.filter((summary) => !summary.active && !summary.passed).length,
+    () => homeSummary.goalSummaries.filter((summary) => summary.lifecycleStatus === 'closed' && summary.resolutionStatus === 'failed').length,
     [homeSummary.goalSummaries],
   );
   const overviewCards = useMemo<OverviewCard[]>(
@@ -263,7 +263,7 @@ export function StatsScreen() {
                               <View style={styles.goalTitleRow}>
                                 <Feather
                                   color={isGoalDropdownOpen ? palette.primaryDeep : palette.slate}
-                                  name={selectedGoal?.active ? 'play' : 'flag'}
+                                  name={selectedGoal?.lifecycleStatus === 'active' ? 'play' : 'flag'}
                                   size={14}
                                 />
                                 <Text style={[styles.goalButtonTitle, isGoalDropdownOpen && styles.goalButtonTitleSelected]}>
@@ -300,7 +300,7 @@ export function StatsScreen() {
                                     <View style={styles.goalTitleRow}>
                                       <Feather
                                         color={isSelected ? palette.primaryDeep : palette.slate}
-                                        name={goal.active ? 'play' : 'flag'}
+                                        name={goal.lifecycleStatus === 'active' ? 'play' : 'flag'}
                                         size={14}
                                       />
                                       <Text style={[styles.dropdownOptionTitle, isSelected && styles.dropdownOptionTitleSelected]}>
@@ -319,7 +319,11 @@ export function StatsScreen() {
                         <View style={styles.goalButtonRow}>
                           <View style={styles.goalCopy}>
                             <View style={styles.goalTitleRow}>
-                              <Feather color={palette.primaryDeep} name={selectedGoal?.active ? 'play' : 'flag'} size={14} />
+                               <Feather
+                                 color={palette.primaryDeep}
+                                 name={selectedGoal?.lifecycleStatus === 'active' ? 'play' : 'flag'}
+                                 size={14}
+                               />
                               <Text style={[styles.goalButtonTitle, styles.goalButtonTitleSelected]}>{selectedGoal?.title}</Text>
                             </View>
                           </View>
@@ -810,8 +814,8 @@ const styles = StyleSheet.create({
   },
   dayBubble: {
     position: 'relative',
-    width: 38,
-    height: 38,
+    width: 34,
+    height: 34,
     borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: palette.line,

@@ -1,4 +1,4 @@
-import { AssignedPunishment, Checkin, Goal, GoalEvaluation, Punishment, UserSettings } from '@/src/models/types';
+import { AssignedPunishment, Checkin, Goal, GoalEvaluation, GoalOutcome, Punishment, UserSettings } from '@/src/models/types';
 
 export interface GoalRecentDay {
   date?: string;
@@ -11,8 +11,12 @@ export interface HomeGoalSummary {
   title: string;
   description?: string;
   active: boolean;
+  lifecycleStatus: Goal['lifecycleStatus'];
+  resolutionStatus: Goal['resolutionStatus'];
+  closedOn?: string;
   passed: boolean;
   targetDays: number;
+  requiredDays: number;
   completedDays: number;
   completionRate: number;
   currentStreak: number;
@@ -86,6 +90,7 @@ export interface GoalDetailSummary {
   bestStreak: number;
   recentCheckins: Checkin[];
   evaluation: GoalEvaluation;
+  outcome?: GoalOutcome;
 }
 
 export interface AssignedPunishmentDetail {

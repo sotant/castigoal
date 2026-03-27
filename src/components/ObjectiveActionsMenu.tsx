@@ -8,11 +8,9 @@ type Props = {
   visible: boolean;
   goalTitle: string;
   showFinalize?: boolean;
-  showReactivate?: boolean;
   showEdit?: boolean;
   onClose: () => void;
   onFinalize: () => void;
-  onReactivate: () => void;
   onEdit: () => void;
   onDelete: () => void;
 };
@@ -21,11 +19,9 @@ export function ObjectiveActionsMenu({
   visible,
   goalTitle,
   showFinalize = false,
-  showReactivate = false,
   showEdit = true,
   onClose,
   onFinalize,
-  onReactivate,
   onEdit,
   onDelete,
 }: Props) {
@@ -72,7 +68,7 @@ export function ObjectiveActionsMenu({
 
           {showFinalize ? (
             <Pressable
-              accessibilityHint="Finaliza este objetivo y lo saca de la lista de activos"
+              accessibilityHint="Cierra y resuelve este objetivo ahora"
               accessibilityRole="button"
               onPress={onFinalize}
               style={styles.actionButton}>
@@ -81,23 +77,7 @@ export function ObjectiveActionsMenu({
               </View>
               <View style={styles.actionCopy}>
                 <Text style={styles.actionTitle}>Finalizar</Text>
-                <Text style={styles.actionSubtitle}>Finaliza antes de que termine su plazo.</Text>
-              </View>
-            </Pressable>
-          ) : null}
-
-          {showReactivate ? (
-            <Pressable
-              accessibilityHint="Reactiva este objetivo para devolverlo a la lista de activos"
-              accessibilityRole="button"
-              onPress={onReactivate}
-              style={styles.actionButton}>
-              <View style={[styles.actionIcon, styles.reactivateIcon]}>
-                <Feather color={palette.primaryDeep} name="rotate-ccw" size={18} />
-              </View>
-              <View style={styles.actionCopy}>
-                <Text style={styles.actionTitle}>Reactivar</Text>
-                <Text style={styles.actionSubtitle}>Reactiva porque no se ha llegado a la fecha fin</Text>
+                <Text style={styles.actionSubtitle}>Cierra el ciclo y calcula el resultado al momento.</Text>
               </View>
             </Pressable>
           ) : null}
@@ -202,7 +182,10 @@ const styles = StyleSheet.create({
   successIcon: {
     backgroundColor: '#ECFDF3',
   },
-  reactivateIcon: {
+  pauseIcon: {
+    backgroundColor: '#FFF7E8',
+  },
+  resumeIcon: {
     backgroundColor: '#E8F0FF',
   },
   actionCopy: {

@@ -2,6 +2,7 @@ import { GoalDetailSummary, GoalEvaluation, Goal, HomeSummary, StatsSummary } fr
 import {
   clearGoalCheckinRecord,
   createGoalRecord,
+  finalizeGoalRecord,
   GoalInput,
   loadCheckinsInRange,
   loadGoalCheckinHistory,
@@ -11,10 +12,9 @@ import {
   recordGoalCheckinRecord,
   RecordCheckinResult,
   deleteGoalRecord,
-  toggleGoalActiveRecord,
   updateGoalRecord,
 } from '@/src/services/progress-service';
-import { getBestStreak, getCurrentStreak, getGoalDaysUntilStart, getGoalDeadline, getGoalRemainingDays } from '@/src/utils/goal-evaluation';
+import { getBestStreak, getCurrentStreak, getGoalDaysUntilStart, getGoalDeadline, getGoalRemainingDays, getGoalRequiredDays } from '@/src/utils/goal-evaluation';
 import { startOfToday, toISODate } from '@/src/utils/date';
 
 function buildFallbackEvaluation(goal: Goal, evaluation?: GoalEvaluation): GoalEvaluation {
@@ -25,6 +25,7 @@ function buildFallbackEvaluation(goal: Goal, evaluation?: GoalEvaluation): GoalE
       windowStart: goal.startDate,
       windowEnd: goal.startDate,
       plannedDays: 0,
+      requiredDays: getGoalRequiredDays(goal),
       completedDays: 0,
       completionRate: 0,
       passed: false,
@@ -95,8 +96,8 @@ export async function deleteGoalUseCase(goalId: string) {
   };
 }
 
-export async function toggleGoalActiveUseCase(goalId: string, active: boolean) {
-  const goal = await toggleGoalActiveRecord(goalId, active);
+export async function finalizeGoalUseCase(goalId: string) {
+  const result = await finalizeGoalRecord(goalId);
   const [goalEvaluations, homeSummary, statsSummary] = await Promise.all([
     loadGoalEvaluations(),
     loadHomeSummary(),
@@ -104,7 +105,9 @@ export async function toggleGoalActiveUseCase(goalId: string, active: boolean) {
   ]);
 
   return {
-    goal,
+    assignedPunishment: result.assignedPunishment,
+    evaluation: result.evaluation,
+    goal: result.goal,
     goalEvaluations,
     homeSummary,
     statsSummary,
