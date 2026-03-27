@@ -49,8 +49,8 @@ type CalendarSelectorProps = {
 };
 
 const SCOPE_OPTIONS: { description: string; label: string; value: GoalPunishmentScope }[] = [
-  { label: 'Castigos estandar', value: 'base', description: 'Solo se podran asignar castigos base de la app.' },
-  { label: 'Castigos personales', value: 'personal', description: 'Solo se podran asignar castigos creados por el usuario.' },
+  { label: 'Estandar', value: 'base', description: 'Solo se podran asignar castigos base de la app.' },
+  { label: 'Personales', value: 'personal', description: 'Solo se podran asignar castigos creados por el usuario.' },
   { label: 'Ambos', value: 'both', description: 'Podran entrar castigos base y personales.' },
 ];
 
@@ -529,10 +529,12 @@ export function GoalFormScreen({ mode, goal }: Props) {
 
         {step === 4 ? (
           <View style={styles.panel}>
-            <Text style={styles.panelTitle}>Pool de castigos</Text>
-            <Text style={styles.helper}>El castigo se elegira solo entre este origen y estas categorias si el objetivo falla.</Text>
+            <Text style={styles.panelTitle}>Seleccion de castigos</Text>
+            <Text style={styles.helper}>Si fallas el objetivo, se te asignara un castigo alatorio entre los que selecciones</Text>
 
-            <View style={styles.scopeGrid}>
+            <View style={styles.field}>
+              <Text style={styles.label}>Tipo</Text>
+            <View style={styles.filterChipWrap}>
               {SCOPE_OPTIONS.map((option) => {
                 const selected = option.value === draft.punishmentScope;
 
@@ -541,12 +543,12 @@ export function GoalFormScreen({ mode, goal }: Props) {
                     key={option.value}
                     disabled={saving}
                     onPress={() => updateDraft({ punishmentScope: option.value })}
-                    style={[styles.scopeCard, selected ? styles.scopeCardSelected : null]}>
-                    <Text style={[styles.scopeTitle, selected ? styles.scopeTitleSelected : null]}>{option.label}</Text>
-                    <Text style={styles.scopeDescription}>{option.description}</Text>
+                    style={[styles.filterChipOption, selected ? styles.filterChipOptionActive : null]}>
+                    <Text style={[styles.filterChipOptionLabel, selected ? styles.filterChipOptionLabelActive : null]}>{option.label}</Text>
                   </Pressable>
                 );
               })}
+            </View>
             </View>
 
             <View style={styles.field}>
@@ -554,28 +556,45 @@ export function GoalFormScreen({ mode, goal }: Props) {
                 <Text style={styles.label}>Categorias</Text>
                 <Text style={styles.requiredTag}>Obligatorio</Text>
               </View>
-              <View style={styles.categoryModeRow}>
+              <View style={styles.filterChipWrap}>
                 <Pressable
                   disabled={saving}
                   onPress={() => updateDraft({ punishmentCategoryMode: 'all', selectedCategories: [] })}
-                  style={[styles.categoryModeButton, draft.punishmentCategoryMode === 'all' ? styles.categoryModeButtonSelected : null]}>
-                  <Text style={[styles.categoryModeText, draft.punishmentCategoryMode === 'all' ? styles.categoryModeTextSelected : null]}>
+                  style={[styles.filterChipOption, draft.punishmentCategoryMode === 'all' ? styles.filterChipOptionActive : null]}>
+                  <Text style={[styles.filterChipOptionLabel, draft.punishmentCategoryMode === 'all' ? styles.filterChipOptionLabelActive : null]}>
                     Todas
                   </Text>
                 </Pressable>
                 <Pressable
                   disabled={saving}
-                  onPress={() => updateDraft({ punishmentCategoryMode: 'selected' })}
-                  style={[styles.categoryModeButton, draft.punishmentCategoryMode === 'selected' ? styles.categoryModeButtonSelected : null]}>
-                  <Text style={[styles.categoryModeText, draft.punishmentCategoryMode === 'selected' ? styles.categoryModeTextSelected : null]}>
-                    Seleccion multiple
-                  </Text>
+                  onPress={() =>
+                    updateDraft(
+                      draft.punishmentCategoryMode === 'selected'
+                        ? { punishmentCategoryMode: 'all', selectedCategories: [] }
+                        : { punishmentCategoryMode: 'selected' },
+                    )
+                  }
+                  style={[styles.filterChipOption, draft.punishmentCategoryMode === 'selected' ? styles.filterChipOptionActive : null]}>
+                  <View style={styles.categoryModeButtonContent}>
+                    <Text
+                      style={[
+                        styles.filterChipOptionLabel,
+                        draft.punishmentCategoryMode === 'selected' ? styles.filterChipOptionLabelActive : null,
+                      ]}>
+                      Seleccionar
+                    </Text>
+                    <Feather
+                      color={draft.punishmentCategoryMode === 'selected' ? palette.snow : palette.primaryDeep}
+                      name="chevron-down"
+                      size={16}
+                    />
+                  </View>
                 </Pressable>
               </View>
             </View>
 
             {draft.punishmentCategoryMode === 'selected' ? (
-              <View style={styles.categoryGrid}>
+              <View style={styles.categoryChipWrap}>
                 {PUNISHMENT_CATEGORY_OPTIONS.map((option) => {
                   const selected = draft.selectedCategories.includes(option.name);
 
@@ -584,11 +603,23 @@ export function GoalFormScreen({ mode, goal }: Props) {
                       key={option.name}
                       disabled={saving}
                       onPress={() => toggleCategory(option.name)}
-                      style={[styles.categoryCard, { backgroundColor: option.tint }, selected ? styles.categoryCardSelected : null]}>
-                      <View style={[styles.categoryIconWrap, { backgroundColor: selected ? option.accent : palette.snow }]}>
+                      style={[
+                        styles.categoryChip,
+                        {
+                          backgroundColor: selected ? option.accent : option.tint,
+                          borderColor: option.accent,
+                        },
+                      ]}>
+                      <View
+                        style={[
+                          styles.categoryChipIconWrap,
+                          {
+                            backgroundColor: selected ? `${palette.snow}22` : palette.snow,
+                          },
+                        ]}>
                         <Ionicons color={selected ? palette.snow : option.accent} name={option.icon} size={18} />
                       </View>
-                      <Text style={[styles.categoryTitle, selected ? { color: option.accent } : null]}>{option.label}</Text>
+                      <Text style={[styles.categoryChipTitle, { color: selected ? palette.snow : option.accent }]}>{option.label}</Text>
                     </Pressable>
                   );
                 })}
@@ -598,11 +629,11 @@ export function GoalFormScreen({ mode, goal }: Props) {
             {punishmentCategoryError ? <Text style={styles.errorText}>{punishmentCategoryError}</Text> : null}
 
             <View style={styles.summaryCard}>
-              <Text style={styles.summaryEyebrow}>Seleccion actual</Text>
+              <Text style={styles.summaryEyebrow}>Resumen</Text>
               <Text style={styles.summaryTitle}>{punishmentSummary}</Text>
               <Text style={styles.summaryText}>
                 {punishmentsLoaded
-                  ? `${eligiblePunishments.length} ${eligiblePunishments.length === 1 ? 'castigo elegible ahora mismo' : 'castigos elegibles ahora mismo'}`
+                  ? `${eligiblePunishments.length} ${eligiblePunishments.length === 1 ? 'castigo disponible' : 'castigos disponibles'}`
                   : 'Cargando catalogo de castigos...'}
               </Text>
             </View>
@@ -1019,89 +1050,62 @@ const styles = StyleSheet.create({
     color: palette.slate,
     textAlign: 'center',
   },
-  scopeGrid: {
-    gap: spacing.sm,
-  },
-  scopeCard: {
-    padding: spacing.md,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: palette.line,
-    backgroundColor: '#FAFBFE',
-    gap: 6,
-  },
-  scopeCardSelected: {
-    borderColor: palette.primary,
-    backgroundColor: '#EEF5FF',
-  },
-  scopeTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: palette.ink,
-  },
-  scopeTitleSelected: {
-    color: palette.primaryDeep,
-  },
-  scopeDescription: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: palette.slate,
-  },
-  categoryModeRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  categoryModeButton: {
-    flex: 1,
-    minHeight: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: palette.line,
-    backgroundColor: '#FAFBFE',
-  },
-  categoryModeButtonSelected: {
-    borderColor: palette.primary,
-    backgroundColor: '#EEF5FF',
-  },
-  categoryModeText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: palette.slate,
-  },
-  categoryModeTextSelected: {
-    color: palette.primaryDeep,
-  },
-  categoryGrid: {
+  filterChipWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
-  categoryCard: {
-    width: '47%',
-    minHeight: 92,
+  filterChipOption: {
     paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
-    borderRadius: 22,
+    paddingVertical: 8,
+    borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: 'transparent',
-    gap: spacing.sm,
+    borderColor: '#D6E1F1',
+    backgroundColor: '#EEF4FF',
   },
-  categoryCardSelected: {
-    borderColor: palette.ink,
+  filterChipOptionActive: {
+    backgroundColor: palette.primaryDeep,
+    borderColor: palette.primaryDeep,
   },
-  categoryIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
+  filterChipOptionLabel: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: palette.primaryDeep,
+  },
+  filterChipOptionLabelActive: {
+    color: palette.snow,
+  },
+  categoryModeButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  categoryChipWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  categoryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 5,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    minHeight: 32,
+  },
+  categoryChipIconWrap: {
+    width: 24,
+    height: 24,
+    borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  categoryTitle: {
-    fontSize: 15,
+  categoryChipTitle: {
+    fontSize: 13,
     fontWeight: '800',
-    color: palette.ink,
   },
   errorText: {
     fontSize: 13,
@@ -1113,7 +1117,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   submit: {
-    minHeight: 40,
+    minHeight: 42,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 20,
@@ -1129,7 +1133,7 @@ const styles = StyleSheet.create({
     color: palette.snow,
   },
   secondaryButton: {
-    minHeight: 40,
+    minHeight: 42,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 18,
