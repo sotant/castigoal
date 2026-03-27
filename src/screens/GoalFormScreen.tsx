@@ -241,6 +241,7 @@ export function GoalFormScreen({ mode, goal }: Props) {
     [durationDays, requiredDays],
   );
   const punishmentSummary = useMemo(() => getPunishmentSummary(punishmentConfig), [punishmentConfig]);
+  const startDateDisplayLabel = draft.startDate === today ? 'Hoy' : formatLongDate(draft.startDate);
 
   const updateDraft = (partial: Partial<GoalDraft>) => {
     setDraft((current) => ({ ...current, ...partial }));
@@ -391,17 +392,14 @@ export function GoalFormScreen({ mode, goal }: Props) {
             <Text style={styles.panelTitle}>Duracion</Text>
 
             <View style={styles.field}>
-              <View style={styles.inlineHeader}>
-                <Text style={styles.label}>Fecha de inicio</Text>
-                <Text style={styles.requiredTag}>Obligatorio</Text>
-              </View>
+              <Text style={styles.label}>Fecha de inicio</Text>
               <Pressable
                 disabled={saving}
                 onPress={() => setShowStartCalendar((current) => !current)}
                 style={[styles.selectorCard, showStartCalendar ? styles.selectorCardActive : null]}>
                 <View style={styles.selectorCopy}>
                   <Text style={styles.selectorText}>El objetivo empieza el</Text>
-                  <Text style={styles.selectorTitle}>{formatLongDate(draft.startDate)}</Text>
+                  <Text style={styles.selectorTitle}>{startDateDisplayLabel}</Text>
                 </View>
                 <Text style={styles.selectorAction}>{showStartCalendar ? 'Ocultar' : 'Cambiar'}</Text>
               </Pressable>
@@ -426,10 +424,7 @@ export function GoalFormScreen({ mode, goal }: Props) {
             </View>
 
             <View style={styles.field}>
-              <View style={styles.inlineHeader}>
-                <Text style={styles.label}>Fecha de finalizacion</Text>
-                <Text style={styles.requiredTag}>Obligatorio</Text>
-              </View>
+              <Text style={styles.label}>Fecha de finalizacion</Text>
               <Pressable
                 disabled={saving}
                 onPress={() => setShowEndCalendar((current) => !current)}
