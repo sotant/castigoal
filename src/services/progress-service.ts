@@ -327,14 +327,12 @@ async function loadContainer(mode: SessionMode, actorId: string) {
     const deadline = getGoalDeadline({
       ...goal,
       active: Boolean(goal.active),
-      lifecycleStatus: goal.lifecycleStatus ?? (goal.active ? 'active' : 'paused'),
+      lifecycleStatus: goal.lifecycleStatus === 'closed' ? 'closed' : 'active',
       resolutionStatus: goal.resolutionStatus ?? 'pending',
       punishmentConfig: normalizeGoalPunishmentConfig(goal.punishmentConfig),
     } as Goal);
 
-    const lifecycleStatus =
-      goal.lifecycleStatus ??
-      (goal.active ? 'active' : startOfToday() > deadline ? 'closed' : 'paused');
+    const lifecycleStatus = goal.lifecycleStatus === 'closed' || (!goal.active && startOfToday() > deadline) ? 'closed' : 'active';
     const resolutionStatus = goal.resolutionStatus ?? 'pending';
     const nextGoal: Goal = {
       ...goal,
@@ -752,21 +750,15 @@ function buildGoalDetailSummary(
             ? 'Objetivo finalizado y fallado. Tiene un castigo pendiente.'
             : 'Objetivo finalizado y fallado. No habia castigos elegibles.'
           : 'Objetivo finalizado y pendiente de resolucion.'
-      : goal.lifecycleStatus === 'paused'
-        ? remainingDays > 0
+      : daysUntilStart > 0
+        ? daysUntilStart === 1
+          ? 'Empieza manana.'
+          : `Empieza en ${daysUntilStart} dias.`
+        : remainingDays > 0
           ? remainingDays === 1
-            ? 'Objetivo pausado. Queda 1 dia para cerrar el plazo.'
-            : `Objetivo pausado. Quedan ${remainingDays} dias para cerrar el plazo.`
-          : 'Objetivo pausado, pero su plazo ya ha terminado.'
-        : daysUntilStart > 0
-          ? daysUntilStart === 1
-            ? 'Empieza manana.'
-            : `Empieza en ${daysUntilStart} dias.`
-          : remainingDays > 0
-            ? remainingDays === 1
-              ? 'Queda 1 dia para cerrar el plazo.'
-              : `Quedan ${remainingDays} dias para cerrar el plazo.`
-            : 'El plazo configurado ya ha terminado.',
+            ? 'Queda 1 dia para cerrar el plazo.'
+            : `Quedan ${remainingDays} dias para cerrar el plazo.`
+          : 'El plazo configurado ya ha terminado.',
   };
 }
 
@@ -2175,49 +2167,6 @@ export async function deleteGoalRecord(goalId: string) {
 
     setDeleted(container, 'goals', goalId);
   });
-}
-
-async function updateGoalLifecycleRecord(goalId: string, lifecycleStatus: Goal['lifecycleStatus']) {
-  return withActiveContainer(async (container) => {
-    const goal = container.records.goals[goalId]?.data;
-
-    if (!goal) {
-      throw new Error('No he encontrado el objetivo.');
-    }
-
-    if (goal.lifecycleStatus === 'closed') {
-      throw new Error('El objetivo ya esta cerrado.');
-    }
-
-    const updatedGoal: Goal = {
-      ...goal,
-      active: lifecycleStatus === 'active',
-      lifecycleStatus,
-      updatedAt: nowIso(),
-    };
-
-    setRecord(
-      container,
-      container.records.goals,
-      goalId,
-      updatedGoal,
-      container.actorType === 'guest' ? container.guestId : undefined,
-    );
-
-    return updatedGoal;
-  });
-}
-
-export async function pauseGoalRecord(goalId: string) {
-  return updateGoalLifecycleRecord(goalId, 'paused');
-}
-
-export async function resumeGoalRecord(goalId: string) {
-  return updateGoalLifecycleRecord(goalId, 'active');
-}
-
-export async function toggleGoalActiveRecord(goalId: string, active: boolean) {
-  return active ? resumeGoalRecord(goalId) : pauseGoalRecord(goalId);
 }
 
 export async function finalizeGoalRecord(goalId: string, referenceDate = startOfToday()) {

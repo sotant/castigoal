@@ -20,7 +20,7 @@ import { appRoutes } from '@/src/navigation/app-routes';
 import { useAppStore } from '@/src/store/app-store';
 import { getGoalDeadline } from '@/src/utils/goal-evaluation';
 
-type GoalSectionKey = 'active' | 'paused' | 'closed';
+type GoalSectionKey = 'active' | 'closed';
 
 type GoalListEntry =
   | {
@@ -51,7 +51,7 @@ type PendingGoalAction =
 
 type BusyGoalAction =
   | {
-      type: 'delete' | 'finalize' | 'pause' | 'resume';
+      type: 'delete' | 'finalize';
       goalId: string;
     }
   | null;
@@ -106,14 +106,12 @@ function buildClosedGoalEntries(goals: Goal[], summariesByGoalId: Map<string, Ho
 
 export function GoalsScreen() {
   const listRef = useRef<FlatList<GoalListEntry>>(null);
-  const { deleteGoal, finalizeGoal, goals, homeSummary, pauseGoal, resumeGoal } = useAppStore(
+  const { deleteGoal, finalizeGoal, goals, homeSummary } = useAppStore(
     useShallow((state) => ({
       deleteGoal: state.deleteGoal,
       finalizeGoal: state.finalizeGoal,
       goals: state.goals,
       homeSummary: state.homeSummary,
-      pauseGoal: state.pauseGoal,
-      resumeGoal: state.resumeGoal,
     })),
   );
   const tabBarHeight = useBottomTabBarHeight();
@@ -124,7 +122,6 @@ export function GoalsScreen() {
   const [pendingAction, setPendingAction] = useState<PendingGoalAction>(null);
   const [busyAction, setBusyAction] = useState<BusyGoalAction>(null);
   const [showActiveGoals, setShowActiveGoals] = useState(true);
-  const [showPausedGoals, setShowPausedGoals] = useState(true);
   const [showClosedGoals, setShowClosedGoals] = useState(false);
 
   useFocusEffect(
@@ -146,10 +143,6 @@ export function GoalsScreen() {
 
   const activeGoals = useMemo(
     () => buildGoalEntries(goals.filter((goal) => goal.lifecycleStatus === 'active'), summariesByGoalId),
-    [goals, summariesByGoalId],
-  );
-  const pausedGoals = useMemo(
-    () => buildGoalEntries(goals.filter((goal) => goal.lifecycleStatus === 'paused'), summariesByGoalId),
     [goals, summariesByGoalId],
   );
   const closedGoals = useMemo(
@@ -189,33 +182,6 @@ export function GoalsScreen() {
 
     items.push({
       type: 'section',
-      key: 'section-paused',
-      title: 'Pausados',
-      count: pausedGoals.length,
-      expanded: showPausedGoals,
-    });
-
-    if (showPausedGoals) {
-      if (pausedGoals.length === 0) {
-        items.push({
-          type: 'empty',
-          key: 'empty-paused',
-          message: 'No tienes objetivos pausados.',
-        });
-      } else {
-        items.push(
-          ...pausedGoals.map(({ goal, summary }) => ({
-            type: 'goal' as const,
-            key: `paused-${goal.id}`,
-            goal,
-            summary,
-          })),
-        );
-      }
-    }
-
-    items.push({
-      type: 'section',
       key: 'section-closed',
       title: 'Finalizados',
       count: closedGoals.length,
@@ -242,42 +208,10 @@ export function GoalsScreen() {
     }
 
     return items;
-  }, [activeGoals, closedGoals, pausedGoals, showActiveGoals, showClosedGoals, showPausedGoals]);
+  }, [activeGoals, closedGoals, showActiveGoals, showClosedGoals]);
 
   const closeMenu = () => setActiveMenuGoalId(null);
   const closeConfirmationModal = () => setPendingAction(null);
-
-  const handlePause = async (goal: Goal) => {
-    if (busyAction) {
-      return;
-    }
-
-    closeMenu();
-    setBusyAction({ goalId: goal.id, type: 'pause' });
-
-    try {
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      await pauseGoal(goal.id);
-    } finally {
-      setBusyAction((current) => (current?.goalId === goal.id ? null : current));
-    }
-  };
-
-  const handleResume = async (goal: Goal) => {
-    if (busyAction) {
-      return;
-    }
-
-    closeMenu();
-    setBusyAction({ goalId: goal.id, type: 'resume' });
-
-    try {
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      await resumeGoal(goal.id);
-    } finally {
-      setBusyAction((current) => (current?.goalId === goal.id ? null : current));
-    }
-  };
 
   const confirmPendingAction = async () => {
     if (!pendingAction || busyAction) {
@@ -331,9 +265,7 @@ export function GoalsScreen() {
       const onToggle =
         item.key === 'section-active'
           ? () => setShowActiveGoals((current) => !current)
-          : item.key === 'section-paused'
-            ? () => setShowPausedGoals((current) => !current)
-            : () => setShowClosedGoals((current) => !current);
+          : () => setShowClosedGoals((current) => !current);
 
       return (
         <Pressable
@@ -406,16 +338,6 @@ export function GoalsScreen() {
       <ObjectiveActionsMenu
         goalTitle={activeMenuGoal?.title ?? ''}
         onClose={closeMenu}
-        onPause={() => {
-          if (activeMenuGoal) {
-            void handlePause(activeMenuGoal);
-          }
-        }}
-        onResume={() => {
-          if (activeMenuGoal) {
-            void handleResume(activeMenuGoal);
-          }
-        }}
         onFinalize={() => {
           if (activeMenuGoal) {
             closeMenu();
@@ -437,8 +359,6 @@ export function GoalsScreen() {
           closeMenu();
           router.push(appRoutes.editGoal(goalId));
         }}
-        showPause={activeMenuGoal?.lifecycleStatus === 'active'}
-        showResume={activeMenuGoal?.lifecycleStatus === 'paused'}
         showFinalize={Boolean(activeMenuGoal && activeMenuGoal.lifecycleStatus !== 'closed')}
         showEdit={Boolean(activeMenuGoal && activeMenuGoal.lifecycleStatus !== 'closed')}
         visible={Boolean(activeMenuGoal)}

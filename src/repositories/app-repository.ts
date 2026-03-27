@@ -201,6 +201,7 @@ function mapGoal(
   row: GoalRow,
   categoryNameById: Record<string, Punishment['categoryName']> = {},
 ): Goal {
+  const lifecycleStatus = row.lifecycle_status === 'closed' ? 'closed' : 'active';
   const categoryNames = (row.punishment_category_ids ?? [])
     .map((categoryId) => categoryNameById[categoryId])
     .filter((value): value is Punishment['categoryName'] => Boolean(value));
@@ -212,8 +213,8 @@ function mapGoal(
     startDate: row.start_date,
     targetDays: row.target_days,
     minimumSuccessRate: row.minimum_success_rate,
-    active: row.lifecycle_status === 'active',
-    lifecycleStatus: row.lifecycle_status as Goal['lifecycleStatus'],
+    active: lifecycleStatus === 'active',
+    lifecycleStatus,
     resolutionStatus: row.resolution_status as Goal['resolutionStatus'],
     closedOn: row.closed_on ?? undefined,
     resolvedAt: row.resolved_at ?? undefined,
@@ -845,29 +846,6 @@ export async function deleteGoalRecord(goalId: string) {
       fallback: 'No se pudo borrar el objetivo.',
     });
   }
-}
-
-export async function toggleGoalActiveRecord(goalId: string, active: boolean) {
-  const categoryNameById = await loadPunishmentCategoryNameByIdMap();
-  const { data, error } = await supabase
-    .from('goals')
-    .update({
-      active,
-      lifecycle_status: active ? 'active' : 'paused',
-    })
-    .eq('id', goalId)
-    .select('*')
-    .single();
-
-  if (error) {
-    throw normalizeRepositoryError(error, {
-      authMessage: 'No se pudo cambiar el estado del objetivo.',
-      code: 'GOAL_TOGGLE_FAILED',
-      fallback: 'No se pudo cambiar el estado del objetivo.',
-    });
-  }
-
-  return mapGoal(data, categoryNameById);
 }
 
 export async function recordGoalCheckinRecord(input: CheckinInput & { date: string }) {

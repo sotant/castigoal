@@ -263,13 +263,7 @@ export function StatsScreen() {
                               <View style={styles.goalTitleRow}>
                                 <Feather
                                   color={isGoalDropdownOpen ? palette.primaryDeep : palette.slate}
-                                   name={
-                                     selectedGoal?.lifecycleStatus === 'active'
-                                       ? 'play'
-                                       : selectedGoal?.lifecycleStatus === 'paused'
-                                         ? 'pause'
-                                         : 'flag'
-                                   }
+                                  name={selectedGoal?.lifecycleStatus === 'active' ? 'play' : 'flag'}
                                   size={14}
                                 />
                                 <Text style={[styles.goalButtonTitle, isGoalDropdownOpen && styles.goalButtonTitleSelected]}>
@@ -306,7 +300,7 @@ export function StatsScreen() {
                                     <View style={styles.goalTitleRow}>
                                       <Feather
                                         color={isSelected ? palette.primaryDeep : palette.slate}
-                                         name={goal.lifecycleStatus === 'active' ? 'play' : goal.lifecycleStatus === 'paused' ? 'pause' : 'flag'}
+                                        name={goal.lifecycleStatus === 'active' ? 'play' : 'flag'}
                                         size={14}
                                       />
                                       <Text style={[styles.dropdownOptionTitle, isSelected && styles.dropdownOptionTitleSelected]}>
@@ -327,13 +321,7 @@ export function StatsScreen() {
                             <View style={styles.goalTitleRow}>
                                <Feather
                                  color={palette.primaryDeep}
-                                 name={
-                                   selectedGoal?.lifecycleStatus === 'active'
-                                     ? 'play'
-                                     : selectedGoal?.lifecycleStatus === 'paused'
-                                       ? 'pause'
-                                       : 'flag'
-                                 }
+                                 name={selectedGoal?.lifecycleStatus === 'active' ? 'play' : 'flag'}
                                  size={14}
                                />
                               <Text style={[styles.goalButtonTitle, styles.goalButtonTitleSelected]}>{selectedGoal?.title}</Text>

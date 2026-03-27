@@ -104,10 +104,6 @@ function formatLifecycle(goal: Goal) {
     return 'Activo';
   }
 
-  if (goal.lifecycleStatus === 'paused') {
-    return 'Pausado';
-  }
-
   return 'Finalizado';
 }
 
@@ -143,8 +139,6 @@ export function GoalDetailScreen({ goal }: Props) {
   const detail = useAppStore(selectGoalDetail(goal?.id ?? ''));
   const loadGoalDetail = useAppStore((state) => state.loadGoalDetail);
   const loadStatsCalendar = useAppStore((state) => state.loadStatsCalendar);
-  const pauseGoal = useAppStore((state) => state.pauseGoal);
-  const resumeGoal = useAppStore((state) => state.resumeGoal);
   const finalizeGoal = useAppStore((state) => state.finalizeGoal);
   const evaluation = useAppStore((state) => (goal ? state.goalEvaluations[goal.id] : undefined));
   const goalSubtitle = goal?.description?.trim() || undefined;
@@ -213,32 +207,28 @@ export function GoalDetailScreen({ goal }: Props) {
   const pendingRequiredDays = Math.max(safeRequiredDays - viewModel.evaluation.completedDays, 0);
   const isResolvedPassed = goal.resolutionStatus === 'passed';
   const isResolvedFailed = goal.resolutionStatus === 'failed';
-  const canPause = goal.lifecycleStatus === 'active';
-  const canResume = goal.lifecycleStatus === 'paused';
   const canFinalize = goal.lifecycleStatus !== 'closed';
   const canEdit = goal.lifecycleStatus !== 'closed';
   const showUnreachableHint = goal.lifecycleStatus === 'active' && viewModel.daysUntilStart === 0 && pendingRequiredDays > viewModel.remainingDays;
   const monthLabel = formatCalendarMonthLabel(monthDate);
-  const progressTone = isResolvedFailed ? palette.danger : isResolvedPassed ? palette.success : goal.lifecycleStatus === 'paused' ? palette.warning : palette.primary;
+  const progressTone = isResolvedFailed ? palette.danger : isResolvedPassed ? palette.success : palette.primary;
   const progressHint = isResolvedPassed
     ? 'Objetivo aprobado. El ciclo ya quedo resuelto.'
     : isResolvedFailed
       ? viewModel.outcome?.assignedPunishmentId
         ? 'Objetivo fallido. El castigo de este ciclo ya fue asignado.'
         : 'Objetivo fallido sin castigo asignado. El pool guardado ya no tenia opciones elegibles.'
-      : goal.lifecycleStatus === 'paused'
-        ? 'Objetivo pausado. No admite nuevos check-ins hasta que lo reanudes.'
-        : showUnreachableHint
-          ? `Objetivo no alcanzable. Necesitas ${pendingRequiredDays} ${pendingRequiredDays === 1 ? 'dia cumplido' : 'dias cumplidos'} y solo quedan ${viewModel.remainingDays}.`
-          : approvalProgress < 25
-            ? 'El ciclo acaba de arrancar. Ve sumando dias cumplidos.'
-            : approvalProgress < 50
-              ? 'Vas por buen camino.'
-              : approvalProgress < 75
-                ? 'Ya superaste la mitad del objetivo.'
-                : approvalProgress < 100
-                  ? `Quedan ${pendingRequiredDays} ${pendingRequiredDays === 1 ? 'dia' : 'dias'} para aprobarlo.`
-                  : 'Ya tienes el minimo necesario para aprobar si cierras hoy.';
+      : showUnreachableHint
+        ? `Objetivo no alcanzable. Necesitas ${pendingRequiredDays} ${pendingRequiredDays === 1 ? 'dia cumplido' : 'dias cumplidos'} y solo quedan ${viewModel.remainingDays}.`
+        : approvalProgress < 25
+          ? 'El ciclo acaba de arrancar. Ve sumando dias cumplidos.'
+          : approvalProgress < 50
+            ? 'Vas por buen camino.'
+            : approvalProgress < 75
+              ? 'Ya superaste la mitad del objetivo.'
+              : approvalProgress < 100
+                ? `Quedan ${pendingRequiredDays} ${pendingRequiredDays === 1 ? 'dia' : 'dias'} para aprobarlo.`
+                : 'Ya tienes el minimo necesario para aprobar si cierras hoy.';
 
   const handleCalendarSwipe = (direction: 'left' | 'right') => {
     setMonthOffset((current) => (direction === 'left' ? current + 1 : current - 1));
@@ -268,21 +258,11 @@ export function GoalDetailScreen({ goal }: Props) {
           {progressHint}
         </Text>
 
-        {(canPause || canResume || canFinalize || canEdit) ? (
+        {(canFinalize || canEdit) ? (
           <View style={styles.actionRow}>
             {canEdit ? (
               <Pressable onPress={() => router.push(appRoutes.editGoal(goal.id))} style={styles.secondaryActionButton}>
                 <Text style={styles.secondaryActionLabel}>Editar</Text>
-              </Pressable>
-            ) : null}
-            {canPause ? (
-              <Pressable onPress={() => void pauseGoal(goal.id)} style={styles.secondaryActionButton}>
-                <Text style={styles.secondaryActionLabel}>Pausar</Text>
-              </Pressable>
-            ) : null}
-            {canResume ? (
-              <Pressable onPress={() => void resumeGoal(goal.id)} style={styles.secondaryActionButton}>
-                <Text style={styles.secondaryActionLabel}>Reanudar</Text>
               </Pressable>
             ) : null}
             {canFinalize ? (

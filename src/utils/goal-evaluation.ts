@@ -67,10 +67,6 @@ export function isGoalActive(goal: Goal) {
   return goal.lifecycleStatus === 'active';
 }
 
-export function isGoalPaused(goal: Goal) {
-  return goal.lifecycleStatus === 'paused';
-}
-
 export function isGoalClosed(goal: Goal) {
   return goal.lifecycleStatus === 'closed';
 }

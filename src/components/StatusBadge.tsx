@@ -20,16 +20,6 @@ function getBadgeCopy(lifecycleStatus: Goal['lifecycleStatus'], resolutionStatus
     };
   }
 
-  if (lifecycleStatus === 'paused') {
-    return {
-      backgroundColor: '#FFF7E8',
-      borderColor: '#F7DFB0',
-      color: '#B7791F',
-      icon: 'pause' as const,
-      label: 'Pausado',
-    };
-  }
-
   if (resolutionStatus === 'passed') {
     return {
       backgroundColor: '#ECFDF3',

@@ -14,7 +14,7 @@ export type PunishmentCategoryName =
   | 'otros';
 export type PunishmentScope = 'base' | 'personal';
 export type AssignedPunishmentStatus = 'pending' | 'completed';
-export type GoalLifecycleStatus = 'active' | 'paused' | 'closed';
+export type GoalLifecycleStatus = 'active' | 'closed';
 export type GoalResolutionStatus = 'pending' | 'passed' | 'failed';
 export type GoalResolutionSource = 'manual' | 'expired';
 export type GoalPunishmentScope = 'base' | 'personal' | 'both';

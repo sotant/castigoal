@@ -99,7 +99,7 @@ function shouldScheduleGoalNotification(goal: Goal, settings: UserSettings) {
     return false;
   }
 
-  if (goal.resolutionStatus !== 'pending' || goal.lifecycleStatus === 'closed') {
+  if (goal.resolutionStatus !== 'pending' || goal.lifecycleStatus !== 'active') {
     return false;
   }
 

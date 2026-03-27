@@ -9,10 +9,8 @@ import {
   loadGoalEvaluations,
   loadHomeSummary,
   loadStatsSummary,
-  pauseGoalRecord,
   recordGoalCheckinRecord,
   RecordCheckinResult,
-  resumeGoalRecord,
   deleteGoalRecord,
   updateGoalRecord,
 } from '@/src/services/progress-service';
@@ -96,29 +94,6 @@ export async function deleteGoalUseCase(goalId: string) {
     homeSummary,
     statsSummary,
   };
-}
-
-async function buildGoalMutationResult(goal: Goal) {
-  const [goalEvaluations, homeSummary, statsSummary] = await Promise.all([
-    loadGoalEvaluations(),
-    loadHomeSummary(),
-    loadStatsSummary(),
-  ]);
-
-  return {
-    goal,
-    goalEvaluations,
-    homeSummary,
-    statsSummary,
-  };
-}
-
-export async function pauseGoalUseCase(goalId: string) {
-  return buildGoalMutationResult(await pauseGoalRecord(goalId));
-}
-
-export async function resumeGoalUseCase(goalId: string) {
-  return buildGoalMutationResult(await resumeGoalRecord(goalId));
 }
 
 export async function finalizeGoalUseCase(goalId: string) {

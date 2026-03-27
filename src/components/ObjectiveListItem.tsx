@@ -47,9 +47,7 @@ export function ObjectiveListItem({ goal, summary, showCompletionFlag = false, o
         : summary.resolutionStatus === 'failed'
           ? 'Cerrado y fallido'
           : 'Cerrado'
-      : goal.lifecycleStatus === 'paused'
-        ? 'Pausado'
-        : `${summary.completedDays}/${summary.requiredDays} dias cumplidos`;
+      : `${summary.completedDays}/${summary.requiredDays} dias cumplidos`;
 
   return (
     <View style={styles.card}>
