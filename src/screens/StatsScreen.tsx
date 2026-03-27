@@ -814,8 +814,8 @@ const styles = StyleSheet.create({
   },
   dayBubble: {
     position: 'relative',
-    width: 38,
-    height: 38,
+    width: 34,
+    height: 34,
     borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: palette.line,

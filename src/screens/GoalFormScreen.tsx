@@ -76,52 +76,54 @@ function CalendarSelector({ disabled, minDate, month, selectedDate, onMonthChang
   const calendarDays = useMemo(() => buildMonthCalendar(month), [month]);
 
   return (
-    <View style={styles.calendarCard}>
+    <View style={styles.calendarSection}>
       <View style={styles.calendarHeader}>
-        <Pressable
-          disabled={disabled}
-          onPress={() => onMonthChange((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))}
-          style={styles.calendarMonthButton}>
-          <Feather color={palette.primaryDeep} name="chevron-left" size={18} />
-        </Pressable>
-        <Text style={styles.calendarMonthLabel}>{formatMonthLabel(month)}</Text>
-        <Pressable
-          disabled={disabled}
-          onPress={() => onMonthChange((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))}
-          style={styles.calendarMonthButton}>
-          <Feather color={palette.primaryDeep} name="chevron-right" size={18} />
-        </Pressable>
+        <View style={styles.monthSwitcher}>
+          <Pressable
+            disabled={disabled}
+            onPress={() => onMonthChange((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))}
+            style={styles.monthButton}>
+            <Feather color={palette.primaryDeep} name="chevron-left" size={18} />
+          </Pressable>
+          <Text style={styles.monthLabel}>{formatMonthLabel(month)}</Text>
+          <Pressable
+            disabled={disabled}
+            onPress={() => onMonthChange((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))}
+            style={styles.monthButton}>
+            <Feather color={palette.primaryDeep} name="chevron-right" size={18} />
+          </Pressable>
+        </View>
       </View>
 
-      <View style={styles.calendarWeekRow}>
+      <View style={styles.weekRow}>
         {weekdayLabels.map((label) => (
-          <Text key={label} style={styles.calendarWeekday}>
+          <Text key={label} style={styles.weekday}>
             {label}
           </Text>
         ))}
       </View>
 
-      <View style={styles.calendarGrid}>
+      <View style={styles.statsCalendarGrid}>
         {calendarDays.map((day) => {
           const isDisabled = day.date < minDate;
           const isSelected = day.date === selectedDate;
 
           return (
-            <View key={day.date} style={styles.calendarDayCell}>
+            <View key={day.date} style={styles.dayCell}>
               <Pressable
                 disabled={disabled || isDisabled}
                 onPress={() => onSelect(day.date)}
                 style={[
-                  styles.calendarDayButton,
-                  isSelected ? styles.calendarDayButtonSelected : null,
-                  !day.inMonth ? styles.calendarDayButtonOutsideMonth : null,
+                  styles.dayBubble,
+                  isSelected ? styles.calendarDayButtonSelected : styles.calendarDayButtonDefault,
+                  !day.inMonth ? styles.dayOutsideMonth : null,
                   isDisabled ? styles.calendarDayButtonDisabled : null,
                 ]}>
                 <Text
                   style={[
-                    styles.calendarDayLabel,
+                    styles.dayLabel,
                     isSelected ? styles.calendarDayLabelSelected : null,
-                    !day.inMonth || isDisabled ? styles.calendarDayLabelMuted : null,
+                    (!day.inMonth || isDisabled) && !isSelected ? styles.dayLabelOutsideMonth : null,
                   ]}>
                   {day.dayNumber}
                 </Text>
@@ -156,7 +158,7 @@ export function GoalFormScreen({ mode, goal }: Props) {
   const [saving, setSaving] = useState(false);
   const [pendingExitHref, setPendingExitHref] = useState<string | null>(null);
   const [showStartCalendar, setShowStartCalendar] = useState(false);
-  const [showEndCalendar, setShowEndCalendar] = useState(true);
+  const [showEndCalendar, setShowEndCalendar] = useState(false);
   const [hasTouchedTitle, setHasTouchedTitle] = useState(false);
   const [startMonth, setStartMonth] = useState(() => getMonthAnchor(goal?.startDate ?? today));
   const [endMonth, setEndMonth] = useState(() => getMonthAnchor(addDays(goal?.startDate ?? today, Math.max((goal?.targetDays ?? 7) - 1, 0))));
@@ -811,6 +813,14 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: palette.primaryDeep,
   },
+  calendarSection: {
+    padding: spacing.sm,
+    borderRadius: 22,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E1E8F5',
+    gap: spacing.sm,
+  },
   calendarCard: {
     padding: spacing.md,
     borderRadius: 22,
@@ -820,65 +830,73 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   calendarHeader: {
+    gap: spacing.sm,
+  },
+  monthSwitcher: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: spacing.sm,
   },
-  calendarMonthButton: {
-    width: 38,
-    height: 38,
+  monthButton: {
+    width: 40,
+    height: 40,
     borderRadius: radius.pill,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: palette.snow,
-    borderWidth: 1,
-    borderColor: palette.line,
   },
-  calendarMonthLabel: {
-    fontSize: 17,
+  monthLabel: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 18,
     fontWeight: '800',
     color: palette.ink,
+    textTransform: 'capitalize',
   },
-  calendarWeekRow: {
+  weekRow: {
     flexDirection: 'row',
   },
-  calendarWeekday: {
+  weekday: {
     flex: 1,
     textAlign: 'center',
     fontSize: 12,
     fontWeight: '700',
     color: palette.slate,
   },
-  calendarGrid: {
+  statsCalendarGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    rowGap: spacing.xs,
+    rowGap: spacing.sm,
   },
-  calendarDayCell: {
+  dayCell: {
     width: '14.2857%',
     alignItems: 'center',
   },
-  calendarDayButton: {
-    width: 38,
-    height: 38,
+  dayBubble: {
+    position: 'relative',
+    width: 34,
+    height: 34,
     borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: palette.line,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  calendarDayButtonDefault: {
     backgroundColor: palette.snow,
-    borderWidth: 1,
-    borderColor: 'transparent',
   },
   calendarDayButtonSelected: {
     backgroundColor: palette.primary,
     borderColor: palette.primary,
   },
-  calendarDayButtonOutsideMonth: {
+  dayOutsideMonth: {
     opacity: 0.45,
   },
   calendarDayButtonDisabled: {
     opacity: 0.35,
   },
-  calendarDayLabel: {
+  dayLabel: {
     fontSize: 14,
     fontWeight: '700',
     color: palette.ink,
@@ -886,7 +904,7 @@ const styles = StyleSheet.create({
   calendarDayLabelSelected: {
     color: palette.snow,
   },
-  calendarDayLabelMuted: {
+  dayLabelOutsideMonth: {
     color: palette.slate,
   },
   summaryCard: {
