@@ -25,6 +25,7 @@ type Props = {
 };
 
 type DetailStatProps = {
+  label: string;
   value: string;
   iconColor: string;
   iconName: ComponentProps<typeof MaterialCommunityIcons>['name'] | ComponentProps<typeof Feather>['name'];
@@ -40,16 +41,19 @@ type InfoItemProps = {
   iconFamily?: 'material-community' | 'material';
 };
 
-function DetailStat({ value, iconColor, iconName, iconFamily = 'material-community' }: DetailStatProps) {
+function DetailStat({ label, value, iconColor, iconName, iconFamily = 'material-community' }: DetailStatProps) {
   return (
-    <View style={styles.statCard}>
-      <View style={styles.statContent}>
-        {iconFamily === 'feather' ? (
-          <Feather color={iconColor} name={iconName as ComponentProps<typeof Feather>['name']} size={18} />
-        ) : (
-          <MaterialCommunityIcons color={iconColor} name={iconName as ComponentProps<typeof MaterialCommunityIcons>['name']} size={18} />
-        )}
-        <Text style={styles.statValue}>{value}</Text>
+    <View style={styles.statColumn}>
+      <Text style={styles.statLabel}>{label}</Text>
+      <View style={styles.statCard}>
+        <View style={styles.statContent}>
+          {iconFamily === 'feather' ? (
+            <Feather color={iconColor} name={iconName as ComponentProps<typeof Feather>['name']} size={18} />
+          ) : (
+            <MaterialCommunityIcons color={iconColor} name={iconName as ComponentProps<typeof MaterialCommunityIcons>['name']} size={18} />
+          )}
+          <Text style={styles.statValue}>{value}</Text>
+        </View>
       </View>
     </View>
   );
@@ -268,16 +272,15 @@ export function GoalDetailScreen({ goal }: Props) {
       </View>
 
       <View style={styles.statsSection}>
-        <View style={styles.statsLegend}>
-          <Text style={styles.legendText}>Racha actual</Text>
-          <Text style={styles.legendText}>Mejor racha</Text>
-          <Text style={styles.legendText}>{viewModel.daysUntilStart > 0 ? 'Dias para empezar' : 'Dias restantes'}</Text>
-        </View>
-
         <View style={styles.statsRow}>
-          <DetailStat iconColor="#F97316" iconName="fire" value={`${viewModel.currentStreak}`} />
-          <DetailStat iconColor="#B45309" iconFamily="feather" iconName="award" value={`${viewModel.bestStreak}`} />
-          <DetailStat iconColor={palette.ink} iconName="flag-checkered" value={viewModel.daysUntilStart > 0 ? `${viewModel.daysUntilStart}` : `${viewModel.remainingDays}`} />
+          <DetailStat label="Racha actual" iconColor="#F97316" iconName="fire" value={`${viewModel.currentStreak}`} />
+          <DetailStat label="Mejor racha" iconColor="#B45309" iconFamily="feather" iconName="award" value={`${viewModel.bestStreak}`} />
+          <DetailStat
+            label={viewModel.daysUntilStart > 0 ? 'Dias para empezar' : 'Dias restantes'}
+            iconColor={palette.ink}
+            iconName="flag-checkered"
+            value={viewModel.daysUntilStart > 0 ? `${viewModel.daysUntilStart}` : `${viewModel.remainingDays}`}
+          />
         </View>
       </View>
 
@@ -425,64 +428,82 @@ export function GoalDetailScreen({ goal }: Props) {
         </View>
       ) : null}
 
-      <View style={styles.calendarSection}>
-        <View style={styles.calendarHeader}>
-          <Text style={styles.sectionTitle}>Calendario</Text>
-          <View style={styles.monthSwitcher}>
-            <Pressable onPress={() => setMonthOffset((current) => current - 1)} style={styles.monthButton}>
-              <Feather color={palette.primaryDeep} name="chevron-left" size={18} />
-            </Pressable>
-            <Text style={styles.monthLabel}>{monthLabel}</Text>
-            <Pressable onPress={() => setMonthOffset((current) => current + 1)} style={styles.monthButton}>
-              <Feather color={palette.primaryDeep} name="chevron-right" size={18} />
-            </Pressable>
-          </View>
-        </View>
-
-        <FlingGestureHandler direction={Directions.LEFT} onActivated={() => handleCalendarSwipe('left')}>
-          <FlingGestureHandler direction={Directions.RIGHT} onActivated={() => handleCalendarSwipe('right')}>
-            <View style={styles.calendarCard}>
-              <View style={styles.weekRow}>
-                {WEEKDAY_LABELS.map((label) => (
-                  <Text key={label} style={styles.weekday}>
-                    {label}
-                  </Text>
-                ))}
-              </View>
-
-              <View style={styles.calendarGrid}>
-                {calendarDays.map((day) => {
-                  const isStart = day.date === goal.startDate;
-                  const isDeadline = day.date === viewModel.deadline;
-
-                  return (
-                    <View key={day.date} style={styles.dayCell}>
-                      <View
-                        style={[
-                          styles.dayBubble,
-                          day.status === 'completed' ? styles.dayCompleted : null,
-                          day.status === 'missed' ? styles.dayMissed : styles.dayEmpty,
-                          !day.inMonth ? styles.dayOutsideMonth : null,
-                        ]}>
-                        <Text style={[styles.dayLabel, !day.inMonth ? styles.dayLabelOutsideMonth : null]}>{day.dayNumber}</Text>
-                        {isStart ? (
-                          <View style={styles.dayMarker}>
-                            <MaterialIcons color={palette.snow} name="play-arrow" size={10} />
-                          </View>
-                        ) : null}
-                        {isDeadline ? (
-                          <View style={styles.dayMarker}>
-                            <MaterialCommunityIcons color={palette.snow} name="flag-checkered" size={10} />
-                          </View>
-                        ) : null}
-                      </View>
-                    </View>
-                  );
-                })}
-              </View>
+      <View style={styles.infoCard}>
+        <View style={styles.calendarSection}>
+          <View style={styles.calendarHeader}>
+            <Text style={styles.sectionTitle}>Calendario</Text>
+            <View style={styles.monthSwitcher}>
+              <Pressable onPress={() => setMonthOffset((current) => current - 1)} style={styles.monthButton}>
+                <Feather color={palette.primaryDeep} name="chevron-left" size={18} />
+              </Pressable>
+              <Text style={styles.monthLabel}>{monthLabel}</Text>
+              <Pressable onPress={() => setMonthOffset((current) => current + 1)} style={styles.monthButton}>
+                <Feather color={palette.primaryDeep} name="chevron-right" size={18} />
+              </Pressable>
             </View>
+          </View>
+
+          <FlingGestureHandler direction={Directions.LEFT} onActivated={() => handleCalendarSwipe('left')}>
+            <FlingGestureHandler direction={Directions.RIGHT} onActivated={() => handleCalendarSwipe('right')}>
+              <View style={styles.calendarCard}>
+                <View style={styles.weekRow}>
+                  {WEEKDAY_LABELS.map((label) => (
+                    <Text key={label} style={styles.weekday}>
+                      {label}
+                    </Text>
+                  ))}
+                </View>
+
+                <View style={styles.calendarGrid}>
+                  {calendarDays.map((day) => {
+                    const isStart = day.date === goal.startDate;
+                    const isDeadline = day.date === viewModel.deadline;
+
+                    return (
+                      <View key={day.date} style={styles.dayCell}>
+                        <View
+                          style={[
+                            styles.dayBubble,
+                            day.status === 'completed' ? styles.dayCompleted : null,
+                            day.status === 'missed' ? styles.dayMissed : styles.dayEmpty,
+                            !day.inMonth ? styles.dayOutsideMonth : null,
+                          ]}>
+                          <Text style={[styles.dayLabel, !day.inMonth ? styles.dayLabelOutsideMonth : null]}>{day.dayNumber}</Text>
+                          {isStart ? (
+                            <View style={styles.dayMarker}>
+                              <MaterialIcons color={palette.snow} name="play-arrow" size={10} />
+                            </View>
+                          ) : null}
+                          {isDeadline ? (
+                            <View style={styles.dayMarker}>
+                              <MaterialCommunityIcons color={palette.snow} name="flag-checkered" size={10} />
+                            </View>
+                          ) : null}
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            </FlingGestureHandler>
           </FlingGestureHandler>
-        </FlingGestureHandler>
+
+          <View style={styles.legend}>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, styles.dayCompleted]} />
+              <Text style={styles.legendText}>Cumplido</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, styles.dayMissed]} />
+              <Text style={styles.legendText}>Fallado</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, styles.dayEmpty]} />
+              <Text style={styles.legendText}>Sin check-in</Text>
+            </View>
+          </View>
+
+        </View>
       </View>
 
       <GoalActionConfirmationModal
@@ -567,17 +588,18 @@ const styles = StyleSheet.create({
     color: palette.ink,
   },
   statsSection: {
-    gap: 4,
+    gap: spacing.xs,
   },
   statsRow: {
     flexDirection: 'row',
     gap: spacing.sm,
   },
-  statsLegend: {
-    flexDirection: 'row',
-    gap: spacing.sm,
+  statColumn: {
+    flex: 1,
+    minWidth: 0,
+    gap: 6,
   },
-  legendText: {
+  statLabel: {
     flex: 1,
     fontSize: 11,
     lineHeight: 14,
@@ -585,8 +607,6 @@ const styles = StyleSheet.create({
     color: palette.slate,
   },
   statCard: {
-    flex: 1,
-    minWidth: 0,
     paddingVertical: 8,
     paddingHorizontal: 10,
     borderRadius: 18,
@@ -824,9 +844,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: palette.line,
-    backgroundColor: palette.snow,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -836,15 +854,37 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
     color: palette.ink,
+    textTransform: 'capitalize',
   },
-  calendarCard: {
-    padding: spacing.md,
-    borderRadius: 20,
+  legend: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    flexWrap: 'wrap',
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  legendDot: {
+    width: 10,
+    height: 10,
+    borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: palette.line,
-    backgroundColor: palette.snow,
+  },
+  legendText: {
+    fontSize: 11,
+    color: palette.slate,
+  },
+  calendarCard: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: 2,
+    borderRadius: 20,
+    borderWidth: 0,
+    backgroundColor: 'transparent',
     gap: spacing.sm,
-    ...shadows.card,
   },
   weekRow: {
     flexDirection: 'row',
@@ -867,8 +907,8 @@ const styles = StyleSheet.create({
   },
   dayBubble: {
     position: 'relative',
-    width: 38,
-    height: 38,
+    width: 34,
+    height: 34,
     borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: palette.line,
