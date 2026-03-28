@@ -550,8 +550,8 @@ export function GoalDetailScreen({ goal }: Props) {
 
       <GoalActionConfirmationModal
         confirmLabel="Finalizar"
-        description="El objetivo se cerrara y se resolvera ahora mismo con la misma logica que usa la app cuando expira."
-        eyebrow="Cerrar ciclo"
+        description="Se resolvera el objetivo antes de llegar su fecha de finalizacion. Esta accion no podra deshacerse."
+        eyebrow=""
         onCancel={() => setShowFinalizeConfirmation(false)}
         onConfirm={() => {
           setShowFinalizeConfirmation(false);

@@ -252,9 +252,9 @@ export function GoalsScreen() {
     }
 
     return {
-      eyebrow: 'Cerrar ciclo',
+      eyebrow: '',
       title: 'Finalizar objetivo',
-      description: 'Se cerrara el objetivo y se resolvera ahora mismo con la misma logica que usa la app al expirar.',
+      description: 'Se resolvera el objetivo antes de llegar su fecha de finalizacion. Esta accion no podra deshacerse.',
       confirmLabel: 'Finalizar',
       tone: 'default' as const,
     };
