@@ -16,7 +16,7 @@ import { usePunishmentCatalog } from '@/src/features/punishments/selectors';
 import { getMonthStart, WEEKDAY_LABELS } from '@/src/features/stats/calendar';
 import { Goal, GoalCalendarDay } from '@/src/models/types';
 import { appRoutes } from '@/src/navigation/app-routes';
-import { selectGoalDetail, selectStatsCalendar, useAppStore } from '@/src/store/app-store';
+import { selectAssignedPunishmentDetail, selectGoalDetail, selectStatsCalendar, useAppStore } from '@/src/store/app-store';
 import { addMonths, diffInDays, formatCompactDate, startOfToday } from '@/src/utils/date';
 import { getGoalDeadline, getGoalRequiredDays } from '@/src/utils/goal-evaluation';
 
@@ -111,7 +111,10 @@ function getPunishmentScopeLabel(scope: Goal['punishmentConfig']['scope']) {
 
 export function GoalDetailScreen({ goal }: Props) {
   const detail = useAppStore(selectGoalDetail(goal?.id ?? ''));
+  const assignedPunishmentId = detail?.outcome?.assignedPunishmentId;
+  const assignedPunishmentDetail = useAppStore(selectAssignedPunishmentDetail(assignedPunishmentId ?? ''));
   const loadGoalDetail = useAppStore((state) => state.loadGoalDetail);
+  const loadAssignedPunishmentDetail = useAppStore((state) => state.loadAssignedPunishmentDetail);
   const loadStatsCalendar = useAppStore((state) => state.loadStatsCalendar);
   const finalizeGoal = useAppStore((state) => state.finalizeGoal);
   const { punishmentsLoaded, refreshPunishmentCatalog, basePunishments, personalPunishments } = usePunishmentCatalog();
@@ -150,6 +153,14 @@ export function GoalDetailScreen({ goal }: Props) {
       void refreshPunishmentCatalog().catch(() => undefined);
     }
   }, [punishmentsLoaded, refreshPunishmentCatalog]);
+
+  useEffect(() => {
+    if (!assignedPunishmentId || assignedPunishmentDetail) {
+      return;
+    }
+
+    void loadAssignedPunishmentDetail(assignedPunishmentId).catch(() => undefined);
+  }, [assignedPunishmentDetail, assignedPunishmentId, loadAssignedPunishmentDetail]);
 
   if (!goal) {
     return (
@@ -404,27 +415,58 @@ export function GoalDetailScreen({ goal }: Props) {
         </View>
       ) : null}
 
-      {goal.lifecycleStatus === 'closed' ? (
+      {isResolvedFailed ? (
         <View style={styles.infoCard}>
-          <Text style={styles.infoTitle}>Outcome persistido</Text>
-          <Text style={styles.copyLine}>{`Dias completados: ${viewModel.evaluation.completedDays}/${safeRequiredDays}`}</Text>
-          <Text style={styles.copyLine}>{`Tasa de cumplimiento: ${viewModel.evaluation.completionRate}%`}</Text>
-          {isResolvedPassed ? (
-            <Text style={[styles.copyLine, styles.successText]}>El objetivo quedo aprobado.</Text>
-          ) : isResolvedFailed ? (
-            viewModel.outcome?.assignedPunishmentId ? (
-              <>
-                <Text style={[styles.copyLine, styles.dangerText]}>El objetivo quedo fallido y este ciclo tiene un castigo asignado.</Text>
-                <Pressable onPress={() => router.push(appRoutes.punishment(viewModel.outcome!.assignedPunishmentId!))} style={styles.secondaryActionButton}>
-                  <Text style={styles.secondaryActionLabel}>Ver castigo</Text>
-                </Pressable>
-              </>
+          <Text style={styles.infoTitle}>Consecuencia</Text>
+          {assignedPunishmentId ? (
+            assignedPunishmentDetail ? (
+              <View style={styles.consequenceCard}>
+                <View style={styles.consequenceHeader}>
+                  <Text style={styles.consequenceTitle}>{assignedPunishmentDetail.punishment.title}</Text>
+                  <View style={styles.consequenceMetaRow}>
+                    <View style={[styles.filterChipOption, styles.consequenceTypeChip]}>
+                      <Text style={[styles.filterChipOptionLabel, styles.consequenceTypeChipLabel]}>
+                        {assignedPunishmentDetail.punishment.scope === 'personal' ? 'Personal' : 'Estandar'}
+                      </Text>
+                    </View>
+                    {(() => {
+                      const categoryOption = PUNISHMENT_CATEGORY_OPTIONS.find(
+                        (option) => option.name === assignedPunishmentDetail.punishment.categoryName,
+                      );
+
+                      if (!categoryOption) {
+                        return null;
+                      }
+
+                      return (
+                        <View
+                          style={[
+                            styles.categoryChip,
+                            styles.consequenceCategoryChip,
+                            {
+                              backgroundColor: categoryOption.tint,
+                              borderColor: categoryOption.accent,
+                            },
+                          ]}>
+                          <View style={[styles.categoryChipIconWrap, styles.consequenceCategoryIconWrap]}>
+                            <Ionicons color={categoryOption.accent} name={categoryOption.icon} size={14} />
+                          </View>
+                          <Text style={[styles.categoryChipTitle, styles.consequenceCategoryChipLabel]}>{categoryOption.label}</Text>
+                        </View>
+                      );
+                    })()}
+                  </View>
+                </View>
+                <Text style={styles.consequenceDescription}>{assignedPunishmentDetail.punishment.description}</Text>
+              </View>
             ) : (
-              <Text style={[styles.copyLine, styles.dangerText]}>
-                El objetivo quedo fallido sin castigo asignado porque el pool guardado en este objetivo ya no tenia castigos elegibles.
-              </Text>
+              <Text style={styles.copyLine}>Cargando castigo asignado...</Text>
             )
-          ) : null}
+          ) : (
+            <Text style={[styles.copyLine, styles.dangerText]}>
+              El objetivo fallo, pero no se pudo asignar un castigo porque el pool guardado ya no tenia opciones elegibles.
+            </Text>
+          )}
         </View>
       ) : null}
 
@@ -742,6 +784,60 @@ const styles = StyleSheet.create({
     color: palette.ink,
   },
   availablePunishmentEmpty: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: palette.slate,
+  },
+  consequenceCard: {
+    padding: spacing.sm,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#FFD3D3',
+    backgroundColor: '#FFF6F6',
+    gap: spacing.xs,
+  },
+  consequenceHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  consequenceTitle: {
+    flex: 1,
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: '800',
+    color: palette.ink,
+  },
+  consequenceMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
+  },
+  consequenceTypeChip: {
+    backgroundColor: '#EEF4FF',
+    borderColor: '#D6E1F1',
+  },
+  consequenceTypeChipLabel: {
+    color: palette.primaryDeep,
+  },
+  consequenceCategoryChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    minHeight: 0,
+  },
+  consequenceCategoryIconWrap: {
+    width: 18,
+    height: 18,
+    backgroundColor: palette.snow,
+  },
+  consequenceCategoryChipLabel: {
+    color: palette.ink,
+    fontSize: 11,
+  },
+  consequenceDescription: {
     fontSize: 14,
     lineHeight: 20,
     color: palette.slate,
