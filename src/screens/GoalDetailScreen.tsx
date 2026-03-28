@@ -1,7 +1,7 @@
-import { Feather, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
+import { Feather, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { type ComponentProps, useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Directions, FlingGestureHandler } from 'react-native-gesture-handler';
 
 import { EmptyState } from '@/src/components/EmptyState';
@@ -12,11 +12,12 @@ import { StatusBadge } from '@/src/components/StatusBadge';
 import { PUNISHMENT_CATEGORY_OPTIONS } from '@/src/constants/punishments';
 import { palette, radius, shadows, spacing } from '@/src/constants/theme';
 import { buildMonthCalendar } from '@/src/features/goals/goal-form';
+import { usePunishmentCatalog } from '@/src/features/punishments/selectors';
 import { getMonthStart, WEEKDAY_LABELS } from '@/src/features/stats/calendar';
 import { Goal, GoalCalendarDay } from '@/src/models/types';
 import { appRoutes } from '@/src/navigation/app-routes';
 import { selectGoalDetail, selectStatsCalendar, useAppStore } from '@/src/store/app-store';
-import { addMonths, formatCompactDate, startOfToday } from '@/src/utils/date';
+import { addMonths, diffInDays, formatCompactDate, startOfToday } from '@/src/utils/date';
 import { getGoalDeadline, getGoalRequiredDays } from '@/src/utils/goal-evaluation';
 
 type Props = {
@@ -33,9 +34,10 @@ type DetailStatProps = {
 type InfoItemProps = {
   label: string;
   value: string;
-  iconName: ComponentProps<typeof MaterialCommunityIcons>['name'];
+  iconName: ComponentProps<typeof MaterialCommunityIcons>['name'] | ComponentProps<typeof MaterialIcons>['name'];
   iconColor: string;
   iconBackgroundColor: string;
+  iconFamily?: 'material-community' | 'material';
 };
 
 function DetailStat({ value, iconColor, iconName, iconFamily = 'material-community' }: DetailStatProps) {
@@ -53,12 +55,16 @@ function DetailStat({ value, iconColor, iconName, iconFamily = 'material-communi
   );
 }
 
-function InfoItem({ label, value, iconName, iconColor, iconBackgroundColor }: InfoItemProps) {
+function InfoItem({ label, value, iconName, iconColor, iconBackgroundColor, iconFamily = 'material-community' }: InfoItemProps) {
   return (
     <View style={styles.infoItem}>
       <View style={styles.infoItemHeader}>
         <View style={[styles.infoIconWrap, { backgroundColor: iconBackgroundColor }]}>
-          <MaterialCommunityIcons color={iconColor} name={iconName} size={18} />
+          {iconFamily === 'material' ? (
+            <MaterialIcons color={iconColor} name={iconName as ComponentProps<typeof MaterialIcons>['name']} size={18} />
+          ) : (
+            <MaterialCommunityIcons color={iconColor} name={iconName as ComponentProps<typeof MaterialCommunityIcons>['name']} size={18} />
+          )}
         </View>
         <Text style={styles.infoItemLabel}>{label}</Text>
       </View>
@@ -87,52 +93,16 @@ function formatCalendarMonthLabel(date: Date) {
   return `${month.charAt(0).toUpperCase()}${month.slice(1)} ${year}`.trim();
 }
 
-function formatResolutionSource(source?: Goal['resolutionSource']) {
-  if (source === 'manual') {
-    return 'Manual';
+function getPunishmentScopeLabel(scope: Goal['punishmentConfig']['scope']) {
+  if (scope === 'base') {
+    return 'Estandar';
   }
 
-  if (source === 'expired') {
-    return 'Por expiracion';
+  if (scope === 'personal') {
+    return 'Personales';
   }
 
-  return 'Pendiente';
-}
-
-function formatLifecycle(goal: Goal) {
-  if (goal.lifecycleStatus === 'active') {
-    return 'Activo';
-  }
-
-  return 'Finalizado';
-}
-
-function formatResolution(goal: Goal) {
-  if (goal.resolutionStatus === 'passed') {
-    return 'Aprobado';
-  }
-
-  if (goal.resolutionStatus === 'failed') {
-    return 'Fallido';
-  }
-
-  return 'Pendiente';
-}
-
-function buildPunishmentPoolSummary(goal: Goal) {
-  const scopeLabel =
-    goal.punishmentConfig.scope === 'base'
-      ? 'Castigos estandar'
-      : goal.punishmentConfig.scope === 'personal'
-        ? 'Castigos personales'
-        : 'Ambos origenes';
-
-  if (goal.punishmentConfig.categoryMode === 'all') {
-    return `${scopeLabel} + todas las categorias`;
-  }
-
-  const labels = PUNISHMENT_CATEGORY_OPTIONS.filter((option) => goal.punishmentConfig.categoryNames.includes(option.name)).map((option) => option.label);
-  return `${scopeLabel} + ${labels.join(', ')}`;
+  return 'Ambos';
 }
 
 export function GoalDetailScreen({ goal }: Props) {
@@ -140,6 +110,7 @@ export function GoalDetailScreen({ goal }: Props) {
   const loadGoalDetail = useAppStore((state) => state.loadGoalDetail);
   const loadStatsCalendar = useAppStore((state) => state.loadStatsCalendar);
   const finalizeGoal = useAppStore((state) => state.finalizeGoal);
+  const { punishmentsLoaded, refreshPunishmentCatalog, basePunishments, personalPunishments } = usePunishmentCatalog();
   const evaluation = useAppStore((state) => (goal ? state.goalEvaluations[goal.id] : undefined));
   const goalSubtitle = goal?.description?.trim() || undefined;
   const [monthOffset, setMonthOffset] = useState(0);
@@ -169,6 +140,12 @@ export function GoalDetailScreen({ goal }: Props) {
 
     void loadStatsCalendar(goal.id, monthStart);
   }, [goal, loadStatsCalendar, monthStart]);
+
+  useEffect(() => {
+    if (!punishmentsLoaded) {
+      void refreshPunishmentCatalog().catch(() => undefined);
+    }
+  }, [punishmentsLoaded, refreshPunishmentCatalog]);
 
   if (!goal) {
     return (
@@ -212,6 +189,23 @@ export function GoalDetailScreen({ goal }: Props) {
   const showUnreachableHint = goal.lifecycleStatus === 'active' && viewModel.daysUntilStart === 0 && pendingRequiredDays > viewModel.remainingDays;
   const monthLabel = formatCalendarMonthLabel(monthDate);
   const progressTone = isResolvedFailed ? palette.danger : isResolvedPassed ? palette.success : palette.primary;
+  const durationDays = diffInDays(goal.startDate, viewModel.deadline) + 1;
+  const eligiblePunishments = useMemo(() => {
+    const sourcePunishments =
+      goal.punishmentConfig.scope === 'base'
+        ? basePunishments
+        : goal.punishmentConfig.scope === 'personal'
+          ? personalPunishments
+          : [...basePunishments, ...personalPunishments];
+
+    return sourcePunishments.filter((punishment) => {
+      if (goal.punishmentConfig.categoryMode === 'all') {
+        return true;
+      }
+
+      return goal.punishmentConfig.categoryNames.includes(punishment.categoryName);
+    });
+  }, [basePunishments, goal.punishmentConfig, personalPunishments]);
   const progressHint = isResolvedPassed
     ? 'Objetivo aprobado. El ciclo ya quedo resuelto.'
     : isResolvedFailed
@@ -239,7 +233,6 @@ export function GoalDetailScreen({ goal }: Props) {
       <View style={styles.progressCard}>
         <View style={styles.progressHeader}>
           <StatusBadge lifecycleStatus={goal.lifecycleStatus} resolutionStatus={goal.resolutionStatus} />
-          <Text style={styles.progressStatusText}>{formatLifecycle(goal)} · {formatResolution(goal)}</Text>
         </View>
 
         <ProgressRing
@@ -289,7 +282,7 @@ export function GoalDetailScreen({ goal }: Props) {
       </View>
 
       <View style={styles.infoCard}>
-        <Text style={styles.infoTitle}>Estado del objetivo</Text>
+        <Text style={styles.infoTitle}>Informacion</Text>
         <View style={styles.infoGrid}>
           <InfoItem
             iconBackgroundColor="#E8F1FF"
@@ -306,34 +299,107 @@ export function GoalDetailScreen({ goal }: Props) {
             value={formatCompactDate(viewModel.deadline)}
           />
           <InfoItem
-            iconBackgroundColor="#EEF8F0"
-            iconColor={palette.success}
-            iconName="progress-check"
-            label="Estado"
-            value={formatLifecycle(goal)}
+            iconBackgroundColor="#EAF8EF"
+            iconColor="#43B66E"
+            iconFamily="material"
+            iconName="hourglass-top"
+            label="Duracion"
+            value={`${durationDays} ${durationDays === 1 ? 'dia' : 'dias'}`}
           />
           <InfoItem
             iconBackgroundColor="#FFF6E5"
             iconColor={palette.warning}
             iconName="check-decagram"
-            label="Resultado"
-            value={formatResolution(goal)}
+            label="Requisito"
+            value={`${safeRequiredDays} ${safeRequiredDays === 1 ? 'dia' : 'dias'}`}
           />
         </View>
       </View>
 
-      <View style={styles.infoCard}>
-        <Text style={styles.infoTitle}>Regla y resolucion</Text>
-        <Text style={styles.copyLine}>{`Debes completar ${safeRequiredDays} de ${goal.targetDays} ${goal.targetDays === 1 ? 'dia' : 'dias'} para aprobar.`}</Text>
-        <Text style={styles.copyLine}>{`Origen de resolucion: ${formatResolutionSource(goal.resolutionSource)}`}</Text>
-        {goal.closedOn ? <Text style={styles.copyLine}>{`Fecha de cierre: ${formatCompactDate(goal.closedOn)}`}</Text> : null}
-        {goal.resolvedAt ? <Text style={styles.copyLine}>{`Resuelto el: ${formatCompactDate(goal.resolvedAt.slice(0, 10))}`}</Text> : null}
-      </View>
+      {goal.lifecycleStatus === 'active' ? (
+        <View style={styles.infoCard}>
+          <View style={styles.contentSectionHeader}>
+            <Text style={styles.infoTitle}>Posibles castigos</Text>
+            <View style={styles.countBadge}>
+              <Text style={styles.countBadgeLabel}>{eligiblePunishments.length}</Text>
+            </View>
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.punishmentChipsRow}
+            style={styles.punishmentChipsScroll}>
+            <View style={[styles.filterChipOption, styles.filterChipOptionActive]}>
+              <Text style={[styles.filterChipOptionLabel, styles.filterChipOptionLabelActive]}>{getPunishmentScopeLabel(goal.punishmentConfig.scope)}</Text>
+            </View>
+            {goal.punishmentConfig.categoryMode === 'all' ? (
+              <View style={[styles.filterChipOption, styles.filterChipOptionActive]}>
+                <Text style={[styles.filterChipOptionLabel, styles.filterChipOptionLabelActive]}>Todas</Text>
+              </View>
+            ) : (
+              PUNISHMENT_CATEGORY_OPTIONS.filter((option) => goal.punishmentConfig.categoryNames.includes(option.name)).map((option) => (
+                <View
+                  key={option.name}
+                  style={[
+                    styles.categoryChip,
+                    {
+                      backgroundColor: option.accent,
+                      borderColor: option.accent,
+                    },
+                  ]}>
+                  <View
+                    style={[
+                      styles.categoryChipIconWrap,
+                      {
+                        backgroundColor: `${palette.snow}22`,
+                      },
+                    ]}>
+                    <Ionicons color={palette.snow} name={option.icon} size={18} />
+                  </View>
+                  <Text style={[styles.categoryChipTitle, styles.categoryChipTitleActive]}>{option.label}</Text>
+                </View>
+              ))
+            )}
+          </ScrollView>
 
-      <View style={styles.infoCard}>
-        <Text style={styles.infoTitle}>Pool de castigos</Text>
-        <Text style={styles.copyLine}>{buildPunishmentPoolSummary(goal)}</Text>
-      </View>
+          <View style={styles.availablePunishmentsCard}>
+            {punishmentsLoaded ? (
+              eligiblePunishments.length > 0 ? (
+                <View style={styles.availablePunishmentsScrollWrap}>
+                  <ScrollView
+                    nestedScrollEnabled
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={styles.availablePunishmentsContent}
+                    style={styles.availablePunishmentsScroll}>
+                    {eligiblePunishments.map((punishment) => {
+                      const categoryOption = PUNISHMENT_CATEGORY_OPTIONS.find((option) => option.name === punishment.categoryName);
+
+                      return (
+                        <View key={punishment.id} style={styles.availablePunishmentRow}>
+                          <View
+                            style={[
+                              styles.availablePunishmentIconWrap,
+                              {
+                                backgroundColor: categoryOption?.tint ?? '#EEF4FF',
+                              },
+                            ]}>
+                            <Ionicons color={categoryOption?.accent ?? palette.primaryDeep} name={categoryOption?.icon ?? 'sparkles-outline'} size={14} />
+                          </View>
+                          <Text style={styles.availablePunishmentTitle}>{punishment.title}</Text>
+                        </View>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              ) : (
+                <Text style={styles.availablePunishmentEmpty}>No hay castigos disponibles con esta seleccion.</Text>
+              )
+            ) : (
+              <Text style={styles.availablePunishmentEmpty}>Cargando catalogo de castigos...</Text>
+            )}
+          </View>
+        </View>
+      ) : null}
 
       {goal.lifecycleStatus === 'closed' ? (
         <View style={styles.infoCard}>
@@ -452,11 +518,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xs,
   },
-  progressStatusText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: palette.slate,
-  },
   progressHint: {
     textAlign: 'center',
     fontSize: 14,
@@ -559,6 +620,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: palette.ink,
   },
+  contentSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
   infoGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -615,6 +682,126 @@ const styles = StyleSheet.create({
   dangerText: {
     color: palette.danger,
     fontWeight: '700',
+  },
+  availablePunishmentsCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E6ECF5',
+    backgroundColor: '#F8FBFF',
+    padding: spacing.sm,
+    gap: spacing.sm,
+  },
+  availablePunishmentsScrollWrap: {
+    maxHeight: 220,
+  },
+  availablePunishmentsScroll: {
+    flexGrow: 0,
+  },
+  availablePunishmentsContent: {
+    gap: spacing.xs,
+  },
+  availablePunishmentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: 8,
+    paddingHorizontal: 2,
+  },
+  availablePunishmentIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  availablePunishmentTitle: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '700',
+    color: palette.ink,
+  },
+  availablePunishmentEmpty: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: palette.slate,
+  },
+  countBadge: {
+    minWidth: 24,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EEF3FB',
+  },
+  countBadgeLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: palette.primaryDeep,
+  },
+  filterChipWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  punishmentChipsScroll: {
+    marginHorizontal: -2,
+  },
+  punishmentChipsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: 2,
+  },
+  filterChipOption: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: '#D6E1F1',
+    backgroundColor: '#EEF4FF',
+  },
+  filterChipOptionActive: {
+    backgroundColor: palette.primaryDeep,
+    borderColor: palette.primaryDeep,
+  },
+  filterChipOptionLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: palette.primaryDeep,
+  },
+  filterChipOptionLabelActive: {
+    color: palette.snow,
+  },
+  categoryChipWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  categoryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    minHeight: 28,
+  },
+  categoryChipIconWrap: {
+    width: 20,
+    height: 20,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  categoryChipTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  categoryChipTitleActive: {
+    color: palette.snow,
   },
   calendarSection: {
     gap: spacing.sm,
