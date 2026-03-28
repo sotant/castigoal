@@ -42,7 +42,13 @@ export function StatsScreen() {
       requestAnimationFrame(() => {
         scrollRef.current?.scrollTo({ x: 0, y: 0, animated: false });
       });
-    }, []),
+
+      void refreshStatsSummary();
+
+      if (selectedGoal) {
+        void loadStatsCalendar(selectedGoal.id, monthStart);
+      }
+    }, [loadStatsCalendar, monthStart, refreshStatsSummary, selectedGoal]),
   );
 
   useEffect(() => {

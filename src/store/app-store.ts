@@ -160,6 +160,10 @@ function buildCalendarKey(goalId: string, monthStart: string) {
   return `${goalId}:${monthStart}`;
 }
 
+function getMonthStartFromDate(date: string) {
+  return `${date.slice(0, 7)}-01`;
+}
+
 export const useAppStore = create<AppState>()((set, get) => ({
   ...initialState,
   setHydrated: (hydrated) => set({ hydrated }),
@@ -349,6 +353,8 @@ export const useAppStore = create<AppState>()((set, get) => ({
   recordCheckin: async (input) => {
     const result = await recordGoalCheckinUseCase(input);
     const goal = get().goals.find((item) => item.id === input.goalId);
+    const monthStart = getMonthStartFromDate(result.date);
+    const calendarKey = buildCalendarKey(input.goalId, monthStart);
 
     set((state) => ({
       goalEvaluations: result.goalEvaluations,
@@ -377,11 +383,23 @@ export const useAppStore = create<AppState>()((set, get) => ({
       }));
     }
 
+    if (calendarKey in get().statsCalendars) {
+      const days = await loadGoalCalendarMonth(input.goalId, monthStart);
+      set((state) => ({
+        statsCalendars: {
+          ...state.statsCalendars,
+          [calendarKey]: days,
+        },
+      }));
+    }
+
     return result;
   },
   clearCheckin: async (input) => {
     const result = await clearGoalCheckinUseCase(input);
     const goal = get().goals.find((item) => item.id === input.goalId);
+    const monthStart = getMonthStartFromDate(result.date);
+    const calendarKey = buildCalendarKey(input.goalId, monthStart);
 
     set((state) => {
       const nextAssignedDetails = { ...state.assignedPunishmentDetails };
@@ -405,6 +423,16 @@ export const useAppStore = create<AppState>()((set, get) => ({
         goalDetails: {
           ...state.goalDetails,
           [goal.id]: detail,
+        },
+      }));
+    }
+
+    if (calendarKey in get().statsCalendars) {
+      const days = await loadGoalCalendarMonth(input.goalId, monthStart);
+      set((state) => ({
+        statsCalendars: {
+          ...state.statsCalendars,
+          [calendarKey]: days,
         },
       }));
     }
