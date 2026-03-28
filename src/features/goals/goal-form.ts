@@ -28,7 +28,11 @@ export function getRateForRequiredDays(targetDays: number, requiredDays: number)
   }
 
   const normalizedDays = clamp(requiredDays, 0, targetDays);
-  return Math.round((normalizedDays / targetDays) * 100);
+  if (normalizedDays >= targetDays) {
+    return 100;
+  }
+
+  return Math.floor(((normalizedDays - 1) * 100) / targetDays) + 1;
 }
 
 export function toCalendarDateParts(value: string) {
