@@ -240,7 +240,7 @@ export function buildAssignedPunishmentId(goalId: string, periodKey: string) {
   return buildDeterministicUuid(`assigned-punishment:${goalId}:${periodKey}`);
 }
 
-export function assignPunishment(goal: Goal, punishment: Punishment, periodKey: string, dueDate: string): AssignedPunishment {
+export function assignPunishment(goal: Goal, punishment: Punishment, periodKey: string): AssignedPunishment {
   const now = new Date().toISOString();
 
   return {
@@ -248,7 +248,6 @@ export function assignPunishment(goal: Goal, punishment: Punishment, periodKey: 
     goalId: goal.id,
     punishmentId: punishment.id,
     assignedAt: now,
-    dueDate,
     status: 'pending',
     periodKey,
   };

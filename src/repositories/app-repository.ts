@@ -47,7 +47,6 @@ type GoalEvaluationRow = {
 type RecordGoalCheckinRow = {
   assigned_punishment_assigned_at: string | null;
   assigned_punishment_completed_at: string | null;
-  assigned_punishment_due_date: string | null;
   assigned_punishment_goal_id: string | null;
   assigned_punishment_id: string | null;
   assigned_punishment_period_key: string | null;
@@ -75,13 +74,13 @@ type HomeSummaryRow = {
   latest_pending_assigned_id: string | null;
   latest_pending_goal_id: string | null;
   latest_pending_punishment_id: string | null;
-  latest_pending_due_date: string | null;
   latest_pending_status: string | null;
   latest_punishment_title: string | null;
   latest_punishment_description: string | null;
   latest_punishment_category_id: string | null;
   latest_punishment_category_name: string | null;
   latest_punishment_difficulty: number | null;
+  latest_punishment_created_at: string | null;
   latest_punishment_scope: 'base' | 'personal' | null;
 };
 
@@ -143,7 +142,6 @@ type PendingAssignedPunishmentRow = {
   punishment_difficulty: Punishment['difficulty'];
   punishment_scope: Punishment['scope'];
   assigned_at: string;
-  due_date: string;
   status: AssignedPunishment['status'];
 };
 
@@ -280,7 +278,6 @@ function mapAssignedPunishment(row: AssignedPunishmentRow): AssignedPunishment {
     goalId: row.goal_id,
     punishmentId: row.punishment_id,
     assignedAt: row.assigned_at,
-    dueDate: row.due_date,
     status: row.status as AssignedPunishment['status'],
     completedAt: row.completed_at ?? undefined,
     periodKey: row.period_key,
@@ -296,7 +293,6 @@ function mapPendingAssignedPunishment(row: PendingAssignedPunishmentRow): Pendin
     goalTitle: row.goal_title,
     punishmentId: row.punishment_id,
     assignedAt: row.assigned_at,
-    dueDate: row.due_date,
     status: row.status,
     punishment: {
       id: row.punishment_id,
@@ -375,13 +371,13 @@ function mapPendingPunishmentPreview(row: HomeSummaryRow): PendingPunishmentPrev
     !row.latest_pending_assigned_id ||
     !row.latest_pending_goal_id ||
     !row.latest_pending_punishment_id ||
-    !row.latest_pending_due_date ||
     !row.latest_pending_status ||
     !row.latest_punishment_title ||
     !row.latest_punishment_description ||
     !row.latest_punishment_category_id ||
     !row.latest_punishment_category_name ||
     !row.latest_punishment_difficulty ||
+    !row.latest_punishment_created_at ||
     !row.latest_punishment_scope
   ) {
     return undefined;
@@ -393,7 +389,6 @@ function mapPendingPunishmentPreview(row: HomeSummaryRow): PendingPunishmentPrev
     assignedId: row.latest_pending_assigned_id,
     goalId: row.latest_pending_goal_id,
     punishmentId: row.latest_pending_punishment_id,
-    dueDate: row.latest_pending_due_date,
     status: row.latest_pending_status as AssignedPunishment['status'],
     punishment: {
       id: row.latest_pending_punishment_id,
@@ -404,7 +399,7 @@ function mapPendingPunishmentPreview(row: HomeSummaryRow): PendingPunishmentPrev
         getPunishmentCategoryName(categoryId, row.latest_punishment_category_name)) as Punishment['categoryName'],
       difficulty: row.latest_punishment_difficulty as Punishment['difficulty'],
       scope: row.latest_punishment_scope,
-      createdAt: row.latest_pending_due_date,
+      createdAt: row.latest_punishment_created_at,
     },
   };
 }
@@ -494,12 +489,11 @@ function mapCheckinRpcRow(row: RecordGoalCheckinRow): RecordCheckinResult {
   };
 
   const assignedPunishment = row.assigned_punishment_id
-    ? {
+      ? {
         id: row.assigned_punishment_id,
         goalId: row.assigned_punishment_goal_id!,
         punishmentId: row.assigned_punishment_punishment_id!,
         assignedAt: row.assigned_punishment_assigned_at!,
-        dueDate: row.assigned_punishment_due_date!,
         status: row.assigned_punishment_status as AssignedPunishment['status'],
         completedAt: row.assigned_punishment_completed_at ?? undefined,
         periodKey: row.assigned_punishment_period_key!,

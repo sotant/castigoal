@@ -20,6 +20,7 @@ import type {
   GoalDetailSummary,
   GoalEvaluation,
   GoalOutcome,
+  GoalResolutionAnnouncement,
   HomeGoalSummary,
   HomeSummary,
   PendingAssignedPunishmentSummary,
@@ -152,6 +153,7 @@ type BootstrapSnapshot = AppBootstrapData & {
 const APP_STORAGE_PREFIX = 'castigoal.v2';
 const DEVICE_ID_KEY = `${APP_STORAGE_PREFIX}.device-id`;
 const CURRENT_GUEST_ID_KEY = `${APP_STORAGE_PREFIX}.guest-id`;
+const GOAL_RESOLUTION_SEEN_KEY_PREFIX = `${APP_STORAGE_PREFIX}.goal-resolution-seen`;
 
 const defaultSettings: UserSettings = {
   remindersEnabled: true,
@@ -212,6 +214,18 @@ async function readJson<T>(key: string): Promise<T | null> {
 
 async function writeJson(key: string, value: unknown) {
   await AsyncStorage.setItem(key, JSON.stringify(value));
+}
+
+function buildGoalResolutionSeenKey(actorId: string) {
+  return `${GOAL_RESOLUTION_SEEN_KEY_PREFIX}.${actorId}`;
+}
+
+async function readSeenGoalResolutionIds(actorId: string) {
+  return (await readJson<string[]>(buildGoalResolutionSeenKey(actorId))) ?? [];
+}
+
+async function writeSeenGoalResolutionIds(actorId: string, ids: string[]) {
+  await writeJson(buildGoalResolutionSeenKey(actorId), ids);
 }
 
 async function getOrCreateDeviceId() {
@@ -783,7 +797,6 @@ function getPendingPunishmentSummaries(
       return {
         assignedAt: assigned.assignedAt,
         assignedId: assigned.id,
-        dueDate: assigned.dueDate,
         goalId: goal.id,
         goalTitle: goal.title,
         punishment,
@@ -793,6 +806,52 @@ function getPendingPunishmentSummaries(
     })
     .filter((item): item is PendingAssignedPunishmentSummary => Boolean(item))
     .sort((left, right) => right.assignedAt.localeCompare(left.assignedAt));
+}
+
+function buildGoalResolutionAnnouncements(
+  goalOutcomes: GoalOutcome[],
+  goals: Goal[],
+  assignedPunishments: AssignedPunishment[],
+  punishments: Punishment[],
+  seenOutcomeIds: Set<string>,
+): GoalResolutionAnnouncement[] {
+  const goalsById = new Map(goals.map((goal) => [goal.id, goal]));
+  const assignedById = new Map(assignedPunishments.map((assigned) => [assigned.id, assigned]));
+  const punishmentsById = new Map(punishments.map((punishment) => [punishment.id, punishment]));
+
+  const announcements: GoalResolutionAnnouncement[] = [];
+
+  for (const outcome of goalOutcomes) {
+    if (seenOutcomeIds.has(outcome.id)) {
+      continue;
+    }
+
+    const goal = goalsById.get(outcome.goalId);
+
+    if (!goal) {
+      continue;
+    }
+
+    const assignedPunishment = outcome.assignedPunishmentId ? assignedById.get(outcome.assignedPunishmentId) : undefined;
+    const punishment = assignedPunishment ? punishmentsById.get(assignedPunishment.punishmentId) : undefined;
+
+    announcements.push({
+      assignedPunishmentDescription: punishment?.description,
+      assignedPunishmentId: assignedPunishment?.id,
+      assignedPunishmentTitle: punishment?.title,
+      completedDays: outcome.completedDays,
+      completionRate: outcome.completionRate,
+      evaluatedAt: outcome.evaluatedAt,
+      goalId: goal.id,
+      goalTitle: goal.title,
+      outcomeId: outcome.id,
+      passed: outcome.passed,
+      requiredDays: outcome.requiredDays,
+      resolutionSource: outcome.resolutionSource,
+    });
+  }
+
+  return announcements.sort((left, right) => right.evaluatedAt.localeCompare(left.evaluatedAt));
 }
 
 function buildHomeSummary(
@@ -810,7 +869,6 @@ function buildHomeSummary(
     latestPending: latestPending
       ? {
           assignedId: latestPending.assignedId,
-          dueDate: latestPending.dueDate,
           goalId: latestPending.goalId,
           punishment: latestPending.punishment,
           punishmentId: latestPending.punishmentId,
@@ -1184,7 +1242,6 @@ function mapAssignedPunishmentRow(row: Tables<'assigned_punishments'>): SyncReco
     data: {
       assignedAt: row.assigned_at,
       completedAt: row.completed_at ?? undefined,
-      dueDate: row.due_date,
       goalId: row.goal_id,
       id: row.id,
       periodKey: row.period_key,
@@ -1568,7 +1625,6 @@ async function pushPendingRecords(container: LocalContainer) {
     const payload = assigned.map((record, index) => ({
       assigned_at: record.data.assignedAt,
       completed_at: record.data.completedAt ?? null,
-      due_date: record.data.dueDate,
       goal_id: record.data.goalId,
       id: record.data.id,
       origin_device_id: deviceId,
@@ -1581,7 +1637,6 @@ async function pushPendingRecords(container: LocalContainer) {
     const payloadWithoutMetadata = assigned.map((record, index) => ({
       assigned_at: record.data.assignedAt,
       completed_at: record.data.completedAt ?? null,
-      due_date: record.data.dueDate,
       goal_id: record.data.goalId,
       id: record.data.id,
       period_key: record.data.periodKey,
@@ -1903,6 +1958,40 @@ export async function loadCompletedPunishmentHistory() {
   return getDerivedData(container).completedHistory;
 }
 
+export async function loadGoalResolutionAnnouncements(): Promise<GoalResolutionAnnouncement[]> {
+  const { container } = await getActiveContainer();
+  seedBasePunishments(container);
+
+  const seenOutcomeIds = new Set(await readSeenGoalResolutionIds(container.actorId));
+  const goalOutcomes = getValues(container.records.goalOutcomes).sort((left, right) => right.evaluatedAt.localeCompare(left.evaluatedAt));
+  const goals = sortGoals(getValues(container.records.goals));
+  const assignedPunishments = getValues(container.records.assignedPunishments);
+  const punishments = getValues(container.records.punishments);
+
+  return buildGoalResolutionAnnouncements(
+    goalOutcomes,
+    goals,
+    assignedPunishments,
+    punishments,
+    seenOutcomeIds,
+  );
+}
+
+export async function loadGoalResolutionAnnouncementByOutcomeId(outcomeId: string): Promise<GoalResolutionAnnouncement | null> {
+  const announcements = await loadGoalResolutionAnnouncements();
+  return announcements.find((announcement) => announcement.outcomeId === outcomeId) ?? null;
+}
+
+export async function markGoalResolutionAnnouncementSeen(outcomeId: string): Promise<GoalResolutionAnnouncement[]> {
+  const { container } = await getActiveContainer();
+  const seenOutcomeIds = new Set(await readSeenGoalResolutionIds(container.actorId));
+
+  seenOutcomeIds.add(outcomeId);
+  await writeSeenGoalResolutionIds(container.actorId, Array.from(seenOutcomeIds));
+
+  return loadGoalResolutionAnnouncements();
+}
+
 export async function loadBootstrapData(): Promise<AppBootstrapData> {
   const { container } = await getActiveContainer();
   const derived = getDerivedData(container);
@@ -2034,7 +2123,7 @@ function resolveGoalIfNeeded(
     const selectedPunishment = selectDeterministicPunishment(eligiblePunishments, evaluation.periodKey);
 
     if (selectedPunishment) {
-      assignedPunishment = assignPunishment(goal, selectedPunishment, evaluation.periodKey, addDays(evaluation.windowEnd, 1));
+      assignedPunishment = assignPunishment(goal, selectedPunishment, evaluation.periodKey);
       setRecord(
         container,
         container.records.assignedPunishments,

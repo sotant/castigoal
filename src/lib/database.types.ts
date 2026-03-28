@@ -16,7 +16,6 @@ export type Database = {
         Row: {
           assigned_at: string;
           completed_at: string | null;
-          due_date: string;
           goal_id: string;
           id: string;
           period_key: string;
@@ -27,7 +26,6 @@ export type Database = {
         Insert: {
           assigned_at?: string;
           completed_at?: string | null;
-          due_date: string;
           goal_id: string;
           id?: string;
           period_key: string;
@@ -38,7 +36,6 @@ export type Database = {
         Update: {
           assigned_at?: string;
           completed_at?: string | null;
-          due_date?: string;
           goal_id?: string;
           id?: string;
           period_key?: string;
@@ -488,7 +485,6 @@ export type Database = {
         Returns: {
           assigned_at: string;
           completed_at: string | null;
-          due_date: string;
           goal_id: string;
           id: string;
           period_key: string;
@@ -515,12 +511,12 @@ export type Database = {
         Returns: {
           active_goals_count: number;
           latest_pending_assigned_id: string;
-          latest_pending_due_date: string;
           latest_pending_goal_id: string;
           latest_pending_punishment_id: string;
           latest_pending_status: string;
           latest_punishment_category_id: string;
           latest_punishment_category_name: string;
+          latest_punishment_created_at: string;
           latest_punishment_description: string;
           latest_punishment_difficulty: number;
           latest_punishment_scope: string;
@@ -579,7 +575,6 @@ export type Database = {
         Returns: {
           assigned_at: string;
           assigned_id: string;
-          due_date: string;
           goal_id: string;
           goal_title: string;
           punishment_category_id: string;
@@ -661,7 +656,6 @@ export type Database = {
         Returns: {
           assigned_punishment_assigned_at: string;
           assigned_punishment_completed_at: string;
-          assigned_punishment_due_date: string;
           assigned_punishment_goal_id: string;
           assigned_punishment_id: string;
           assigned_punishment_period_key: string;

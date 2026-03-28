@@ -31,7 +31,6 @@ export interface PendingPunishmentPreview {
   assignedId: string;
   goalId: string;
   punishmentId: string;
-  dueDate: string;
   status: AssignedPunishment['status'];
   punishment: Punishment;
 }
@@ -42,7 +41,6 @@ export interface PendingAssignedPunishmentSummary {
   goalTitle: string;
   punishmentId: string;
   assignedAt: string;
-  dueDate: string;
   status: AssignedPunishment['status'];
   punishment: Punishment;
 }
@@ -96,6 +94,21 @@ export interface GoalDetailSummary {
 export interface AssignedPunishmentDetail {
   assigned: AssignedPunishment;
   punishment: Punishment;
+}
+
+export interface GoalResolutionAnnouncement {
+  outcomeId: string;
+  goalId: string;
+  goalTitle: string;
+  resolutionSource: GoalOutcome['resolutionSource'];
+  passed: boolean;
+  completedDays: number;
+  requiredDays: number;
+  completionRate: number;
+  evaluatedAt: string;
+  assignedPunishmentId?: string;
+  assignedPunishmentTitle?: string;
+  assignedPunishmentDescription?: string;
 }
 
 export interface AppBootstrapData {

@@ -82,7 +82,6 @@ export interface AssignedPunishment {
   goalId: string;
   punishmentId: string;
   assignedAt: string;
-  dueDate: string;
   status: AssignedPunishmentStatus;
   completedAt?: string;
   periodKey: string;
@@ -133,6 +132,7 @@ export type {
   GoalDetailSummary,
   HomeGoalSummary,
   HomeSummary,
+  GoalResolutionAnnouncement,
   PendingAssignedPunishmentSummary,
   PendingPunishmentPreview,
   StatsSummary,

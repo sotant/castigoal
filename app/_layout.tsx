@@ -8,10 +8,12 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AppTutorialOverlay } from '@/src/components/AppTutorialOverlay';
+import { GoalResolutionAnnouncementModal } from '@/src/components/GoalResolutionAnnouncementModal';
 import { useAuth } from '@/src/hooks/use-auth';
 import { useAppBootstrap } from '@/src/hooks/use-app-bootstrap';
 import { appRoutes } from '@/src/navigation/app-routes';
 import { AuthProvider } from '@/src/providers/auth-provider';
+import { useAppStore } from '@/src/store/app-store';
 import {
   APP_TUTORIAL_STEPS,
   AppTutorialState,
@@ -93,12 +95,16 @@ function AuthRedirector() {
 function RootNavigator() {
   useAppBootstrap();
   const pathname = usePathname();
+  const goalResolutionAnnouncements = useAppStore((state) => state.goalResolutionAnnouncements);
+  const dismissGoalResolutionAnnouncement = useAppStore((state) => state.dismissGoalResolutionAnnouncement);
   const [welcomeModalVisible, setWelcomeModalVisible] = useState(false);
   const [tutorialState, setTutorialState] = useState<AppTutorialState | null>(null);
 
   const activeTutorialStep =
     tutorialState && tutorialState.status === 'in_progress' ? APP_TUTORIAL_STEPS[tutorialState.currentStep] : null;
   const tutorialModalVisible = !welcomeModalVisible && Boolean(activeTutorialStep);
+  const activeGoalResolutionAnnouncement = goalResolutionAnnouncements[0] ?? null;
+  const goalResolutionModalVisible = !welcomeModalVisible && !tutorialModalVisible && Boolean(activeGoalResolutionAnnouncement);
 
   const navigateToTutorialStep = (stepIndex: number) => {
     const step = APP_TUTORIAL_STEPS[stepIndex];
@@ -233,6 +239,19 @@ function RootNavigator() {
           />
         ) : null}
       </Modal>
+      <GoalResolutionAnnouncementModal
+        announcement={activeGoalResolutionAnnouncement}
+        index={goalResolutionAnnouncements.length > 0 ? 1 : 0}
+        onClose={() => {
+          if (!activeGoalResolutionAnnouncement) {
+            return;
+          }
+
+          void dismissGoalResolutionAnnouncement(activeGoalResolutionAnnouncement.outcomeId);
+        }}
+        total={goalResolutionAnnouncements.length}
+        visible={goalResolutionModalVisible}
+      />
       <StatusBar style="dark" />
     </ThemeProvider>
   );
