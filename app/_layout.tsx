@@ -3,16 +3,18 @@ import { Stack, router, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import 'react-native-reanimated';
-import { Modal, Platform, View } from 'react-native';
+import { Alert, Modal, Platform, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AppTutorialOverlay } from '@/src/components/AppTutorialOverlay';
 import { GoalResolutionAnnouncementModal } from '@/src/components/GoalResolutionAnnouncementModal';
 import { useAuth } from '@/src/hooks/use-auth';
+import { getErrorMessage } from '@/src/lib/app-error';
 import { useAppBootstrap } from '@/src/hooks/use-app-bootstrap';
 import { appRoutes } from '@/src/navigation/app-routes';
 import { AuthProvider } from '@/src/providers/auth-provider';
+import { requestNotificationPermissions } from '@/src/services/notifications';
 import { useAppStore } from '@/src/store/app-store';
 import {
   APP_TUTORIAL_STEPS,
@@ -97,6 +99,7 @@ function RootNavigator() {
   const pathname = usePathname();
   const goalResolutionAnnouncements = useAppStore((state) => state.goalResolutionAnnouncements);
   const dismissGoalResolutionAnnouncement = useAppStore((state) => state.dismissGoalResolutionAnnouncement);
+  const updateSettings = useAppStore((state) => state.updateSettings);
   const [welcomeModalVisible, setWelcomeModalVisible] = useState(false);
   const [tutorialState, setTutorialState] = useState<AppTutorialState | null>(null);
 
@@ -185,12 +188,32 @@ function RootNavigator() {
 
     if (nextStepIndex >= APP_TUTORIAL_STEPS.length) {
       await completeAppTutorial();
+      await syncTutorialReminderPreferences();
       router.navigate(appRoutes.home);
       return;
     }
 
     const nextState = await setAppTutorialStep(nextStepIndex);
     navigateToTutorialStep(nextState.currentStep);
+  };
+
+  const syncTutorialReminderPreferences = async () => {
+    try {
+      const granted = await requestNotificationPermissions();
+
+      await updateSettings({
+        remindersEnabled: granted,
+        goalResolutionReminderEnabled: granted,
+        pendingPunishmentReminderEnabled: granted,
+      });
+    } catch (error) {
+      Alert.alert('No se pudieron actualizar los recordatorios', getErrorMessage(error));
+    }
+  };
+
+  const handleSkipTutorial = async () => {
+    await skipAppTutorial();
+    await syncTutorialReminderPreferences();
   };
 
   return (
@@ -232,7 +255,7 @@ function RootNavigator() {
               void handleAdvanceTutorial();
             }}
             onSkip={() => {
-              void skipAppTutorial();
+              void handleSkipTutorial();
             }}
             step={activeTutorialStep}
             totalSteps={APP_TUTORIAL_STEPS.length}

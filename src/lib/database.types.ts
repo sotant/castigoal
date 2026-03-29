@@ -448,6 +448,7 @@ export type Database = {
       user_settings: {
         Row: {
           created_at: string;
+          goal_resolution_reminder_enabled: boolean;
           pending_punishment_reminder_enabled: boolean;
           reminder_hour: number;
           reminder_minute: number;
@@ -457,6 +458,7 @@ export type Database = {
         };
         Insert: {
           created_at?: string;
+          goal_resolution_reminder_enabled?: boolean;
           pending_punishment_reminder_enabled?: boolean;
           reminder_hour?: number;
           reminder_minute?: number;
@@ -466,6 +468,7 @@ export type Database = {
         };
         Update: {
           created_at?: string;
+          goal_resolution_reminder_enabled?: boolean;
           pending_punishment_reminder_enabled?: boolean;
           reminder_hour?: number;
           reminder_minute?: number;

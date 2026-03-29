@@ -157,6 +157,7 @@ const GOAL_RESOLUTION_SEEN_KEY_PREFIX = `${APP_STORAGE_PREFIX}.goal-resolution-s
 
 const defaultSettings: UserSettings = {
   remindersEnabled: true,
+  goalResolutionReminderEnabled: true,
   reminderHour: 20,
   reminderMinute: 0,
   pendingPunishmentReminderEnabled: true,
@@ -334,6 +335,21 @@ async function loadContainer(mode: SessionMode, actorId: string) {
   if (mutableContainer.version !== 2) {
     mutableContainer.version = 2;
     changed = true;
+  }
+
+  if (mutableContainer.records.userSettings) {
+    const currentSettings = mutableContainer.records.userSettings.data;
+
+    if (currentSettings.goalResolutionReminderEnabled === undefined) {
+      mutableContainer.records.userSettings = {
+        ...mutableContainer.records.userSettings,
+        data: {
+          ...currentSettings,
+          goalResolutionReminderEnabled: currentSettings.remindersEnabled ?? true,
+        },
+      };
+      changed = true;
+    }
   }
 
   for (const [goalId, record] of Object.entries((mutableContainer.records as LocalContainer['records']).goals)) {
@@ -1403,6 +1419,7 @@ function mapHistoryRow(
 function mapSettingsRow(row: Tables<'user_settings'>): SyncRecord<UserSettings> {
   return {
     data: {
+      goalResolutionReminderEnabled: row.goal_resolution_reminder_enabled ?? row.reminders_enabled,
       pendingPunishmentReminderEnabled: row.pending_punishment_reminder_enabled,
       reminderHour: row.reminder_hour,
       reminderMinute: row.reminder_minute,
@@ -1781,6 +1798,7 @@ async function pushPendingRecords(container: LocalContainer) {
   if (container.records.userSettings?.meta.state === 'pending_upsert') {
     const payload = {
         origin_device_id: deviceId,
+        goal_resolution_reminder_enabled: container.records.userSettings.data.goalResolutionReminderEnabled,
         pending_punishment_reminder_enabled: container.records.userSettings.data.pendingPunishmentReminderEnabled,
         reminder_hour: container.records.userSettings.data.reminderHour,
         reminder_minute: container.records.userSettings.data.reminderMinute,
@@ -1789,6 +1807,7 @@ async function pushPendingRecords(container: LocalContainer) {
         user_id: userId,
       };
     const payloadWithoutMetadata = {
+      goal_resolution_reminder_enabled: container.records.userSettings.data.goalResolutionReminderEnabled,
       pending_punishment_reminder_enabled: container.records.userSettings.data.pendingPunishmentReminderEnabled,
       reminder_hour: container.records.userSettings.data.reminderHour,
       reminder_minute: container.records.userSettings.data.reminderMinute,

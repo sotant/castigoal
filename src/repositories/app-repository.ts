@@ -460,6 +460,7 @@ function mapGoalCalendarDay(row: GoalCalendarDayRow): GoalCalendarDay {
 
 function mapUserSettings(row: UserSettingsRow): UserSettings {
   return {
+    goalResolutionReminderEnabled: row.goal_resolution_reminder_enabled ?? row.reminders_enabled,
     remindersEnabled: row.reminders_enabled,
     reminderHour: row.reminder_hour,
     reminderMinute: row.reminder_minute,
@@ -952,6 +953,7 @@ export async function updateUserSettingsRecord(input: UserSettings) {
     .upsert(
       {
         user_id: userId,
+        goal_resolution_reminder_enabled: input.goalResolutionReminderEnabled,
         reminders_enabled: input.remindersEnabled,
         reminder_hour: input.reminderHour,
         reminder_minute: input.reminderMinute,

@@ -116,6 +116,7 @@ const defaultUser: User = {
 
 const defaultSettings: UserSettings = {
   remindersEnabled: true,
+  goalResolutionReminderEnabled: true,
   reminderHour: 20,
   reminderMinute: 0,
   pendingPunishmentReminderEnabled: true,

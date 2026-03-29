@@ -89,6 +89,7 @@ export interface AssignedPunishment {
 
 export interface UserSettings {
   remindersEnabled: boolean;
+  goalResolutionReminderEnabled: boolean;
   reminderHour: number;
   reminderMinute: number;
   pendingPunishmentReminderEnabled: boolean;
