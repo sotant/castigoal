@@ -55,7 +55,7 @@ export function ObjectiveActionsMenu({
         {...swipeToCloseResponder.panHandlers}
         style={styles.root}>
         <Pressable
-          accessibilityLabel="Cerrar menu de acciones"
+          accessibilityLabel="Cerrar menú de acciones"
           onPress={onClose}
           style={styles.backdrop}
         />
@@ -93,7 +93,7 @@ export function ObjectiveActionsMenu({
               </View>
               <View style={styles.actionCopy}>
                 <Text style={styles.actionTitle}>Editar</Text>
-                <Text style={styles.actionSubtitle}>Modifica nombre, descripcion y reglas.</Text>
+                <Text style={styles.actionSubtitle}>Modifica el nombre, la descripción y las reglas.</Text>
               </View>
             </Pressable>
           ) : null}

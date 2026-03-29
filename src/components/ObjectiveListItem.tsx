@@ -47,7 +47,7 @@ export function ObjectiveListItem({ goal, summary, showCompletionFlag = false, o
         : summary.resolutionStatus === 'failed'
           ? 'Cerrado y fallido'
           : 'Cerrado'
-      : `${summary.completedDays}/${summary.requiredDays} dias cumplidos`;
+      : `${summary.completedDays}/${summary.requiredDays} días cumplidos`;
 
   return (
     <View style={styles.card}>
@@ -79,7 +79,7 @@ export function ObjectiveListItem({ goal, summary, showCompletionFlag = false, o
       </View>
 
       <View style={styles.recentSection}>
-        <Text style={styles.recentLabel}>{goal.lifecycleStatus === 'closed' ? 'Ultimos dias del ciclo' : 'Ultimos 5 dias'}</Text>
+        <Text style={styles.recentLabel}>{goal.lifecycleStatus === 'closed' ? 'Últimos días del ciclo' : 'Últimos 5 días'}</Text>
         <View style={styles.recentCompact}>
           {summary.recentDays.map((day, index) => {
             const stateStyles = getRecentDayStyles(day.status);
@@ -142,8 +142,8 @@ export function ObjectiveListItem({ goal, summary, showCompletionFlag = false, o
           </Pressable>
 
           <Pressable
-            accessibilityHint="Muestra mas acciones para este objetivo"
-            accessibilityLabel={`Abrir menu de ${goal.title}`}
+            accessibilityHint="Muestra más acciones para este objetivo"
+            accessibilityLabel={`Abrir menú de ${goal.title}`}
             accessibilityRole="button"
             onPress={(event) => {
               event.stopPropagation();

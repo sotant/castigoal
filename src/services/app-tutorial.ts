@@ -42,7 +42,7 @@ export const APP_TUTORIAL_STEPS: AppTutorialStep[] = [
     id: 'goals',
     title: 'Crea tu primer objetivo',
     description:
-      'Aqui defines que quieres conseguir y desde cuando empieza el reto. Ese objetivo sera la base de tus check-ins y tus consecuencias.',
+      'Aquí defines qué quieres conseguir y desde cuándo empieza el reto. Ese objetivo será la base de tus check-ins y tus castigos.',
     ctaLabel: 'Siguiente',
     route: {
       pathname: appRoutes.goals,
@@ -60,7 +60,7 @@ export const APP_TUTORIAL_STEPS: AppTutorialStep[] = [
     id: 'home',
     title: 'Marca tu check-in diario',
     description:
-      'En Hoy registras si has cumplido o fallado cada objetivo. Esta pantalla te ayuda a mantener el ritmo dia a dia.',
+      'En Hoy registras si has cumplido o fallado cada objetivo. Esta pantalla te ayuda a mantener el ritmo día a día.',
     ctaLabel: 'Siguiente',
     route: {
       pathname: appRoutes.home,
@@ -78,7 +78,7 @@ export const APP_TUTORIAL_STEPS: AppTutorialStep[] = [
     id: 'punishments-mine',
     title: 'Revisa tus castigos pendientes',
     description:
-      'En Mis castigos veras las consecuencias que tienes pendientes y tambien el historial de las que ya completaste.',
+      'En Mis castigos verás los castigos que tienes pendientes y también el historial de los que ya completaste.',
     ctaLabel: 'Siguiente',
     route: {
       pathname: appRoutes.punishments,
@@ -100,7 +100,7 @@ export const APP_TUTORIAL_STEPS: AppTutorialStep[] = [
     id: 'punishments-library',
     title: 'Explora tu biblioteca de castigos',
     description:
-      'Aqui tienes todos los castigos disponibles, tanto los que vienen en la app como los que crees tu para personalizar la experiencia.',
+      'Aquí tienes todos los castigos disponibles, tanto los que vienen en la app como los que creas tú para personalizar la experiencia.',
     ctaLabel: 'Siguiente',
     route: {
       pathname: appRoutes.punishments,
@@ -122,7 +122,7 @@ export const APP_TUTORIAL_STEPS: AppTutorialStep[] = [
     id: 'stats',
     title: 'Consulta tu progreso',
     description:
-      'En Stats puedes ver tu resumen general y tambien entrar al calendario de cada objetivo para entender mejor tu evolucion.',
+      'En Estadísticas puedes ver tu resumen general y también entrar en el calendario de cada objetivo para entender mejor tu evolución.',
     ctaLabel: 'Siguiente',
     route: {
       pathname: appRoutes.stats,

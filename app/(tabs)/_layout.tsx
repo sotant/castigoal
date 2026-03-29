@@ -59,7 +59,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="stats"
         options={{
-          title: 'Stats',
+          title: 'Estadísticas',
           tabBarIcon: ({ color, focused, size }) => (
             <BottomNavIcon color={color} focused={focused} iconFamily="feather" name="stats" size={size} />
           ),

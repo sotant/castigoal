@@ -42,11 +42,11 @@ function normalizeAuthMessage(message: string) {
   const normalized = message.toLowerCase();
 
   if (normalized.includes('invalid login credentials')) {
-    return 'El email o la contrasena no son correctos.';
+    return 'El email o la contraseña no son correctos.';
   }
 
   if (normalized.includes('user already registered')) {
-    return 'Ya existe una cuenta con ese correo. Prueba a iniciar sesion.';
+    return 'Ya existe una cuenta con ese correo. Prueba a iniciar sesión.';
   }
 
   if (normalized.includes('email rate limit exceeded')) {
@@ -54,7 +54,7 @@ function normalizeAuthMessage(message: string) {
   }
 
   if (normalized.includes('password should be at least')) {
-    return 'La contrasena es demasiado corta. Usa al menos 6 caracteres.';
+    return 'La contraseña es demasiado corta. Usa al menos 6 caracteres.';
   }
 
   return message;
@@ -95,9 +95,9 @@ export function normalizeRepositoryError(error: unknown, options: RepositoryErro
       });
     }
 
-    if (rawMessage?.toLowerCase().includes('authenticated user is required') || rawMessage?.toLowerCase().includes('no hay una sesion activa')) {
+    if (rawMessage?.toLowerCase().includes('authenticated user is required') || rawMessage?.toLowerCase().includes('no hay una sesión activa')) {
       return new AppError({
-        message: options.authMessage ?? 'Necesitas iniciar sesion para continuar.',
+        message: options.authMessage ?? 'Necesitas iniciar sesión para continuar.',
         code: options.code,
         kind: 'auth',
         cause: error,

@@ -12,11 +12,11 @@ type Props = {
 
 function getDeadlineLabel(summary: HomeGoalSummary) {
   if (summary.daysUntilStart > 0) {
-    return summary.daysUntilStart === 1 ? 'Empieza manana' : `Empieza en ${summary.daysUntilStart} dias`;
+    return summary.daysUntilStart === 1 ? 'Empieza mañana' : `Empieza en ${summary.daysUntilStart} días`;
   }
 
   if (summary.remainingDays > 0) {
-    return summary.remainingDays === 1 ? 'Acaba en 1 dia' : `Acaba en ${summary.remainingDays} dias`;
+    return summary.remainingDays === 1 ? 'Acaba en 1 día' : `Acaba en ${summary.remainingDays} días`;
   }
 
   return 'Plazo finalizado';
@@ -48,7 +48,7 @@ export function GoalListItem({ summary }: Props) {
       todayStatus={summary.todayStatus ?? 'pending'}
       muted={!summary.active}
       onDelete={() => {
-        Alert.alert('Eliminar desafio', 'Se borraran tambien sus check-ins y castigos asignados. Esta accion no se puede deshacer.', [
+        Alert.alert('Eliminar desafío', 'Se borrarán también sus check-ins y castigos asignados. Esta acción no se puede deshacer.', [
           { text: 'Cancelar', style: 'cancel' },
           {
             text: 'Eliminar',

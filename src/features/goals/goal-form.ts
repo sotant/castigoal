@@ -19,7 +19,7 @@ export function getRequiredDays(targetDays: number, minimumSuccessRate: number) 
 }
 
 export function getRuleSummary(targetDays: number, requiredDays: number) {
-  return `Debes cumplir ${requiredDays} de los proximos ${targetDays} dias para estar al dia.`;
+  return `Debes cumplir ${requiredDays} de los próximos ${targetDays} días para estar al día.`;
 }
 
 export function getRateForRequiredDays(targetDays: number, requiredDays: number) {

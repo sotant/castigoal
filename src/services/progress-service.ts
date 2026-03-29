@@ -778,16 +778,16 @@ function buildGoalDetailSummary(
         : goal.resolutionStatus === 'failed'
           ? outcome?.assignedPunishmentId
             ? 'Objetivo finalizado y fallado. Tiene un castigo pendiente.'
-            : 'Objetivo finalizado y fallado. No habia castigos elegibles.'
+            : 'Objetivo finalizado y fallado. No había castigos elegibles.'
           : 'Objetivo finalizado y pendiente de resolucion.'
       : daysUntilStart > 0
         ? daysUntilStart === 1
-          ? 'Empieza manana.'
-          : `Empieza en ${daysUntilStart} dias.`
+          ? 'Empieza mañana.'
+          : `Empieza en ${daysUntilStart} días.`
         : remainingDays > 0
           ? remainingDays === 1
-            ? 'Queda 1 dia para cerrar el plazo.'
-            : `Quedan ${remainingDays} dias para cerrar el plazo.`
+            ? 'Queda 1 día para cerrar el plazo.'
+            : `Quedan ${remainingDays} días para cerrar el plazo.`
           : 'El plazo configurado ya ha terminado.',
   };
 }
@@ -1310,7 +1310,7 @@ async function resolveCategoryId(categoryId: string, categoryName: Punishment['c
   const resolvedByName = categoryMap[categoryName];
 
   if (!resolvedByName) {
-    throw new Error(`No se pudo resolver la categoria ${categoryName}.`);
+    throw new Error(`No se pudo resolver la categoría ${categoryName}.`);
   }
 
   if (categoryId !== resolvedByName) {
@@ -1361,7 +1361,7 @@ async function resolveGoalCategoryIds(categoryNames: Goal['punishmentConfig']['c
     const categoryId = categoryMap[categoryName];
 
     if (!categoryId) {
-      throw new Error(`No se pudo resolver la categoria ${categoryName}.`);
+      throw new Error(`No se pudo resolver la categoría ${categoryName}.`);
     }
 
     return categoryId;

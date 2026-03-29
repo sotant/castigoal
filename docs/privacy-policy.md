@@ -1,4 +1,4 @@
-# Politica de privacidad de Castigoal
+# Política de privacidad de Castigoal
 
 Vigente desde el 11 de marzo de 2026.
 
@@ -10,7 +10,7 @@ Sustituye esta seccion por tu nombre legal o el de tu empresa y un email real de
 
 Castigoal trata los siguientes datos para funcionar:
 
-- Email de acceso y datos basicos del perfil.
+- Email de acceso y datos básicos del perfil.
 - Objetivos creados por el usuario.
 - Check-ins diarios y notas asociadas.
 - Castigos personalizados y castigos asignados.
@@ -22,18 +22,18 @@ Los datos se usan para:
 
 - autenticar al usuario;
 - sincronizar su progreso;
-- calcular estadisticas y evaluaciones;
+- calcular estadísticas y evaluaciones;
 - asignar castigos cuando corresponda;
 - permitir el borrado o reseteo de datos;
 - programar recordatorios locales en el dispositivo.
 
 ## Base tecnica
 
-La app usa Supabase para autenticacion y base de datos. La sesion del usuario se guarda localmente con Secure Store cuando el dispositivo lo permite.
+La app usa Supabase para autenticación y base de datos. La sesión del usuario se guarda localmente con Secure Store cuando el dispositivo lo permite.
 
 ## Cesiones
 
-No se venden datos personales. Solo se comparten con proveedores tecnicos necesarios para operar el servicio, como Supabase.
+No se venden datos personales. Solo se comparten con proveedores técnicos necesarios para operar el servicio, como Supabase.
 
 ## Conservacion
 

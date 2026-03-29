@@ -7,22 +7,22 @@ const sections = [
   {
     title: 'Datos que usamos',
     body:
-      'Castigoal usa tu email de acceso, tu perfil basico, tus objetivos, check-ins, castigos personalizados, castigos asignados y ajustes de recordatorios para prestar el servicio.',
+      'Castigoal usa tu email de acceso, tu perfil básico, tus objetivos, check-ins, castigos personalizados, castigos asignados y ajustes de recordatorios para prestar el servicio.',
   },
   {
-    title: 'Para que se usan',
+    title: 'Para qué se usan',
     body:
-      'Estos datos se usan para autenticar tu cuenta, sincronizar tu progreso entre sesiones, calcular estadisticas, asignar consecuencias y enviarte recordatorios locales en tu dispositivo.',
+      'Estos datos se usan para autenticar tu cuenta, sincronizar tu progreso entre sesiones, calcular estadísticas, asignar castigos y enviarte recordatorios locales en tu dispositivo.',
   },
   {
-    title: 'Donde se almacenan',
+    title: 'Dónde se almacenan',
     body:
-      'La autenticacion y la base de datos se alojan en Supabase. La sesion del usuario se guarda de forma segura en el dispositivo mediante Secure Store cuando esta disponible.',
+      'La autenticación y la base de datos se alojan en Supabase. La sesión del usuario se guarda de forma segura en el dispositivo mediante Secure Store cuando está disponible.',
   },
   {
     title: 'Comparticion',
     body:
-      'Castigoal no vende tus datos. Solo se comparten con los proveedores tecnicos necesarios para operar la app, como Supabase para autenticacion y base de datos.',
+      'Castigoal no vende tus datos. Solo se comparten con los proveedores técnicos necesarios para operar la app, como Supabase para autenticación y base de datos.',
   },
   {
     title: 'Tus controles',
@@ -34,12 +34,12 @@ const sections = [
 export function PrivacyPolicyScreen() {
   return (
     <ScreenContainer
-      title="Politica de privacidad"
+      title="Política de privacidad"
       subtitle="Version 1.0. Vigente desde el 11 de marzo de 2026.">
       <View style={styles.hero}>
         <Text style={styles.heroTitle}>Castigoal</Text>
         <Text style={styles.heroText}>
-          Esta politica resume que datos trata la app, por que los necesita y como puede el usuario pedir su borrado.
+          Esta política resume qué datos trata la app, por qué los necesita y cómo puede el usuario solicitar su borrado.
         </Text>
       </View>
 
@@ -53,7 +53,7 @@ export function PrivacyPolicyScreen() {
       <View style={styles.notice}>
         <Text style={styles.noticeTitle}>Contacto y borrado</Text>
         <Text style={styles.noticeBody}>
-          Si publicas la app en Google Play, sustituye este texto por tu email real de soporte y publica esta misma politica en una URL accesible desde la ficha de Play Store.
+          Si publicas la app en Google Play, sustituye este texto por tu email real de soporte y publica esta misma política en una URL accesible desde la ficha de Play Store.
         </Text>
       </View>
     </ScreenContainer>

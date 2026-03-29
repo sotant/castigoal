@@ -188,7 +188,7 @@ export async function syncReminderSchedule(settings: UserSettings, permissionsGr
       await Notifications.scheduleNotificationAsync({
         content: {
           title: 'Castigoal',
-          body: 'Haz tu check-in diario antes de cerrar el dia.',
+          body: 'Haz tu check-in diario antes de cerrar el día.',
         },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DAILY,
@@ -204,7 +204,7 @@ export async function syncReminderSchedule(settings: UserSettings, permissionsGr
       await Notifications.scheduleNotificationAsync({
         content: {
           title: 'Castigo pendiente',
-          body: 'Tienes una consecuencia pendiente por completar.',
+          body: 'Tienes un castigo pendiente por completar.',
         },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DAILY,

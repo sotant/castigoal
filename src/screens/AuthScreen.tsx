@@ -31,23 +31,23 @@ function getFriendlyAuthMessage(message: string) {
   }
 
   if (normalized.includes('email address') && normalized.includes('invalid')) {
-    return 'El correo que has escrito no es valido. Usa una direccion de email real.';
+    return 'El correo que has escrito no es válido. Usa una dirección de email real.';
   }
 
   if (normalized.includes('invalid login credentials')) {
-    return 'El email o la contrasena no son correctos.';
+    return 'El email o la contraseña no son correctos.';
   }
 
   if (normalized.includes('user already registered')) {
-    return 'Ya existe una cuenta con ese correo. Prueba a iniciar sesion.';
+    return 'Ya existe una cuenta con ese correo. Prueba a iniciar sesión.';
   }
 
   if (normalized.includes('signup is disabled')) {
-    return 'El registro esta desactivado en este momento.';
+    return 'El registro está desactivado en este momento.';
   }
 
   if (normalized.includes('password should be at least')) {
-    return 'La contrasena es demasiado corta. Usa al menos 6 caracteres.';
+    return 'La contraseña es demasiado corta. Usa al menos 6 caracteres.';
   }
   return `No se pudo continuar: ${message}`;
 }
@@ -174,8 +174,8 @@ export function AuthScreen() {
     if (nextEmailError || password.trim().length < 6) {
       const message =
         nextEmailError && password.trim().length < 6
-          ? 'Introduce un email valido y una contrasena de al menos 6 caracteres.'
-          : nextEmailError ?? 'La contrasena debe tener al menos 6 caracteres.';
+          ? 'Introduce un email válido y una contraseña de al menos 6 caracteres.'
+          : nextEmailError ?? 'La contraseña debe tener al menos 6 caracteres.';
 
       setFeedback({
         kind: 'error',
@@ -206,7 +206,7 @@ export function AuthScreen() {
       if (action === 'signin') {
         setFeedback({
           kind: 'success',
-          message: 'Inicio de sesion correcto.',
+          message: 'Has iniciado sesión correctamente.',
         });
       }
     } catch (error) {
@@ -238,7 +238,7 @@ export function AuthScreen() {
     if (nextEmailError) {
       setFeedback({
         kind: 'error',
-        message: 'Escribe un email valido para recuperar tu contrasena.',
+        message: 'Escribe un email válido para recuperar tu contraseña.',
       });
       return;
     }
@@ -252,7 +252,7 @@ export function AuthScreen() {
       await requestPasswordReset(trimmedEmail, passwordResetRedirectTo);
       setFeedback({
         kind: 'success',
-        message: 'Si existe una cuenta asociada a este correo, te hemos enviado instrucciones para restablecer tu contrasena.',
+        message: 'Si existe una cuenta asociada a este correo, te hemos enviado instrucciones para restablecer tu contraseña.',
       });
     } catch (error) {
       setFeedback({
@@ -293,7 +293,7 @@ export function AuthScreen() {
                       onPress={() => switchMode('signin')}
                       style={[styles.modeChip, mode === 'signin' && styles.modeChipActive]}>
                       <Text style={[styles.modeChipLabel, mode === 'signin' && styles.modeChipLabelActive]}>
-                        Iniciar sesion
+                        Iniciar sesión
                       </Text>
                     </Pressable>
 
@@ -338,14 +338,14 @@ export function AuthScreen() {
                 {mode !== 'recovery' ? (
                   <>
                     <View style={styles.group}>
-                      <Text style={styles.label}>Contrasena</Text>
+                      <Text style={styles.label}>Contraseña</Text>
                       <View style={styles.inputField}>
                         <Feather color="#97A3BC" name="lock" size={18} style={styles.inputIcon} />
                         <TextInput
                           autoCapitalize="none"
                           autoCorrect={false}
                           editable={!loadingAction}
-                          placeholder="Minimo 6 caracteres"
+                          placeholder="Mínimo 6 caracteres"
                           placeholderTextColor="#98A2B3"
                           returnKeyType="go"
                           secureTextEntry={!isPasswordVisible}
@@ -379,14 +379,14 @@ export function AuthScreen() {
                         onPress={() => switchMode('recovery')}
                         style={styles.compactLinkWrap}>
                         <Text style={[styles.linkLabel, !!loadingAction && styles.linkDisabled]}>
-                          {loadingAction === 'reset' ? 'Enviando enlace...' : 'Olvidaste tu contrasena?'}
+                          {loadingAction === 'reset' ? 'Enviando enlace...' : '¿Olvidaste tu contraseña?'}
                         </Text>
                       </Pressable>
                     ) : null}
                   </>
                 ) : (
                   <Pressable disabled={!!loadingAction} hitSlop={8} onPress={() => switchMode('signin')}>
-                    <Text style={[styles.linkLabel, !!loadingAction && styles.linkDisabled]}>Volver al login</Text>
+                    <Text style={[styles.linkLabel, !!loadingAction && styles.linkDisabled]}>Volver a iniciar sesión</Text>
                   </Pressable>
                 )}
 
@@ -404,7 +404,7 @@ export function AuthScreen() {
                     onPress={() => void submit('signin')}
                     style={[styles.submitPrimary, (!canSubmit || !!loadingAction) && styles.buttonDisabled]}>
                     <Text style={styles.submitPrimaryLabel}>
-                      {loadingAction === 'signin' ? 'Cargando...' : 'Iniciar sesion'}
+                      {loadingAction === 'signin' ? 'Cargando...' : 'Iniciar sesión'}
                     </Text>
                   </Pressable>
                 ) : mode === 'signup' ? (

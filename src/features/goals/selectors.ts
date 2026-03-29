@@ -41,12 +41,12 @@ export function useGoalListItemData(goalId: string) {
     const deadlineLabel =
       summary.daysUntilStart > 0
         ? summary.daysUntilStart === 1
-          ? 'Empieza manana'
-          : `Empieza en ${summary.daysUntilStart} dias`
+          ? 'Empieza mañana'
+          : `Empieza en ${summary.daysUntilStart} días`
         : summary.remainingDays > 0
           ? summary.remainingDays === 1
-            ? 'Acaba en 1 dia'
-            : `Acaba en ${summary.remainingDays} dias`
+            ? 'Acaba en 1 día'
+            : `Acaba en ${summary.remainingDays} días`
           : 'Plazo finalizado';
 
     return {

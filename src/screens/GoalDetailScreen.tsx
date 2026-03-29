@@ -99,7 +99,7 @@ function formatCalendarMonthLabel(date: Date) {
 
 function getPunishmentScopeLabel(scope: Goal['punishmentConfig']['scope']) {
   if (scope === 'base') {
-    return 'Estandar';
+    return 'Estándar';
   }
 
   if (scope === 'personal') {
@@ -226,18 +226,18 @@ export function GoalDetailScreen({ goal }: Props) {
     : isResolvedFailed
       ? viewModel.outcome?.assignedPunishmentId
         ? 'Objetivo fallido. El castigo de este ciclo ya fue asignado.'
-        : 'Objetivo fallido sin castigo asignado. El pool guardado ya no tenia opciones elegibles.'
+        : 'Objetivo fallido sin castigo asignado. El pool guardado ya no tenía opciones elegibles.'
       : showUnreachableHint
-        ? `Objetivo no alcanzable. Necesitas ${pendingRequiredDays} ${pendingRequiredDays === 1 ? 'dia cumplido' : 'dias cumplidos'} y solo quedan ${viewModel.remainingDays}.`
+        ? `Objetivo no alcanzable. Necesitas ${pendingRequiredDays} ${pendingRequiredDays === 1 ? 'día cumplido' : 'días cumplidos'} y solo quedan ${viewModel.remainingDays}.`
         : approvalProgress < 25
-          ? 'El ciclo acaba de arrancar. Ve sumando dias cumplidos.'
+          ? 'El ciclo acaba de arrancar. Ve sumando días cumplidos.'
           : approvalProgress < 50
             ? 'Vas por buen camino.'
             : approvalProgress < 75
               ? 'Ya superaste la mitad del objetivo.'
               : approvalProgress < 100
-                ? `Quedan ${pendingRequiredDays} ${pendingRequiredDays === 1 ? 'dia' : 'dias'} para aprobarlo.`
-                : 'Ya tienes el minimo necesario para aprobar si cierras hoy.';
+                ? `Quedan ${pendingRequiredDays} ${pendingRequiredDays === 1 ? 'día' : 'días'} para aprobarlo.`
+                : 'Ya tienes el mínimo necesario para aprobar si cierras hoy.';
 
   const handleCalendarSwipe = (direction: 'left' | 'right') => {
     setMonthOffset((current) => (direction === 'left' ? current + 1 : current - 1));
@@ -287,7 +287,7 @@ export function GoalDetailScreen({ goal }: Props) {
           <DetailStat label="Racha actual" iconColor="#F97316" iconName="fire" value={`${viewModel.currentStreak}`} />
           <DetailStat label="Mejor racha" iconColor="#B45309" iconFamily="feather" iconName="award" value={`${viewModel.bestStreak}`} />
           <DetailStat
-            label={viewModel.daysUntilStart > 0 ? 'Dias para empezar' : 'Dias restantes'}
+            label={viewModel.daysUntilStart > 0 ? 'Días para empezar' : 'Días restantes'}
             iconColor={palette.ink}
             iconName="flag-checkered"
             value={viewModel.daysUntilStart > 0 ? `${viewModel.daysUntilStart}` : `${viewModel.remainingDays}`}
@@ -317,15 +317,15 @@ export function GoalDetailScreen({ goal }: Props) {
             iconColor="#43B66E"
             iconFamily="material"
             iconName="hourglass-top"
-            label="Duracion"
-            value={`${durationDays} ${durationDays === 1 ? 'dia' : 'dias'}`}
+            label="Duración"
+            value={`${durationDays} ${durationDays === 1 ? 'día' : 'días'}`}
           />
           <InfoItem
             iconBackgroundColor="#FFF6E5"
             iconColor={palette.warning}
             iconName="check-decagram"
             label="Requisito"
-            value={`${safeRequiredDays} ${safeRequiredDays === 1 ? 'dia' : 'dias'}`}
+            value={`${safeRequiredDays} ${safeRequiredDays === 1 ? 'día' : 'días'}`}
           />
         </View>
       </View>
@@ -409,7 +409,7 @@ export function GoalDetailScreen({ goal }: Props) {
                 <Text style={styles.availablePunishmentEmpty}>No hay castigos disponibles con esta seleccion.</Text>
               )
             ) : (
-              <Text style={styles.availablePunishmentEmpty}>Cargando catalogo de castigos...</Text>
+              <Text style={styles.availablePunishmentEmpty}>Cargando catálogo de castigos...</Text>
             )}
           </View>
         </View>
@@ -417,7 +417,7 @@ export function GoalDetailScreen({ goal }: Props) {
 
       {isResolvedFailed ? (
         <View style={styles.infoCard}>
-          <Text style={styles.infoTitle}>Consecuencia</Text>
+          <Text style={styles.infoTitle}>Castigo</Text>
           {assignedPunishmentId ? (
             assignedPunishmentDetail ? (
               <View style={styles.consequenceCard}>
@@ -426,7 +426,7 @@ export function GoalDetailScreen({ goal }: Props) {
                   <View style={styles.consequenceMetaRow}>
                     <View style={[styles.filterChipOption, styles.consequenceTypeChip]}>
                       <Text style={[styles.filterChipOptionLabel, styles.consequenceTypeChipLabel]}>
-                        {assignedPunishmentDetail.punishment.scope === 'personal' ? 'Personal' : 'Estandar'}
+                        {assignedPunishmentDetail.punishment.scope === 'personal' ? 'Personal' : 'Estándar'}
                       </Text>
                     </View>
                     {(() => {
@@ -464,7 +464,7 @@ export function GoalDetailScreen({ goal }: Props) {
             )
           ) : (
             <Text style={[styles.copyLine, styles.dangerText]}>
-              El objetivo fallo, pero no se pudo asignar un castigo porque el pool guardado ya no tenia opciones elegibles.
+              El objetivo falló, pero no se pudo asignar un castigo porque el pool guardado ya no tenía opciones elegibles.
             </Text>
           )}
         </View>
@@ -550,7 +550,7 @@ export function GoalDetailScreen({ goal }: Props) {
 
       <GoalActionConfirmationModal
         confirmLabel="Finalizar"
-        description="Se resolvera el objetivo antes de llegar su fecha de finalizacion. Esta accion no podra deshacerse."
+        description="Se resolverá el objetivo antes de llegar a su fecha de finalización. Esta acción no podrá deshacerse."
         eyebrow=""
         onCancel={() => setShowFinalizeConfirmation(false)}
         onConfirm={() => {

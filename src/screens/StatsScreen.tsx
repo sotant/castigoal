@@ -97,7 +97,7 @@ export function StatsScreen() {
     () => [
       {
         icon: 'check-square',
-        label: 'Total check-ins',
+        label: 'Check-ins totales',
         tone: palette.primaryDeep,
         value: statsSummary.totalCheckins,
       },
@@ -151,7 +151,7 @@ export function StatsScreen() {
     <ScreenContainer
       bodyStyle={styles.screenBody}
       scroll={false}
-      title="Stats">
+      title="Estadísticas">
       <View style={styles.contentSurface}>
         <ScrollView
           ref={scrollRef}
@@ -205,7 +205,7 @@ export function StatsScreen() {
                   <View style={styles.goalEmptyCard}>
                     <EmptyState
                       title="Sin objetivos registrados"
-                      message="Todavia no tienes objetivos registrados. Crea uno para ver su progreso en estadisticas."
+                      message="Todavía no tienes objetivos registrados. Crea uno para ver su progreso en estadísticas."
                     />
                   </View>
                 ) : (

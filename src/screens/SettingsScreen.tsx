@@ -152,7 +152,7 @@ export function SettingsScreen() {
   const handleResetOnboarding = () => {
     Alert.alert(
       'Reset onboarding',
-      'Se borrara la bienvenida guardada en este dispositivo y se abrira de nuevo.',
+      'Se borrará la bienvenida guardada en este dispositivo y se abrirá de nuevo.',
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -170,7 +170,7 @@ export function SettingsScreen() {
   const handleResetTutorial = () => {
     Alert.alert(
       'Reset tutorial',
-      'Se borrara el tutorial guiado guardado en este dispositivo y volvera a mostrarse despues de la bienvenida.',
+      'Se borrará el tutorial guiado guardado en este dispositivo y volverá a mostrarse después de la bienvenida.',
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -261,7 +261,7 @@ export function SettingsScreen() {
               <Pressable
                 onPress={() => router.push({ pathname: appRoutes.auth, params: { returnTo: appRoutes.settings, mode: 'signin' } })}
                 style={styles.compactSecondaryButton}>
-                <Text style={styles.secondaryLabel}>Iniciar sesion</Text>
+                <Text style={styles.secondaryLabel}>Iniciar sesión</Text>
               </Pressable>
             </View>
           ) : (
@@ -286,14 +286,14 @@ export function SettingsScreen() {
                     setAccountAction('signout');
                     await signOut();
                   } catch (error) {
-                    Alert.alert('No se pudo cerrar sesion', error instanceof Error ? error.message : 'Error desconocido');
+                    Alert.alert('No se pudo cerrar sesión', error instanceof Error ? error.message : 'Error desconocido');
                   } finally {
                     setAccountAction(null);
                   }
                 }}
                 style={[styles.compactPrimaryButton, accountAction === 'signout' && styles.disabled]}>
                 <Text style={styles.compactPrimaryLabel}>
-                  {accountAction === 'signout' ? 'Cerrando sesion...' : 'Cerrar sesion'}
+                  {accountAction === 'signout' ? 'Cerrando sesión...' : 'Cerrar sesión'}
                 </Text>
               </Pressable>
             </View>
@@ -393,12 +393,12 @@ export function SettingsScreen() {
               <>
                 <Text style={styles.helperText}>
                   {isAuthenticated
-                    ? 'Revisa la politica de privacidad o elimina tu cuenta.'
-                    : 'Revisa la politica de privacidad.'}
+                    ? 'Revisa la política de privacidad o elimina tu cuenta.'
+                    : 'Revisa la política de privacidad.'}
                 </Text>
 
                 <Pressable onPress={() => router.push(appRoutes.privacy)} style={styles.compactSectionPrimaryButton}>
-                  <Text style={styles.primaryLabel}>Ver politica de privacidad</Text>
+                  <Text style={styles.primaryLabel}>Ver política de privacidad</Text>
                 </Pressable>
 
                 {isAuthenticated ? (

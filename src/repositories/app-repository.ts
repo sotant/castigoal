@@ -180,9 +180,9 @@ async function loadPunishmentCategoryNameByIdMap() {
 
   if (error) {
     throw normalizeRepositoryError(error, {
-      authMessage: 'No se pudieron cargar las categorias.',
+      authMessage: 'No se pudieron cargar las categorías.',
       code: 'CATEGORIES_LOAD_FAILED',
-      fallback: 'No se pudieron cargar las categorias.',
+      fallback: 'No se pudieron cargar las categorías.',
     });
   }
 
@@ -409,14 +409,14 @@ async function resolveCategoryIdForWrite(categoryName: Punishment['categoryName'
 
   if (error) {
     throw normalizeRepositoryError(error, {
-      authMessage: 'No se pudo resolver la categoria.',
+      authMessage: 'No se pudo resolver la categoría.',
       code: 'CATEGORY_RESOLVE_FAILED',
-      fallback: 'No se pudo resolver la categoria.',
+      fallback: 'No se pudo resolver la categoría.',
     });
   }
 
   if (!data?.id || !isPunishmentCategoryName(data.name)) {
-    throw createAppError('No se pudo resolver la categoria seleccionada.', 'CATEGORY_RESOLVE_FAILED');
+    throw createAppError('No se pudo resolver la categoría seleccionada.', 'CATEGORY_RESOLVE_FAILED');
   }
 
   return data.id;
@@ -516,14 +516,14 @@ export async function getRequiredUserId() {
 
   if (error) {
     throw normalizeRepositoryError(error, {
-      authMessage: 'Necesitas iniciar sesion para continuar.',
+      authMessage: 'Necesitas iniciar sesión para continuar.',
       code: 'APP_GET_SESSION_FAILED',
-      fallback: 'No se pudo comprobar la sesion activa.',
+      fallback: 'No se pudo comprobar la sesión activa.',
     });
   }
 
   if (!session?.user?.id) {
-    throw createAppError('Necesitas iniciar sesion para continuar.', 'AUTH_REQUIRED', 'auth');
+    throw createAppError('Necesitas iniciar sesión para continuar.', 'AUTH_REQUIRED', 'auth');
   }
 
   return session.user.id;
@@ -611,9 +611,9 @@ export async function loadStatsSummary(referenceDate?: string) {
 
   if (error) {
     throw normalizeRepositoryError(error, {
-      authMessage: 'No se pudo cargar el resumen de estadisticas.',
+      authMessage: 'No se pudo cargar el resumen de estadísticas.',
       code: 'STATS_SUMMARY_LOAD_FAILED',
-      fallback: 'No se pudo cargar el resumen de estadisticas.',
+      fallback: 'No se pudo cargar el resumen de estadísticas.',
     });
   }
 
@@ -642,9 +642,9 @@ export async function loadPunishmentCatalog() {
 
   if (error) {
     throw normalizeRepositoryError(error, {
-      authMessage: 'No se pudo cargar el catalogo de castigos.',
+      authMessage: 'No se pudo cargar el catálogo de castigos.',
       code: 'PUNISHMENT_CATALOG_LOAD_FAILED',
-      fallback: 'No se pudo cargar el catalogo de castigos.',
+      fallback: 'No se pudo cargar el catálogo de castigos.',
     });
   }
 
@@ -672,9 +672,9 @@ export async function loadCompletedPunishmentHistory(limit = 50) {
 
   if (error) {
     throw normalizeRepositoryError(error, {
-      authMessage: 'No se pudo cargar el historico de castigos cumplidos.',
+      authMessage: 'No se pudo cargar el histórico de castigos cumplidos.',
       code: 'PUNISHMENT_HISTORY_LOAD_FAILED',
-      fallback: 'No se pudo cargar el historico de castigos cumplidos.',
+      fallback: 'No se pudo cargar el histórico de castigos cumplidos.',
     });
   }
 
@@ -994,9 +994,9 @@ export async function resetUserData() {
 
   if (historyResult.error) {
     throw normalizeRepositoryError(historyResult.error, {
-      authMessage: 'No se pudo borrar el historico de castigos.',
+      authMessage: 'No se pudo borrar el histórico de castigos.',
       code: 'RESET_PUNISHMENT_HISTORY_FAILED',
-      fallback: 'No se pudo borrar el historico de castigos.',
+      fallback: 'No se pudo borrar el histórico de castigos.',
     });
   }
 
