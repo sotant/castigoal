@@ -7,6 +7,7 @@ import {
   loadCheckinsInRange,
   loadGoalCheckinHistory,
   loadGoalEvaluations,
+  loadGoalResolutionAnnouncementByOutcomeId,
   loadHomeSummary,
   loadStatsSummary,
   recordGoalCheckinRecord,
@@ -98,6 +99,7 @@ export async function deleteGoalUseCase(goalId: string) {
 
 export async function finalizeGoalUseCase(goalId: string) {
   const result = await finalizeGoalRecord(goalId);
+  const goalResolutionAnnouncement = await loadGoalResolutionAnnouncementByOutcomeId(result.outcome.id);
   const [goalEvaluations, homeSummary, statsSummary] = await Promise.all([
     loadGoalEvaluations(),
     loadHomeSummary(),
@@ -108,8 +110,10 @@ export async function finalizeGoalUseCase(goalId: string) {
     assignedPunishment: result.assignedPunishment,
     evaluation: result.evaluation,
     goal: result.goal,
+    goalResolutionAnnouncement,
     goalEvaluations,
     homeSummary,
+    outcome: result.outcome,
     statsSummary,
   };
 }

@@ -35,7 +35,7 @@ export function GoalActionConfirmationModal({
       <View style={styles.overlay}>
         <Pressable accessibilityLabel="Cerrar confirmacion" onPress={onCancel} style={styles.backdrop} />
         <View style={styles.card}>
-          <Text style={[styles.eyebrow, isDanger ? styles.eyebrowDanger : null]}>{eyebrow}</Text>
+          {eyebrow ? <Text style={[styles.eyebrow, isDanger ? styles.eyebrowDanger : null]}>{eyebrow}</Text> : null}
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.description}>{description}</Text>
           <View style={styles.actions}>
@@ -84,6 +84,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '800',
     color: palette.ink,
+    textAlign: 'center',
   },
   description: {
     color: palette.slate,
@@ -96,7 +97,7 @@ const styles = StyleSheet.create({
   },
   secondaryButton: {
     flex: 1,
-    paddingVertical: 14,
+    paddingVertical: 10,
     borderRadius: radius.pill,
     alignItems: 'center',
     borderWidth: 1,
@@ -109,12 +110,12 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     flex: 1,
-    paddingVertical: 14,
+    paddingVertical: 10,
     borderRadius: radius.pill,
     alignItems: 'center',
   },
   successButton: {
-    backgroundColor: '#15803D',
+    backgroundColor: palette.primaryDeep,
   },
   dangerButton: {
     backgroundColor: '#B91C1C',

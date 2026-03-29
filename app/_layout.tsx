@@ -3,15 +3,19 @@ import { Stack, router, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import 'react-native-reanimated';
-import { Modal, Platform, View } from 'react-native';
+import { Alert, Modal, Platform, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AppTutorialOverlay } from '@/src/components/AppTutorialOverlay';
+import { GoalResolutionAnnouncementModal } from '@/src/components/GoalResolutionAnnouncementModal';
 import { useAuth } from '@/src/hooks/use-auth';
+import { getErrorMessage } from '@/src/lib/app-error';
 import { useAppBootstrap } from '@/src/hooks/use-app-bootstrap';
 import { appRoutes } from '@/src/navigation/app-routes';
 import { AuthProvider } from '@/src/providers/auth-provider';
+import { requestNotificationPermissions } from '@/src/services/notifications';
+import { useAppStore } from '@/src/store/app-store';
 import {
   APP_TUTORIAL_STEPS,
   AppTutorialState,
@@ -93,12 +97,17 @@ function AuthRedirector() {
 function RootNavigator() {
   useAppBootstrap();
   const pathname = usePathname();
+  const goalResolutionAnnouncements = useAppStore((state) => state.goalResolutionAnnouncements);
+  const dismissGoalResolutionAnnouncement = useAppStore((state) => state.dismissGoalResolutionAnnouncement);
+  const updateSettings = useAppStore((state) => state.updateSettings);
   const [welcomeModalVisible, setWelcomeModalVisible] = useState(false);
   const [tutorialState, setTutorialState] = useState<AppTutorialState | null>(null);
 
   const activeTutorialStep =
     tutorialState && tutorialState.status === 'in_progress' ? APP_TUTORIAL_STEPS[tutorialState.currentStep] : null;
   const tutorialModalVisible = !welcomeModalVisible && Boolean(activeTutorialStep);
+  const activeGoalResolutionAnnouncement = goalResolutionAnnouncements[0] ?? null;
+  const goalResolutionModalVisible = !welcomeModalVisible && !tutorialModalVisible && Boolean(activeGoalResolutionAnnouncement);
 
   const navigateToTutorialStep = (stepIndex: number) => {
     const step = APP_TUTORIAL_STEPS[stepIndex];
@@ -179,12 +188,32 @@ function RootNavigator() {
 
     if (nextStepIndex >= APP_TUTORIAL_STEPS.length) {
       await completeAppTutorial();
+      await syncTutorialReminderPreferences();
       router.navigate(appRoutes.home);
       return;
     }
 
     const nextState = await setAppTutorialStep(nextStepIndex);
     navigateToTutorialStep(nextState.currentStep);
+  };
+
+  const syncTutorialReminderPreferences = async () => {
+    try {
+      const granted = await requestNotificationPermissions();
+
+      await updateSettings({
+        remindersEnabled: granted,
+        goalResolutionReminderEnabled: granted,
+        pendingPunishmentReminderEnabled: granted,
+      });
+    } catch (error) {
+      Alert.alert('No se pudieron actualizar los recordatorios', getErrorMessage(error));
+    }
+  };
+
+  const handleSkipTutorial = async () => {
+    await skipAppTutorial();
+    await syncTutorialReminderPreferences();
   };
 
   return (
@@ -226,13 +255,26 @@ function RootNavigator() {
               void handleAdvanceTutorial();
             }}
             onSkip={() => {
-              void skipAppTutorial();
+              void handleSkipTutorial();
             }}
             step={activeTutorialStep}
             totalSteps={APP_TUTORIAL_STEPS.length}
           />
         ) : null}
       </Modal>
+      <GoalResolutionAnnouncementModal
+        announcement={activeGoalResolutionAnnouncement}
+        index={goalResolutionAnnouncements.length > 0 ? 1 : 0}
+        onClose={() => {
+          if (!activeGoalResolutionAnnouncement) {
+            return;
+          }
+
+          void dismissGoalResolutionAnnouncement(activeGoalResolutionAnnouncement.outcomeId);
+        }}
+        total={goalResolutionAnnouncements.length}
+        visible={goalResolutionModalVisible}
+      />
       <StatusBar style="dark" />
     </ThemeProvider>
   );

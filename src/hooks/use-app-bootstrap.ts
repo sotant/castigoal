@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { AppState } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 
 import { useAuth } from '@/src/hooks/use-auth';
@@ -20,6 +21,18 @@ export function useAppBootstrap() {
   useEffect(() => {
     void initializeApp();
   }, [initializeApp, userId]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        void initializeApp();
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [initializeApp]);
 
   useEffect(() => {
     if (!hydrated) {

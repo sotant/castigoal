@@ -1,7 +1,7 @@
-import { Feather, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
+import { Feather, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { type ComponentProps, useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Directions, FlingGestureHandler } from 'react-native-gesture-handler';
 
 import { EmptyState } from '@/src/components/EmptyState';
@@ -12,11 +12,12 @@ import { StatusBadge } from '@/src/components/StatusBadge';
 import { PUNISHMENT_CATEGORY_OPTIONS } from '@/src/constants/punishments';
 import { palette, radius, shadows, spacing } from '@/src/constants/theme';
 import { buildMonthCalendar } from '@/src/features/goals/goal-form';
+import { usePunishmentCatalog } from '@/src/features/punishments/selectors';
 import { getMonthStart, WEEKDAY_LABELS } from '@/src/features/stats/calendar';
 import { Goal, GoalCalendarDay } from '@/src/models/types';
 import { appRoutes } from '@/src/navigation/app-routes';
-import { selectGoalDetail, selectStatsCalendar, useAppStore } from '@/src/store/app-store';
-import { addMonths, formatCompactDate, startOfToday } from '@/src/utils/date';
+import { selectAssignedPunishmentDetail, selectGoalDetail, selectStatsCalendar, useAppStore } from '@/src/store/app-store';
+import { addMonths, diffInDays, formatCompactDate, startOfToday } from '@/src/utils/date';
 import { getGoalDeadline, getGoalRequiredDays } from '@/src/utils/goal-evaluation';
 
 type Props = {
@@ -24,6 +25,7 @@ type Props = {
 };
 
 type DetailStatProps = {
+  label: string;
   value: string;
   iconColor: string;
   iconName: ComponentProps<typeof MaterialCommunityIcons>['name'] | ComponentProps<typeof Feather>['name'];
@@ -33,32 +35,40 @@ type DetailStatProps = {
 type InfoItemProps = {
   label: string;
   value: string;
-  iconName: ComponentProps<typeof MaterialCommunityIcons>['name'];
+  iconName: ComponentProps<typeof MaterialCommunityIcons>['name'] | ComponentProps<typeof MaterialIcons>['name'];
   iconColor: string;
   iconBackgroundColor: string;
+  iconFamily?: 'material-community' | 'material';
 };
 
-function DetailStat({ value, iconColor, iconName, iconFamily = 'material-community' }: DetailStatProps) {
+function DetailStat({ label, value, iconColor, iconName, iconFamily = 'material-community' }: DetailStatProps) {
   return (
-    <View style={styles.statCard}>
-      <View style={styles.statContent}>
-        {iconFamily === 'feather' ? (
-          <Feather color={iconColor} name={iconName as ComponentProps<typeof Feather>['name']} size={18} />
-        ) : (
-          <MaterialCommunityIcons color={iconColor} name={iconName as ComponentProps<typeof MaterialCommunityIcons>['name']} size={18} />
-        )}
-        <Text style={styles.statValue}>{value}</Text>
+    <View style={styles.statColumn}>
+      <Text style={styles.statLabel}>{label}</Text>
+      <View style={styles.statCard}>
+        <View style={styles.statContent}>
+          {iconFamily === 'feather' ? (
+            <Feather color={iconColor} name={iconName as ComponentProps<typeof Feather>['name']} size={18} />
+          ) : (
+            <MaterialCommunityIcons color={iconColor} name={iconName as ComponentProps<typeof MaterialCommunityIcons>['name']} size={18} />
+          )}
+          <Text style={styles.statValue}>{value}</Text>
+        </View>
       </View>
     </View>
   );
 }
 
-function InfoItem({ label, value, iconName, iconColor, iconBackgroundColor }: InfoItemProps) {
+function InfoItem({ label, value, iconName, iconColor, iconBackgroundColor, iconFamily = 'material-community' }: InfoItemProps) {
   return (
     <View style={styles.infoItem}>
       <View style={styles.infoItemHeader}>
         <View style={[styles.infoIconWrap, { backgroundColor: iconBackgroundColor }]}>
-          <MaterialCommunityIcons color={iconColor} name={iconName} size={18} />
+          {iconFamily === 'material' ? (
+            <MaterialIcons color={iconColor} name={iconName as ComponentProps<typeof MaterialIcons>['name']} size={18} />
+          ) : (
+            <MaterialCommunityIcons color={iconColor} name={iconName as ComponentProps<typeof MaterialCommunityIcons>['name']} size={18} />
+          )}
         </View>
         <Text style={styles.infoItemLabel}>{label}</Text>
       </View>
@@ -87,59 +97,27 @@ function formatCalendarMonthLabel(date: Date) {
   return `${month.charAt(0).toUpperCase()}${month.slice(1)} ${year}`.trim();
 }
 
-function formatResolutionSource(source?: Goal['resolutionSource']) {
-  if (source === 'manual') {
-    return 'Manual';
+function getPunishmentScopeLabel(scope: Goal['punishmentConfig']['scope']) {
+  if (scope === 'base') {
+    return 'Estandar';
   }
 
-  if (source === 'expired') {
-    return 'Por expiracion';
+  if (scope === 'personal') {
+    return 'Personales';
   }
 
-  return 'Pendiente';
-}
-
-function formatLifecycle(goal: Goal) {
-  if (goal.lifecycleStatus === 'active') {
-    return 'Activo';
-  }
-
-  return 'Finalizado';
-}
-
-function formatResolution(goal: Goal) {
-  if (goal.resolutionStatus === 'passed') {
-    return 'Aprobado';
-  }
-
-  if (goal.resolutionStatus === 'failed') {
-    return 'Fallido';
-  }
-
-  return 'Pendiente';
-}
-
-function buildPunishmentPoolSummary(goal: Goal) {
-  const scopeLabel =
-    goal.punishmentConfig.scope === 'base'
-      ? 'Castigos estandar'
-      : goal.punishmentConfig.scope === 'personal'
-        ? 'Castigos personales'
-        : 'Ambos origenes';
-
-  if (goal.punishmentConfig.categoryMode === 'all') {
-    return `${scopeLabel} + todas las categorias`;
-  }
-
-  const labels = PUNISHMENT_CATEGORY_OPTIONS.filter((option) => goal.punishmentConfig.categoryNames.includes(option.name)).map((option) => option.label);
-  return `${scopeLabel} + ${labels.join(', ')}`;
+  return 'Ambos';
 }
 
 export function GoalDetailScreen({ goal }: Props) {
   const detail = useAppStore(selectGoalDetail(goal?.id ?? ''));
+  const assignedPunishmentId = detail?.outcome?.assignedPunishmentId;
+  const assignedPunishmentDetail = useAppStore(selectAssignedPunishmentDetail(assignedPunishmentId ?? ''));
   const loadGoalDetail = useAppStore((state) => state.loadGoalDetail);
+  const loadAssignedPunishmentDetail = useAppStore((state) => state.loadAssignedPunishmentDetail);
   const loadStatsCalendar = useAppStore((state) => state.loadStatsCalendar);
   const finalizeGoal = useAppStore((state) => state.finalizeGoal);
+  const { punishmentsLoaded, refreshPunishmentCatalog, basePunishments, personalPunishments } = usePunishmentCatalog();
   const evaluation = useAppStore((state) => (goal ? state.goalEvaluations[goal.id] : undefined));
   const goalSubtitle = goal?.description?.trim() || undefined;
   const [monthOffset, setMonthOffset] = useState(0);
@@ -169,6 +147,20 @@ export function GoalDetailScreen({ goal }: Props) {
 
     void loadStatsCalendar(goal.id, monthStart);
   }, [goal, loadStatsCalendar, monthStart]);
+
+  useEffect(() => {
+    if (!punishmentsLoaded) {
+      void refreshPunishmentCatalog().catch(() => undefined);
+    }
+  }, [punishmentsLoaded, refreshPunishmentCatalog]);
+
+  useEffect(() => {
+    if (!assignedPunishmentId || assignedPunishmentDetail) {
+      return;
+    }
+
+    void loadAssignedPunishmentDetail(assignedPunishmentId).catch(() => undefined);
+  }, [assignedPunishmentDetail, assignedPunishmentId, loadAssignedPunishmentDetail]);
 
   if (!goal) {
     return (
@@ -212,6 +204,23 @@ export function GoalDetailScreen({ goal }: Props) {
   const showUnreachableHint = goal.lifecycleStatus === 'active' && viewModel.daysUntilStart === 0 && pendingRequiredDays > viewModel.remainingDays;
   const monthLabel = formatCalendarMonthLabel(monthDate);
   const progressTone = isResolvedFailed ? palette.danger : isResolvedPassed ? palette.success : palette.primary;
+  const durationDays = diffInDays(goal.startDate, viewModel.deadline) + 1;
+  const eligiblePunishments = useMemo(() => {
+    const sourcePunishments =
+      goal.punishmentConfig.scope === 'base'
+        ? basePunishments
+        : goal.punishmentConfig.scope === 'personal'
+          ? personalPunishments
+          : [...basePunishments, ...personalPunishments];
+
+    return sourcePunishments.filter((punishment) => {
+      if (goal.punishmentConfig.categoryMode === 'all') {
+        return true;
+      }
+
+      return goal.punishmentConfig.categoryNames.includes(punishment.categoryName);
+    });
+  }, [basePunishments, goal.punishmentConfig, personalPunishments]);
   const progressHint = isResolvedPassed
     ? 'Objetivo aprobado. El ciclo ya quedo resuelto.'
     : isResolvedFailed
@@ -239,7 +248,6 @@ export function GoalDetailScreen({ goal }: Props) {
       <View style={styles.progressCard}>
         <View style={styles.progressHeader}>
           <StatusBadge lifecycleStatus={goal.lifecycleStatus} resolutionStatus={goal.resolutionStatus} />
-          <Text style={styles.progressStatusText}>{formatLifecycle(goal)} · {formatResolution(goal)}</Text>
         </View>
 
         <ProgressRing
@@ -275,21 +283,20 @@ export function GoalDetailScreen({ goal }: Props) {
       </View>
 
       <View style={styles.statsSection}>
-        <View style={styles.statsLegend}>
-          <Text style={styles.legendText}>Racha actual</Text>
-          <Text style={styles.legendText}>Mejor racha</Text>
-          <Text style={styles.legendText}>{viewModel.daysUntilStart > 0 ? 'Dias para empezar' : 'Dias restantes'}</Text>
-        </View>
-
         <View style={styles.statsRow}>
-          <DetailStat iconColor="#F97316" iconName="fire" value={`${viewModel.currentStreak}`} />
-          <DetailStat iconColor="#B45309" iconFamily="feather" iconName="award" value={`${viewModel.bestStreak}`} />
-          <DetailStat iconColor={palette.ink} iconName="flag-checkered" value={viewModel.daysUntilStart > 0 ? `${viewModel.daysUntilStart}` : `${viewModel.remainingDays}`} />
+          <DetailStat label="Racha actual" iconColor="#F97316" iconName="fire" value={`${viewModel.currentStreak}`} />
+          <DetailStat label="Mejor racha" iconColor="#B45309" iconFamily="feather" iconName="award" value={`${viewModel.bestStreak}`} />
+          <DetailStat
+            label={viewModel.daysUntilStart > 0 ? 'Dias para empezar' : 'Dias restantes'}
+            iconColor={palette.ink}
+            iconName="flag-checkered"
+            value={viewModel.daysUntilStart > 0 ? `${viewModel.daysUntilStart}` : `${viewModel.remainingDays}`}
+          />
         </View>
       </View>
 
       <View style={styles.infoCard}>
-        <Text style={styles.infoTitle}>Estado del objetivo</Text>
+        <Text style={styles.infoTitle}>Informacion</Text>
         <View style={styles.infoGrid}>
           <InfoItem
             iconBackgroundColor="#E8F1FF"
@@ -306,123 +313,245 @@ export function GoalDetailScreen({ goal }: Props) {
             value={formatCompactDate(viewModel.deadline)}
           />
           <InfoItem
-            iconBackgroundColor="#EEF8F0"
-            iconColor={palette.success}
-            iconName="progress-check"
-            label="Estado"
-            value={formatLifecycle(goal)}
+            iconBackgroundColor="#EAF8EF"
+            iconColor="#43B66E"
+            iconFamily="material"
+            iconName="hourglass-top"
+            label="Duracion"
+            value={`${durationDays} ${durationDays === 1 ? 'dia' : 'dias'}`}
           />
           <InfoItem
             iconBackgroundColor="#FFF6E5"
             iconColor={palette.warning}
             iconName="check-decagram"
-            label="Resultado"
-            value={formatResolution(goal)}
+            label="Requisito"
+            value={`${safeRequiredDays} ${safeRequiredDays === 1 ? 'dia' : 'dias'}`}
           />
         </View>
       </View>
 
-      <View style={styles.infoCard}>
-        <Text style={styles.infoTitle}>Regla y resolucion</Text>
-        <Text style={styles.copyLine}>{`Debes completar ${safeRequiredDays} de ${goal.targetDays} ${goal.targetDays === 1 ? 'dia' : 'dias'} para aprobar.`}</Text>
-        <Text style={styles.copyLine}>{`Origen de resolucion: ${formatResolutionSource(goal.resolutionSource)}`}</Text>
-        {goal.closedOn ? <Text style={styles.copyLine}>{`Fecha de cierre: ${formatCompactDate(goal.closedOn)}`}</Text> : null}
-        {goal.resolvedAt ? <Text style={styles.copyLine}>{`Resuelto el: ${formatCompactDate(goal.resolvedAt.slice(0, 10))}`}</Text> : null}
-      </View>
-
-      <View style={styles.infoCard}>
-        <Text style={styles.infoTitle}>Pool de castigos</Text>
-        <Text style={styles.copyLine}>{buildPunishmentPoolSummary(goal)}</Text>
-      </View>
-
-      {goal.lifecycleStatus === 'closed' ? (
+      {goal.lifecycleStatus === 'active' ? (
         <View style={styles.infoCard}>
-          <Text style={styles.infoTitle}>Outcome persistido</Text>
-          <Text style={styles.copyLine}>{`Dias completados: ${viewModel.evaluation.completedDays}/${safeRequiredDays}`}</Text>
-          <Text style={styles.copyLine}>{`Tasa de cumplimiento: ${viewModel.evaluation.completionRate}%`}</Text>
-          {isResolvedPassed ? (
-            <Text style={[styles.copyLine, styles.successText]}>El objetivo quedo aprobado.</Text>
-          ) : isResolvedFailed ? (
-            viewModel.outcome?.assignedPunishmentId ? (
-              <>
-                <Text style={[styles.copyLine, styles.dangerText]}>El objetivo quedo fallido y este ciclo tiene un castigo asignado.</Text>
-                <Pressable onPress={() => router.push(appRoutes.punishment(viewModel.outcome!.assignedPunishmentId!))} style={styles.secondaryActionButton}>
-                  <Text style={styles.secondaryActionLabel}>Ver castigo</Text>
-                </Pressable>
-              </>
+          <View style={styles.contentSectionHeader}>
+            <Text style={styles.infoTitle}>Posibles castigos</Text>
+            <View style={styles.countBadge}>
+              <Text style={styles.countBadgeLabel}>{eligiblePunishments.length}</Text>
+            </View>
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.punishmentChipsRow}
+            style={styles.punishmentChipsScroll}>
+            <View style={[styles.filterChipOption, styles.filterChipOptionActive]}>
+              <Text style={[styles.filterChipOptionLabel, styles.filterChipOptionLabelActive]}>{getPunishmentScopeLabel(goal.punishmentConfig.scope)}</Text>
+            </View>
+            {goal.punishmentConfig.categoryMode === 'all' ? (
+              <View style={[styles.filterChipOption, styles.filterChipOptionActive]}>
+                <Text style={[styles.filterChipOptionLabel, styles.filterChipOptionLabelActive]}>Todas</Text>
+              </View>
             ) : (
-              <Text style={[styles.copyLine, styles.dangerText]}>
-                El objetivo quedo fallido sin castigo asignado porque el pool guardado en este objetivo ya no tenia castigos elegibles.
-              </Text>
-            )
-          ) : null}
+              PUNISHMENT_CATEGORY_OPTIONS.filter((option) => goal.punishmentConfig.categoryNames.includes(option.name)).map((option) => (
+                <View
+                  key={option.name}
+                  style={[
+                    styles.categoryChip,
+                    {
+                      backgroundColor: option.accent,
+                      borderColor: option.accent,
+                    },
+                  ]}>
+                  <View
+                    style={[
+                      styles.categoryChipIconWrap,
+                      {
+                        backgroundColor: `${palette.snow}22`,
+                      },
+                    ]}>
+                    <Ionicons color={palette.snow} name={option.icon} size={18} />
+                  </View>
+                  <Text style={[styles.categoryChipTitle, styles.categoryChipTitleActive]}>{option.label}</Text>
+                </View>
+              ))
+            )}
+          </ScrollView>
+
+          <View style={styles.availablePunishmentsCard}>
+            {punishmentsLoaded ? (
+              eligiblePunishments.length > 0 ? (
+                <View style={styles.availablePunishmentsScrollWrap}>
+                  <ScrollView
+                    nestedScrollEnabled
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={styles.availablePunishmentsContent}
+                    style={styles.availablePunishmentsScroll}>
+                    {eligiblePunishments.map((punishment) => {
+                      const categoryOption = PUNISHMENT_CATEGORY_OPTIONS.find((option) => option.name === punishment.categoryName);
+
+                      return (
+                        <View key={punishment.id} style={styles.availablePunishmentRow}>
+                          <View
+                            style={[
+                              styles.availablePunishmentIconWrap,
+                              {
+                                backgroundColor: categoryOption?.tint ?? '#EEF4FF',
+                              },
+                            ]}>
+                            <Ionicons color={categoryOption?.accent ?? palette.primaryDeep} name={categoryOption?.icon ?? 'sparkles-outline'} size={14} />
+                          </View>
+                          <Text style={styles.availablePunishmentTitle}>{punishment.title}</Text>
+                        </View>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              ) : (
+                <Text style={styles.availablePunishmentEmpty}>No hay castigos disponibles con esta seleccion.</Text>
+              )
+            ) : (
+              <Text style={styles.availablePunishmentEmpty}>Cargando catalogo de castigos...</Text>
+            )}
+          </View>
         </View>
       ) : null}
 
-      <View style={styles.calendarSection}>
-        <View style={styles.calendarHeader}>
-          <Text style={styles.sectionTitle}>Calendario</Text>
-          <View style={styles.monthSwitcher}>
-            <Pressable onPress={() => setMonthOffset((current) => current - 1)} style={styles.monthButton}>
-              <Feather color={palette.primaryDeep} name="chevron-left" size={18} />
-            </Pressable>
-            <Text style={styles.monthLabel}>{monthLabel}</Text>
-            <Pressable onPress={() => setMonthOffset((current) => current + 1)} style={styles.monthButton}>
-              <Feather color={palette.primaryDeep} name="chevron-right" size={18} />
-            </Pressable>
-          </View>
-        </View>
-
-        <FlingGestureHandler direction={Directions.LEFT} onActivated={() => handleCalendarSwipe('left')}>
-          <FlingGestureHandler direction={Directions.RIGHT} onActivated={() => handleCalendarSwipe('right')}>
-            <View style={styles.calendarCard}>
-              <View style={styles.weekRow}>
-                {WEEKDAY_LABELS.map((label) => (
-                  <Text key={label} style={styles.weekday}>
-                    {label}
-                  </Text>
-                ))}
-              </View>
-
-              <View style={styles.calendarGrid}>
-                {calendarDays.map((day) => {
-                  const isStart = day.date === goal.startDate;
-                  const isDeadline = day.date === viewModel.deadline;
-
-                  return (
-                    <View key={day.date} style={styles.dayCell}>
-                      <View
-                        style={[
-                          styles.dayBubble,
-                          day.status === 'completed' ? styles.dayCompleted : null,
-                          day.status === 'missed' ? styles.dayMissed : styles.dayEmpty,
-                          !day.inMonth ? styles.dayOutsideMonth : null,
-                        ]}>
-                        <Text style={[styles.dayLabel, !day.inMonth ? styles.dayLabelOutsideMonth : null]}>{day.dayNumber}</Text>
-                        {isStart ? (
-                          <View style={styles.dayMarker}>
-                            <MaterialIcons color={palette.snow} name="play-arrow" size={10} />
-                          </View>
-                        ) : null}
-                        {isDeadline ? (
-                          <View style={styles.dayMarker}>
-                            <MaterialCommunityIcons color={palette.snow} name="flag-checkered" size={10} />
-                          </View>
-                        ) : null}
-                      </View>
+      {isResolvedFailed ? (
+        <View style={styles.infoCard}>
+          <Text style={styles.infoTitle}>Consecuencia</Text>
+          {assignedPunishmentId ? (
+            assignedPunishmentDetail ? (
+              <View style={styles.consequenceCard}>
+                <View style={styles.consequenceHeader}>
+                  <Text style={styles.consequenceTitle}>{assignedPunishmentDetail.punishment.title}</Text>
+                  <View style={styles.consequenceMetaRow}>
+                    <View style={[styles.filterChipOption, styles.consequenceTypeChip]}>
+                      <Text style={[styles.filterChipOptionLabel, styles.consequenceTypeChipLabel]}>
+                        {assignedPunishmentDetail.punishment.scope === 'personal' ? 'Personal' : 'Estandar'}
+                      </Text>
                     </View>
-                  );
-                })}
+                    {(() => {
+                      const categoryOption = PUNISHMENT_CATEGORY_OPTIONS.find(
+                        (option) => option.name === assignedPunishmentDetail.punishment.categoryName,
+                      );
+
+                      if (!categoryOption) {
+                        return null;
+                      }
+
+                      return (
+                        <View
+                          style={[
+                            styles.categoryChip,
+                            styles.consequenceCategoryChip,
+                            {
+                              backgroundColor: categoryOption.tint,
+                              borderColor: categoryOption.accent,
+                            },
+                          ]}>
+                          <View style={[styles.categoryChipIconWrap, styles.consequenceCategoryIconWrap]}>
+                            <Ionicons color={categoryOption.accent} name={categoryOption.icon} size={14} />
+                          </View>
+                          <Text style={[styles.categoryChipTitle, styles.consequenceCategoryChipLabel]}>{categoryOption.label}</Text>
+                        </View>
+                      );
+                    })()}
+                  </View>
+                </View>
+                <Text style={styles.consequenceDescription}>{assignedPunishmentDetail.punishment.description}</Text>
               </View>
+            ) : (
+              <Text style={styles.copyLine}>Cargando castigo asignado...</Text>
+            )
+          ) : (
+            <Text style={[styles.copyLine, styles.dangerText]}>
+              El objetivo fallo, pero no se pudo asignar un castigo porque el pool guardado ya no tenia opciones elegibles.
+            </Text>
+          )}
+        </View>
+      ) : null}
+
+      <View style={styles.infoCard}>
+        <View style={styles.calendarSection}>
+          <View style={styles.calendarHeader}>
+            <Text style={styles.sectionTitle}>Calendario</Text>
+            <View style={styles.monthSwitcher}>
+              <Pressable onPress={() => setMonthOffset((current) => current - 1)} style={styles.monthButton}>
+                <Feather color={palette.primaryDeep} name="chevron-left" size={18} />
+              </Pressable>
+              <Text style={styles.monthLabel}>{monthLabel}</Text>
+              <Pressable onPress={() => setMonthOffset((current) => current + 1)} style={styles.monthButton}>
+                <Feather color={palette.primaryDeep} name="chevron-right" size={18} />
+              </Pressable>
             </View>
+          </View>
+
+          <FlingGestureHandler direction={Directions.LEFT} onActivated={() => handleCalendarSwipe('left')}>
+            <FlingGestureHandler direction={Directions.RIGHT} onActivated={() => handleCalendarSwipe('right')}>
+              <View style={styles.calendarCard}>
+                <View style={styles.weekRow}>
+                  {WEEKDAY_LABELS.map((label) => (
+                    <Text key={label} style={styles.weekday}>
+                      {label}
+                    </Text>
+                  ))}
+                </View>
+
+                <View style={styles.calendarGrid}>
+                  {calendarDays.map((day) => {
+                    const isStart = day.date === goal.startDate;
+                    const isDeadline = day.date === viewModel.deadline;
+
+                    return (
+                      <View key={day.date} style={styles.dayCell}>
+                        <View
+                          style={[
+                            styles.dayBubble,
+                            day.status === 'completed' ? styles.dayCompleted : null,
+                            day.status === 'missed' ? styles.dayMissed : styles.dayEmpty,
+                            !day.inMonth ? styles.dayOutsideMonth : null,
+                          ]}>
+                          <Text style={[styles.dayLabel, !day.inMonth ? styles.dayLabelOutsideMonth : null]}>{day.dayNumber}</Text>
+                          {isStart ? (
+                            <View style={styles.dayMarker}>
+                              <MaterialIcons color={palette.snow} name="play-arrow" size={10} />
+                            </View>
+                          ) : null}
+                          {isDeadline ? (
+                            <View style={styles.dayMarker}>
+                              <MaterialCommunityIcons color={palette.snow} name="flag-checkered" size={10} />
+                            </View>
+                          ) : null}
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            </FlingGestureHandler>
           </FlingGestureHandler>
-        </FlingGestureHandler>
+
+          <View style={styles.legend}>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, styles.dayCompleted]} />
+              <Text style={styles.legendText}>Cumplido</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, styles.dayMissed]} />
+              <Text style={styles.legendText}>Fallado</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, styles.dayEmpty]} />
+              <Text style={styles.legendText}>Sin check-in</Text>
+            </View>
+          </View>
+
+        </View>
       </View>
 
       <GoalActionConfirmationModal
         confirmLabel="Finalizar"
-        description="El objetivo se cerrara y se resolvera ahora mismo con la misma logica que usa la app cuando expira."
-        eyebrow="Cerrar ciclo"
+        description="Se resolvera el objetivo antes de llegar su fecha de finalizacion. Esta accion no podra deshacerse."
+        eyebrow=""
         onCancel={() => setShowFinalizeConfirmation(false)}
         onConfirm={() => {
           setShowFinalizeConfirmation(false);
@@ -451,11 +580,6 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     gap: spacing.xs,
-  },
-  progressStatusText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: palette.slate,
   },
   progressHint: {
     textAlign: 'center',
@@ -506,17 +630,18 @@ const styles = StyleSheet.create({
     color: palette.ink,
   },
   statsSection: {
-    gap: 4,
+    gap: spacing.xs,
   },
   statsRow: {
     flexDirection: 'row',
     gap: spacing.sm,
   },
-  statsLegend: {
-    flexDirection: 'row',
-    gap: spacing.sm,
+  statColumn: {
+    flex: 1,
+    minWidth: 0,
+    gap: 6,
   },
-  legendText: {
+  statLabel: {
     flex: 1,
     fontSize: 11,
     lineHeight: 14,
@@ -524,8 +649,6 @@ const styles = StyleSheet.create({
     color: palette.slate,
   },
   statCard: {
-    flex: 1,
-    minWidth: 0,
     paddingVertical: 8,
     paddingHorizontal: 10,
     borderRadius: 18,
@@ -558,6 +681,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
     color: palette.ink,
+  },
+  contentSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
   },
   infoGrid: {
     flexDirection: 'row',
@@ -616,6 +745,180 @@ const styles = StyleSheet.create({
     color: palette.danger,
     fontWeight: '700',
   },
+  availablePunishmentsCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E6ECF5',
+    backgroundColor: '#F8FBFF',
+    padding: spacing.sm,
+    gap: spacing.sm,
+  },
+  availablePunishmentsScrollWrap: {
+    maxHeight: 220,
+  },
+  availablePunishmentsScroll: {
+    flexGrow: 0,
+  },
+  availablePunishmentsContent: {
+    gap: spacing.xs,
+  },
+  availablePunishmentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: 8,
+    paddingHorizontal: 2,
+  },
+  availablePunishmentIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  availablePunishmentTitle: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '700',
+    color: palette.ink,
+  },
+  availablePunishmentEmpty: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: palette.slate,
+  },
+  consequenceCard: {
+    padding: spacing.sm,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#FFD3D3',
+    backgroundColor: '#FFF6F6',
+    gap: spacing.xs,
+  },
+  consequenceHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  consequenceTitle: {
+    flex: 1,
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: '800',
+    color: palette.ink,
+  },
+  consequenceMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
+  },
+  consequenceTypeChip: {
+    backgroundColor: '#EEF4FF',
+    borderColor: '#D6E1F1',
+  },
+  consequenceTypeChipLabel: {
+    color: palette.primaryDeep,
+  },
+  consequenceCategoryChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    minHeight: 0,
+  },
+  consequenceCategoryIconWrap: {
+    width: 18,
+    height: 18,
+    backgroundColor: palette.snow,
+  },
+  consequenceCategoryChipLabel: {
+    color: palette.ink,
+    fontSize: 11,
+  },
+  consequenceDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: palette.slate,
+  },
+  countBadge: {
+    minWidth: 24,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EEF3FB',
+  },
+  countBadgeLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: palette.primaryDeep,
+  },
+  filterChipWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  punishmentChipsScroll: {
+    marginHorizontal: -2,
+  },
+  punishmentChipsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: 2,
+  },
+  filterChipOption: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: '#D6E1F1',
+    backgroundColor: '#EEF4FF',
+  },
+  filterChipOptionActive: {
+    backgroundColor: palette.primaryDeep,
+    borderColor: palette.primaryDeep,
+  },
+  filterChipOptionLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: palette.primaryDeep,
+  },
+  filterChipOptionLabelActive: {
+    color: palette.snow,
+  },
+  categoryChipWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  categoryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    minHeight: 28,
+  },
+  categoryChipIconWrap: {
+    width: 20,
+    height: 20,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  categoryChipTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  categoryChipTitleActive: {
+    color: palette.snow,
+  },
   calendarSection: {
     gap: spacing.sm,
   },
@@ -637,9 +940,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: palette.line,
-    backgroundColor: palette.snow,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -649,15 +950,37 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
     color: palette.ink,
+    textTransform: 'capitalize',
   },
-  calendarCard: {
-    padding: spacing.md,
-    borderRadius: 20,
+  legend: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    flexWrap: 'wrap',
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  legendDot: {
+    width: 10,
+    height: 10,
+    borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: palette.line,
-    backgroundColor: palette.snow,
+  },
+  legendText: {
+    fontSize: 11,
+    color: palette.slate,
+  },
+  calendarCard: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: 2,
+    borderRadius: 20,
+    borderWidth: 0,
+    backgroundColor: 'transparent',
     gap: spacing.sm,
-    ...shadows.card,
   },
   weekRow: {
     flexDirection: 'row',
@@ -680,8 +1003,8 @@ const styles = StyleSheet.create({
   },
   dayBubble: {
     position: 'relative',
-    width: 38,
-    height: 38,
+    width: 34,
+    height: 34,
     borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: palette.line,

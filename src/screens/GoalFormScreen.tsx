@@ -19,7 +19,7 @@ import { usePunishmentCatalog } from '@/src/features/punishments/selectors';
 import { Goal, GoalPunishmentCategoryMode, GoalPunishmentConfig, GoalPunishmentScope, PunishmentCategoryName } from '@/src/models/types';
 import { appRoutes } from '@/src/navigation/app-routes';
 import { useAppStore } from '@/src/store/app-store';
-import { addDays, diffInDays, formatLongDate, formatShortDate, startOfToday } from '@/src/utils/date';
+import { addDays, diffInDays, formatCompactDate, formatShortDate, startOfToday } from '@/src/utils/date';
 
 type Props = {
   mode: 'create' | 'edit';
@@ -237,6 +237,8 @@ export function GoalFormScreen({ mode, goal }: Props) {
   const canContinueStep2 = !startDateError && !durationError;
   const canContinueStep3 = !minimumError;
   const canSubmit = canContinueStep1 && canContinueStep2 && canContinueStep3 && !punishmentCategoryError && !punishmentPoolError;
+  const hasGoalStarted = mode === 'edit' && draft.startDate <= today;
+  const canEditStartDate = mode === 'create' || !hasGoalStarted;
 
   const progressWidth = `${(step / 4) * 100}%` as DimensionValue;
   const durationSummary = useMemo(() => `Del ${formatShortDate(draft.startDate)} al ${formatShortDate(draft.endDate)}`, [draft.endDate, draft.startDate]);
@@ -245,7 +247,7 @@ export function GoalFormScreen({ mode, goal }: Props) {
     [durationDays, requiredDays],
   );
   const punishmentSummary = useMemo(() => getPunishmentSummary(punishmentConfig), [punishmentConfig]);
-  const startDateDisplayLabel = draft.startDate === today ? 'Hoy' : formatLongDate(draft.startDate);
+  const startDateDisplayLabel = draft.startDate === today ? 'Hoy' : formatCompactDate(draft.startDate);
 
   useEffect(() => {
     setMinimumDaysInput(String(requiredDays));
@@ -403,37 +405,52 @@ export function GoalFormScreen({ mode, goal }: Props) {
           <View style={styles.panel}>
             <Text style={styles.panelTitle}>Duracion</Text>
 
-            <View style={styles.field}>
-              <Text style={styles.label}>Fecha de inicio</Text>
-              <Pressable
-                disabled={saving}
-                onPress={() => setShowStartCalendar((current) => !current)}
-                style={[styles.selectorCard, showStartCalendar ? styles.selectorCardActive : null]}>
-                <View style={styles.selectorCopy}>
-                  <Text style={styles.selectorText}>El objetivo empieza el</Text>
-                  <Text style={styles.selectorTitle}>{startDateDisplayLabel}</Text>
-                </View>
-                <Text style={styles.selectorAction}>{showStartCalendar ? 'Ocultar' : 'Cambiar'}</Text>
-              </Pressable>
-
-              {showStartCalendar ? (
-                <CalendarSelector
+            {canEditStartDate ? (
+              <View style={styles.field}>
+                <Text style={styles.label}>Fecha de inicio</Text>
+                <Pressable
                   disabled={saving}
-                  minDate={minimumStartDate}
-                  month={startMonth}
-                  selectedDate={draft.startDate}
-                  onMonthChange={(updater) => setStartMonth((current) => updater(current))}
-                  onSelect={(date) => {
-                    const nextEndDate = draft.endDate < date ? date : draft.endDate;
-                    updateDraft({ endDate: nextEndDate, startDate: date });
-                    setShowStartCalendar(false);
-                    setEndMonth(getMonthAnchor(nextEndDate));
-                  }}
-                />
-              ) : null}
+                  onPress={() => setShowStartCalendar((current) => !current)}
+                  style={[styles.selectorCard, showStartCalendar ? styles.selectorCardActive : null]}>
+                  <View style={styles.selectorCopy}>
+                    <Text style={styles.selectorText}>El objetivo empieza el</Text>
+                    <Text style={styles.selectorTitle}>{startDateDisplayLabel}</Text>
+                  </View>
+                  <Text style={styles.selectorAction}>{showStartCalendar ? 'Ocultar' : 'Cambiar'}</Text>
+                </Pressable>
 
-              {startDateError ? <Text style={styles.errorText}>{startDateError}</Text> : null}
-            </View>
+                {showStartCalendar ? (
+                  <CalendarSelector
+                    disabled={saving}
+                    minDate={minimumStartDate}
+                    month={startMonth}
+                    selectedDate={draft.startDate}
+                    onMonthChange={(updater) => setStartMonth((current) => updater(current))}
+                    onSelect={(date) => {
+                      const nextEndDate = draft.endDate < date ? date : draft.endDate;
+                      updateDraft({ endDate: nextEndDate, startDate: date });
+                      setShowStartCalendar(false);
+                      setEndMonth(getMonthAnchor(nextEndDate));
+                    }}
+                  />
+                ) : null}
+
+                {startDateError ? <Text style={styles.errorText}>{startDateError}</Text> : null}
+              </View>
+            ) : mode === 'edit' ? (
+              <View style={styles.field}>
+                <Text style={styles.label}>Fecha de inicio</Text>
+                <View style={styles.selectorCard}>
+                  <View style={styles.selectorCopy}>
+                    <Text style={styles.selectorText}>El objetivo empieza el</Text>
+                    <Text style={styles.selectorTitle}>{startDateDisplayLabel}</Text>
+                  </View>
+                </View>
+                <View style={styles.startDateNotice}>
+                  <Text style={styles.startDateNoticeText}>No se puede modificar la fecha de inicio en objetivos empezados</Text>
+                </View>
+              </View>
+            ) : null}
 
             <View style={styles.field}>
               <Text style={styles.label}>Fecha de finalizacion</Text>
@@ -443,7 +460,7 @@ export function GoalFormScreen({ mode, goal }: Props) {
                 style={[styles.selectorCard, showEndCalendar ? styles.selectorCardActive : null]}>
                 <View style={styles.selectorCopy}>
                   <Text style={styles.selectorText}>El objetivo acaba el</Text>
-                  <Text style={styles.selectorTitle}>{formatLongDate(draft.endDate)}</Text>
+                  <Text style={styles.selectorTitle}>{formatCompactDate(draft.endDate)}</Text>
                 </View>
                 <Text style={styles.selectorAction}>{showEndCalendar ? 'Ocultar' : 'Cambiar'}</Text>
               </Pressable>
@@ -891,6 +908,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
     color: palette.primaryDeep,
+  },
+  startDateNotice: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: 18,
+    backgroundColor: '#FFF4E5',
+    borderWidth: 1,
+    borderColor: '#F3D2A2',
+  },
+  startDateNoticeText: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '700',
+    color: '#8A5A10',
   },
   calendarSection: {
     padding: spacing.sm,

@@ -11,12 +11,15 @@ import { ScreenContainer } from '@/src/components/ScreenContainer';
 import { palette, radius, spacing } from '@/src/constants/theme';
 import { useAuth } from '@/src/hooks/use-auth';
 import { getErrorMessage } from '@/src/lib/app-error';
+import { UserSettings } from '@/src/models/types';
 import { appRoutes } from '@/src/navigation/app-routes';
 import { resetAppTutorial } from '@/src/services/app-tutorial';
+import { requestNotificationPermissions } from '@/src/services/notifications';
 import { resetWelcomeOnboarding } from '@/src/services/welcome-onboarding';
 import { useAppStore } from '@/src/store/app-store';
 
 type TimeField = 'hour' | 'minute';
+type NotificationToggleKey = 'remindersEnabled' | 'goalResolutionReminderEnabled' | 'pendingPunishmentReminderEnabled';
 
 type ComboOption = {
   label: string;
@@ -39,6 +42,7 @@ export function SettingsScreen() {
   const [accountAction, setAccountAction] = useState<'delete' | 'signout' | null>(null);
   const [deleteAccountModalVisible, setDeleteAccountModalVisible] = useState(false);
   const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
+  const [notificationToggleBusyKey, setNotificationToggleBusyKey] = useState<NotificationToggleKey | null>(null);
   const [isPrivacySectionOpen, setIsPrivacySectionOpen] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const tabBarHeight = useBottomTabBarHeight();
@@ -90,6 +94,27 @@ export function SettingsScreen() {
   const handleMinuteChange = (value: number) => {
     void updateSettings({ reminderMinute: value });
   };
+
+  const handleNotificationToggleChange = useCallback(
+    async (key: NotificationToggleKey, value: boolean) => {
+      setNotificationToggleBusyKey(key);
+
+      try {
+        if (!value) {
+          await updateSettings({ [key]: false } as Partial<UserSettings>);
+          return;
+        }
+
+        const granted = await requestNotificationPermissions();
+        await updateSettings({ [key]: granted } as Partial<UserSettings>);
+      } catch (error) {
+        Alert.alert('No se pudieron actualizar los recordatorios', getErrorMessage(error));
+      } finally {
+        setNotificationToggleBusyKey(null);
+      }
+    },
+    [updateSettings],
+  );
 
   const handleDeleteAccount = () => {
     setDeleteAccountError(null);
@@ -277,11 +302,22 @@ export function SettingsScreen() {
           <View style={[styles.card, styles.remindersCard]}>
             <Text style={styles.sectionTitle}>Recordatorios</Text>
             <View style={styles.settingRow}>
-              <Text style={styles.label}>Notificaciones diarias</Text>
+              <Text style={styles.label}>Recordatorio check-in</Text>
               <Switch
                 value={settings.remindersEnabled}
+                disabled={notificationToggleBusyKey === 'remindersEnabled'}
                 onValueChange={(value) => {
-                  void updateSettings({ remindersEnabled: value });
+                  void handleNotificationToggleChange('remindersEnabled', value);
+                }}
+              />
+            </View>
+            <View style={styles.settingRow}>
+              <Text style={styles.label}>Recordatorio objetivo finalizado</Text>
+              <Switch
+                value={settings.goalResolutionReminderEnabled}
+                disabled={notificationToggleBusyKey === 'goalResolutionReminderEnabled'}
+                onValueChange={(value) => {
+                  void handleNotificationToggleChange('goalResolutionReminderEnabled', value);
                 }}
               />
             </View>
@@ -289,8 +325,9 @@ export function SettingsScreen() {
               <Text style={styles.label}>Recordatorio de castigo pendiente</Text>
               <Switch
                 value={settings.pendingPunishmentReminderEnabled}
+                disabled={notificationToggleBusyKey === 'pendingPunishmentReminderEnabled'}
                 onValueChange={(value) => {
-                  void updateSettings({ pendingPunishmentReminderEnabled: value });
+                  void handleNotificationToggleChange('pendingPunishmentReminderEnabled', value);
                 }}
               />
             </View>

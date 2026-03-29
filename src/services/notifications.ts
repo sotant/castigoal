@@ -29,6 +29,10 @@ function buildReminderKey(settings: UserSettings) {
   return JSON.stringify(settings);
 }
 
+function hasAnyScheduledReminderEnabled(settings: UserSettings) {
+  return settings.remindersEnabled || settings.pendingPunishmentReminderEnabled;
+}
+
 async function readJson<T>(key: string, fallback: T): Promise<T> {
   const value = await AsyncStorage.getItem(key);
   return value ? (JSON.parse(value) as T) : fallback;
@@ -95,7 +99,7 @@ function buildGoalNotificationTrigger(goal: Goal, settings: UserSettings) {
 }
 
 function shouldScheduleGoalNotification(goal: Goal, settings: UserSettings) {
-  if (!settings.remindersEnabled) {
+  if (!settings.goalResolutionReminderEnabled) {
     return false;
   }
 
@@ -122,6 +126,17 @@ export async function requestNotificationPermissions() {
   return requested.granted;
 }
 
+export async function getNotificationPermissionsGranted() {
+  const Notifications = await getNotificationsModule();
+
+  if (!Notifications) {
+    return false;
+  }
+
+  const current = await Notifications.getPermissionsAsync();
+  return current.granted;
+}
+
 export async function clearReminderSchedule() {
   appliedReminderKey = null;
 
@@ -136,7 +151,7 @@ export async function clearGoalResolutionSchedules() {
   await writeGoalNotificationRecords([]);
 }
 
-export async function syncReminderSchedule(settings: UserSettings) {
+export async function syncReminderSchedule(settings: UserSettings, permissionsGranted?: boolean) {
   const reminderKey = buildReminderKey(settings);
 
   if (appliedReminderKey === reminderKey) {
@@ -154,12 +169,12 @@ export async function syncReminderSchedule(settings: UserSettings) {
   await cancelScheduledNotifications(existingIds);
   await writeGeneralNotificationIds([]);
 
-  if (!settings.remindersEnabled) {
+  if (!hasAnyScheduledReminderEnabled(settings)) {
     appliedReminderKey = reminderKey;
     return;
   }
 
-  const granted = await requestNotificationPermissions();
+  const granted = permissionsGranted ?? (await getNotificationPermissionsGranted());
 
   if (!granted) {
     appliedReminderKey = reminderKey;
@@ -168,19 +183,21 @@ export async function syncReminderSchedule(settings: UserSettings) {
 
   const ids: string[] = [];
 
-  ids.push(
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: 'Castigoal',
-        body: 'Haz tu check-in diario antes de cerrar el dia.',
-      },
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.DAILY,
-        hour: settings.reminderHour,
-        minute: settings.reminderMinute,
-      },
-    }),
-  );
+  if (settings.remindersEnabled) {
+    ids.push(
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'Castigoal',
+          body: 'Haz tu check-in diario antes de cerrar el dia.',
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DAILY,
+          hour: settings.reminderHour,
+          minute: settings.reminderMinute,
+        },
+      }),
+    );
+  }
 
   if (settings.pendingPunishmentReminderEnabled) {
     ids.push(
@@ -202,7 +219,7 @@ export async function syncReminderSchedule(settings: UserSettings) {
   appliedReminderKey = reminderKey;
 }
 
-export async function syncGoalResolutionSchedules(goals: Goal[], settings: UserSettings) {
+export async function syncGoalResolutionSchedules(goals: Goal[], settings: UserSettings, permissionsGranted?: boolean) {
   const Notifications = await getNotificationsModule();
   const existingRecords = await readGoalNotificationRecords();
 
@@ -218,7 +235,7 @@ export async function syncGoalResolutionSchedules(goals: Goal[], settings: UserS
     return;
   }
 
-  const granted = await requestNotificationPermissions();
+  const granted = permissionsGranted ?? (await getNotificationPermissionsGranted());
 
   if (!granted) {
     await cancelScheduledNotifications(existingRecords.map((record) => record.identifier));

@@ -8,6 +8,7 @@ import {
   GoalCalendarDay,
   GoalDetailSummary,
   GoalEvaluation,
+  GoalResolutionAnnouncement,
   HomeSummary,
   PendingAssignedPunishmentSummary,
   Punishment,
@@ -22,8 +23,10 @@ import {
   loadGoalCalendarMonth,
   loadGoalDetail,
   loadGoalEvaluations,
+  loadGoalResolutionAnnouncements,
   loadHomeSummary,
   loadStatsSummary,
+  markGoalResolutionAnnouncementSeen,
   resetUserData,
   retryPendingSync,
 } from '@/src/services/progress-service';
@@ -65,6 +68,7 @@ interface AppState {
   statsLoaded: boolean;
   statsCalendars: Record<string, GoalCalendarDay[]>;
   assignedPunishmentDetails: Record<string, AssignedPunishmentDetail>;
+  goalResolutionAnnouncements: GoalResolutionAnnouncement[];
   userSettings: UserSettings;
   initializeApp: () => Promise<void>;
   clearRemoteState: () => void;
@@ -96,6 +100,8 @@ interface AppState {
   updateCustomPunishment: (punishmentId: string, input: PunishmentMutationInput) => Promise<void>;
   deleteCustomPunishment: (punishmentId: string) => Promise<void>;
   updateSettings: (input: Partial<UserSettings>) => Promise<void>;
+  refreshGoalResolutionAnnouncements: () => Promise<void>;
+  dismissGoalResolutionAnnouncement: (outcomeId: string) => Promise<void>;
   hydrateUser: (input: Partial<User> & Pick<User, 'id'>) => void;
   resetApp: () => Promise<void>;
   setHydrated: (hydrated: boolean) => void;
@@ -110,6 +116,7 @@ const defaultUser: User = {
 
 const defaultSettings: UserSettings = {
   remindersEnabled: true,
+  goalResolutionReminderEnabled: true,
   reminderHour: 20,
   reminderMinute: 0,
   pendingPunishmentReminderEnabled: true,
@@ -153,11 +160,29 @@ const initialState = {
   statsLoaded: false,
   statsCalendars: {} as Record<string, GoalCalendarDay[]>,
   assignedPunishmentDetails: {} as Record<string, AssignedPunishmentDetail>,
+  goalResolutionAnnouncements: [] as GoalResolutionAnnouncement[],
   userSettings: defaultSettings,
 };
 
 function buildCalendarKey(goalId: string, monthStart: string) {
   return `${goalId}:${monthStart}`;
+}
+
+function getMonthStartFromDate(date: string) {
+  return `${date.slice(0, 7)}-01`;
+}
+
+function mergeGoalResolutionAnnouncements(
+  current: GoalResolutionAnnouncement[],
+  incoming: GoalResolutionAnnouncement[],
+) {
+  const byOutcomeId = new Map(current.map((announcement) => [announcement.outcomeId, announcement]));
+
+  for (const announcement of incoming) {
+    byOutcomeId.set(announcement.outcomeId, announcement);
+  }
+
+  return Array.from(byOutcomeId.values()).sort((left, right) => right.evaluatedAt.localeCompare(left.evaluatedAt));
 }
 
 export const useAppStore = create<AppState>()((set, get) => ({
@@ -172,10 +197,12 @@ export const useAppStore = create<AppState>()((set, get) => ({
     set({ hydrated: false });
 
     const snapshot = await bootstrapAppSession();
+    const goalResolutionAnnouncements = await loadGoalResolutionAnnouncements();
 
     set({
       ...initialState,
       ...snapshot,
+      goalResolutionAnnouncements,
       hydrated: true,
     });
   },
@@ -262,6 +289,9 @@ export const useAppStore = create<AppState>()((set, get) => ({
     set((state) => ({
       goals: state.goals.map((item) => (item.id === goalId ? result.goal : item)),
       goalEvaluations: result.goalEvaluations,
+      goalResolutionAnnouncements: result.goalResolutionAnnouncement
+        ? mergeGoalResolutionAnnouncements(state.goalResolutionAnnouncements, [result.goalResolutionAnnouncement])
+        : state.goalResolutionAnnouncements,
       homeSummary: result.homeSummary,
       statsSummary: result.statsSummary,
       statsLoaded: true,
@@ -284,6 +314,8 @@ export const useAppStore = create<AppState>()((set, get) => ({
     if (get().punishmentHistoryLoaded || result.assignedPunishment) {
       await get().refreshPunishmentHistory();
     }
+
+    await get().refreshGoalResolutionAnnouncements();
   },
   refreshGoalEvaluations: async (referenceDate) => {
     const goalEvaluations = await loadGoalEvaluations(referenceDate);
@@ -308,6 +340,14 @@ export const useAppStore = create<AppState>()((set, get) => ({
       pendingPunishments,
       punishmentHistoryLoaded: true,
     });
+  },
+  refreshGoalResolutionAnnouncements: async () => {
+    const goalResolutionAnnouncements = await loadGoalResolutionAnnouncements();
+    set({ goalResolutionAnnouncements });
+  },
+  dismissGoalResolutionAnnouncement: async (outcomeId) => {
+    const goalResolutionAnnouncements = await markGoalResolutionAnnouncementSeen(outcomeId);
+    set({ goalResolutionAnnouncements });
   },
   loadGoalDetail: async (goalId) => {
     const detail = await loadGoalDetail(goalId);
@@ -349,6 +389,8 @@ export const useAppStore = create<AppState>()((set, get) => ({
   recordCheckin: async (input) => {
     const result = await recordGoalCheckinUseCase(input);
     const goal = get().goals.find((item) => item.id === input.goalId);
+    const monthStart = getMonthStartFromDate(result.date);
+    const calendarKey = buildCalendarKey(input.goalId, monthStart);
 
     set((state) => ({
       goalEvaluations: result.goalEvaluations,
@@ -377,11 +419,23 @@ export const useAppStore = create<AppState>()((set, get) => ({
       }));
     }
 
+    if (calendarKey in get().statsCalendars) {
+      const days = await loadGoalCalendarMonth(input.goalId, monthStart);
+      set((state) => ({
+        statsCalendars: {
+          ...state.statsCalendars,
+          [calendarKey]: days,
+        },
+      }));
+    }
+
     return result;
   },
   clearCheckin: async (input) => {
     const result = await clearGoalCheckinUseCase(input);
     const goal = get().goals.find((item) => item.id === input.goalId);
+    const monthStart = getMonthStartFromDate(result.date);
+    const calendarKey = buildCalendarKey(input.goalId, monthStart);
 
     set((state) => {
       const nextAssignedDetails = { ...state.assignedPunishmentDetails };
@@ -405,6 +459,16 @@ export const useAppStore = create<AppState>()((set, get) => ({
         goalDetails: {
           ...state.goalDetails,
           [goal.id]: detail,
+        },
+      }));
+    }
+
+    if (calendarKey in get().statsCalendars) {
+      const days = await loadGoalCalendarMonth(input.goalId, monthStart);
+      set((state) => ({
+        statsCalendars: {
+          ...state.statsCalendars,
+          [calendarKey]: days,
         },
       }));
     }

@@ -82,7 +82,6 @@ export interface AssignedPunishment {
   goalId: string;
   punishmentId: string;
   assignedAt: string;
-  dueDate: string;
   status: AssignedPunishmentStatus;
   completedAt?: string;
   periodKey: string;
@@ -90,6 +89,7 @@ export interface AssignedPunishment {
 
 export interface UserSettings {
   remindersEnabled: boolean;
+  goalResolutionReminderEnabled: boolean;
   reminderHour: number;
   reminderMinute: number;
   pendingPunishmentReminderEnabled: boolean;
@@ -133,6 +133,7 @@ export type {
   GoalDetailSummary,
   HomeGoalSummary,
   HomeSummary,
+  GoalResolutionAnnouncement,
   PendingAssignedPunishmentSummary,
   PendingPunishmentPreview,
   StatsSummary,

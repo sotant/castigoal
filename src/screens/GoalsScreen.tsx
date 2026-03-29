@@ -1,8 +1,8 @@
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
-import { useCallback, useMemo, useRef, useState } from 'react';
-import { FlatList, ListRenderItem, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FlatList, InteractionManager, ListRenderItem, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,6 +21,7 @@ import { useAppStore } from '@/src/store/app-store';
 import { getGoalDeadline } from '@/src/utils/goal-evaluation';
 
 type GoalSectionKey = 'active' | 'closed';
+const GOALS_PAGE_SIZE = 10;
 
 type GoalListEntry =
   | {
@@ -40,6 +41,13 @@ type GoalListEntry =
       type: 'empty';
       key: `empty-${GoalSectionKey}`;
       message: string;
+    }
+  | {
+      type: 'pagination';
+      key: `pagination-${GoalSectionKey}`;
+      section: GoalSectionKey;
+      currentPage: number;
+      totalPages: number;
     };
 
 type PendingGoalAction =
@@ -104,6 +112,15 @@ function buildClosedGoalEntries(goals: Goal[], summariesByGoalId: Map<string, Ho
     .sort((left, right) => compareClosedGoals(left.goal, right.goal));
 }
 
+function getTotalPages(itemCount: number) {
+  return Math.max(1, Math.ceil(itemCount / GOALS_PAGE_SIZE));
+}
+
+function paginateEntries<T>(entries: T[], page: number) {
+  const startIndex = (page - 1) * GOALS_PAGE_SIZE;
+  return entries.slice(startIndex, startIndex + GOALS_PAGE_SIZE);
+}
+
 export function GoalsScreen() {
   const listRef = useRef<FlatList<GoalListEntry>>(null);
   const { deleteGoal, finalizeGoal, goals, homeSummary } = useAppStore(
@@ -123,6 +140,9 @@ export function GoalsScreen() {
   const [busyAction, setBusyAction] = useState<BusyGoalAction>(null);
   const [showActiveGoals, setShowActiveGoals] = useState(true);
   const [showClosedGoals, setShowClosedGoals] = useState(false);
+  const [activePage, setActivePage] = useState(1);
+  const [closedPage, setClosedPage] = useState(1);
+  const [pendingSectionScroll, setPendingSectionScroll] = useState<GoalSectionKey | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -131,6 +151,27 @@ export function GoalsScreen() {
       });
     }, []),
   );
+
+  const queueSectionScroll = useCallback((section: GoalSectionKey) => {
+    setPendingSectionScroll(section);
+  }, []);
+
+  const scrollToSectionStart = useCallback((section: GoalSectionKey, items: GoalListEntry[]) => {
+    const sectionKey = `section-${section}` as const;
+    const sectionIndex = items.findIndex((entry) => entry.key === sectionKey);
+
+    if (sectionIndex < 0) {
+      setPendingSectionScroll(null);
+      return;
+    }
+
+    listRef.current?.scrollToIndex({
+      index: sectionIndex,
+      animated: true,
+      viewPosition: 0,
+    });
+    setPendingSectionScroll(null);
+  }, []);
 
   const activeMenuGoal = useMemo(
     () => goals.find((goal) => goal.id === activeMenuGoalId) ?? null,
@@ -149,6 +190,26 @@ export function GoalsScreen() {
     () => buildClosedGoalEntries(goals.filter((goal) => goal.lifecycleStatus === 'closed'), summariesByGoalId),
     [goals, summariesByGoalId],
   );
+  const totalActivePages = useMemo(() => getTotalPages(activeGoals.length), [activeGoals.length]);
+  const totalClosedPages = useMemo(() => getTotalPages(closedGoals.length), [closedGoals.length]);
+  const currentActivePage = Math.min(activePage, totalActivePages);
+  const currentClosedPage = Math.min(closedPage, totalClosedPages);
+  const paginatedActiveGoals = useMemo(
+    () => paginateEntries(activeGoals, currentActivePage),
+    [activeGoals, currentActivePage],
+  );
+  const paginatedClosedGoals = useMemo(
+    () => paginateEntries(closedGoals, currentClosedPage),
+    [closedGoals, currentClosedPage],
+  );
+
+  useEffect(() => {
+    setActivePage((current) => Math.min(current, totalActivePages));
+  }, [totalActivePages]);
+
+  useEffect(() => {
+    setClosedPage((current) => Math.min(current, totalClosedPages));
+  }, [totalClosedPages]);
 
   const listData = useMemo<GoalListEntry[]>(() => {
     const items: GoalListEntry[] = [
@@ -170,13 +231,23 @@ export function GoalsScreen() {
         });
       } else {
         items.push(
-          ...activeGoals.map(({ goal, summary }) => ({
+          ...paginatedActiveGoals.map(({ goal, summary }) => ({
             type: 'goal' as const,
             key: goal.id,
             goal,
             summary,
           })),
         );
+
+        if (activeGoals.length > GOALS_PAGE_SIZE) {
+          items.push({
+            type: 'pagination',
+            key: 'pagination-active',
+            section: 'active',
+            currentPage: currentActivePage,
+            totalPages: totalActivePages,
+          });
+        }
       }
     }
 
@@ -197,18 +268,53 @@ export function GoalsScreen() {
         });
       } else {
         items.push(
-          ...closedGoals.map(({ goal, summary }) => ({
+          ...paginatedClosedGoals.map(({ goal, summary }) => ({
             type: 'goal' as const,
             key: `closed-${goal.id}`,
             goal,
             summary,
           })),
         );
+
+        if (closedGoals.length > GOALS_PAGE_SIZE) {
+          items.push({
+            type: 'pagination',
+            key: 'pagination-closed',
+            section: 'closed',
+            currentPage: currentClosedPage,
+            totalPages: totalClosedPages,
+          });
+        }
       }
     }
 
     return items;
-  }, [activeGoals, closedGoals, showActiveGoals, showClosedGoals]);
+  }, [
+    activeGoals,
+    closedGoals,
+    currentActivePage,
+    currentClosedPage,
+    paginatedActiveGoals,
+    paginatedClosedGoals,
+    showActiveGoals,
+    showClosedGoals,
+    totalActivePages,
+    totalClosedPages,
+  ]);
+
+  useEffect(() => {
+    if (!pendingSectionScroll) {
+      return;
+    }
+
+    const interaction = InteractionManager.runAfterInteractions(() => {
+      requestAnimationFrame(() => {
+        scrollToSectionStart(pendingSectionScroll, listData);
+      });
+    });
+
+    return () => interaction.cancel();
+  }, [listData, pendingSectionScroll, scrollToSectionStart]);
 
   const closeMenu = () => setActiveMenuGoalId(null);
   const closeConfirmationModal = () => setPendingAction(null);
@@ -252,9 +358,9 @@ export function GoalsScreen() {
     }
 
     return {
-      eyebrow: 'Cerrar ciclo',
+      eyebrow: '',
       title: 'Finalizar objetivo',
-      description: 'Se cerrara el objetivo y se resolvera ahora mismo con la misma logica que usa la app al expirar.',
+      description: 'Se resolvera el objetivo antes de llegar su fecha de finalizacion. Esta accion no podra deshacerse.',
       confirmLabel: 'Finalizar',
       tone: 'default' as const,
     };
@@ -286,6 +392,64 @@ export function GoalsScreen() {
       return (
         <View style={styles.sectionEmpty}>
           <Text style={styles.sectionEmptyText}>{item.message}</Text>
+        </View>
+      );
+    }
+
+    if (item.type === 'pagination') {
+      const isActiveSection = item.section === 'active';
+      const onPrevious = () => {
+        if (isActiveSection) {
+          setActivePage((current) => Math.max(1, current - 1));
+          queueSectionScroll('active');
+          return;
+        }
+
+        setClosedPage((current) => Math.max(1, current - 1));
+        queueSectionScroll('closed');
+      };
+      const onNext = () => {
+        if (isActiveSection) {
+          setActivePage((current) => Math.min(item.totalPages, current + 1));
+          queueSectionScroll('active');
+          return;
+        }
+
+        setClosedPage((current) => Math.min(item.totalPages, current + 1));
+        queueSectionScroll('closed');
+      };
+
+      return (
+        <View style={styles.paginationRow}>
+          <Pressable
+            accessibilityRole="button"
+            disabled={item.currentPage === 1}
+            onPress={onPrevious}
+            style={({ pressed }) => [
+              styles.paginationButton,
+              item.currentPage === 1 && styles.paginationButtonDisabled,
+              pressed && item.currentPage > 1 && styles.paginationButtonPressed,
+            ]}>
+            <Feather color={palette.primaryDeep} name="chevron-left" size={16} />
+            <Text style={styles.paginationButtonLabel}>Anterior</Text>
+          </Pressable>
+
+          <Text style={styles.paginationLabel}>
+            {item.currentPage} de {item.totalPages}
+          </Text>
+
+          <Pressable
+            accessibilityRole="button"
+            disabled={item.currentPage === item.totalPages}
+            onPress={onNext}
+            style={({ pressed }) => [
+              styles.paginationButton,
+              item.currentPage === item.totalPages && styles.paginationButtonDisabled,
+              pressed && item.currentPage < item.totalPages && styles.paginationButtonPressed,
+            ]}>
+            <Text style={styles.paginationButtonLabel}>Siguiente</Text>
+            <Feather color={palette.primaryDeep} name="chevron-right" size={16} />
+          </Pressable>
         </View>
       );
     }
@@ -327,6 +491,20 @@ export function GoalsScreen() {
             data={listData}
             keyExtractor={(item) => item.key}
             keyboardShouldPersistTaps="handled"
+            onScrollToIndexFailed={(info) => {
+              listRef.current?.scrollToOffset({
+                offset: Math.max(0, info.averageItemLength * info.index),
+                animated: true,
+              });
+
+              requestAnimationFrame(() => {
+                listRef.current?.scrollToIndex({
+                  index: info.index,
+                  animated: true,
+                  viewPosition: 0,
+                });
+              });
+            }}
             renderItem={renderGoal}
             showsVerticalScrollIndicator={false}
           />
@@ -449,6 +627,45 @@ const styles = StyleSheet.create({
   sectionEmptyText: {
     fontSize: 14,
     lineHeight: 20,
+    color: palette.slate,
+  },
+  paginationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.xs,
+  },
+  paginationButton: {
+    minWidth: 112,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#CFE0FF',
+    backgroundColor: '#EEF4FF',
+  },
+  paginationButtonPressed: {
+    opacity: 0.84,
+  },
+  paginationButtonDisabled: {
+    opacity: 0.45,
+  },
+  paginationButtonLabel: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: palette.primaryDeep,
+  },
+  paginationLabel: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 13,
+    fontWeight: '700',
     color: palette.slate,
   },
 });
