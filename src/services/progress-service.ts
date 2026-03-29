@@ -217,6 +217,10 @@ async function writeJson(key: string, value: unknown) {
   await AsyncStorage.setItem(key, JSON.stringify(value));
 }
 
+function isCastigoalStorageKey(key: string) {
+  return key.startsWith('castigoal.');
+}
+
 function buildGoalResolutionSeenKey(actorId: string) {
   return `${GOAL_RESOLUTION_SEEN_KEY_PREFIX}.${actorId}`;
 }
@@ -443,6 +447,10 @@ async function loadContainer(mode: SessionMode, actorId: string) {
     }
   }
 
+  if (reconcileBrokenPunishmentReferences(mutableContainer)) {
+    changed = true;
+  }
+
   if (changed) {
     await writeJson(key, mutableContainer);
   }
@@ -477,6 +485,53 @@ function touchRecord<T>(record: SyncRecord<T>, nextData: T, sourceGuestId?: stri
       state: 'pending_upsert',
     },
   };
+}
+
+function reconcileBrokenPunishmentReferences(container: LocalContainer) {
+  const punishmentIds = new Set(Object.keys(container.records.punishments));
+  let changed = false;
+
+  for (const [assignedId, record] of Object.entries(container.records.assignedPunishments)) {
+    if (punishmentIds.has(record.data.punishmentId)) {
+      continue;
+    }
+
+    delete container.records.assignedPunishments[assignedId];
+    changed = true;
+  }
+
+  const remainingAssignedIds = new Set(Object.keys(container.records.assignedPunishments));
+
+  for (const [outcomeId, record] of Object.entries(container.records.goalOutcomes)) {
+    if (!record.data.assignedPunishmentId || remainingAssignedIds.has(record.data.assignedPunishmentId)) {
+      continue;
+    }
+
+    container.records.goalOutcomes[outcomeId] = touchRecord(record, {
+      ...record.data,
+      assignedPunishmentId: undefined,
+    });
+    changed = true;
+  }
+
+  for (const [historyId, record] of Object.entries(container.records.punishmentHistory)) {
+    const shouldClearAssignedId =
+      Boolean(record.data.assignedPunishmentId) && !remainingAssignedIds.has(record.data.assignedPunishmentId);
+    const shouldClearPunishmentId = Boolean(record.data.punishmentId) && !punishmentIds.has(record.data.punishmentId);
+
+    if (!shouldClearAssignedId && !shouldClearPunishmentId) {
+      continue;
+    }
+
+    container.records.punishmentHistory[historyId] = touchRecord(record, {
+      ...record.data,
+      assignedPunishmentId: shouldClearAssignedId ? undefined : record.data.assignedPunishmentId,
+      punishmentId: shouldClearPunishmentId ? undefined : record.data.punishmentId,
+    });
+    changed = true;
+  }
+
+  return changed;
 }
 
 function markSynced<T>(record: SyncRecord<T>): SyncRecord<T> {
@@ -1563,7 +1618,13 @@ async function deleteRemoteRecords(container: LocalContainer) {
     deletions.push(supabase.from('punishments').delete().eq('owner_id', userId).in('id', deletedPunishments));
   }
 
-  await Promise.all(deletions);
+  const results = await Promise.all(deletions);
+  const failedDeletion = results.find((result) => result?.error);
+
+  if (failedDeletion?.error) {
+    throw failedDeletion.error;
+  }
+
   container.deleted = createEmptyDeletedBucket();
 }
 
@@ -1631,6 +1692,40 @@ async function pushPendingRecords(container: LocalContainer) {
     if (error) throw error;
     for (const record of checkins) {
       container.records.checkins[record.data.id] = markSynced(record);
+    }
+  }
+
+  const punishments = Object.values(container.records.punishments).filter(
+    (record) => record.meta.state === 'pending_upsert' && record.data.scope === 'personal',
+  );
+  if (punishments.length) {
+    const resolvedCategoryIds = await Promise.all(
+      punishments.map((record) => resolveCategoryId(record.data.categoryId, record.data.categoryName)),
+    );
+    const payload = punishments.map((record, index) => ({
+      category: resolvedCategoryIds[index],
+      description: record.data.description,
+      difficulty: record.data.difficulty,
+      id: record.data.id,
+      is_custom: true,
+      origin_device_id: deviceId,
+      owner_id: userId,
+      source_guest_id: record.meta.sourceGuestId ?? null,
+      title: record.data.title,
+    }));
+    const payloadWithoutMetadata = punishments.map((record, index) => ({
+      category: resolvedCategoryIds[index],
+      description: record.data.description,
+      difficulty: record.data.difficulty,
+      id: record.data.id,
+      is_custom: true,
+      owner_id: userId,
+      title: record.data.title,
+    }));
+    const { error } = await upsertWithSyncMetadataFallback('punishments', payload, payloadWithoutMetadata, 'id');
+    if (error) throw error;
+    for (const record of punishments) {
+      container.records.punishments[record.data.id] = markSynced(record);
     }
   }
 
@@ -1725,40 +1820,6 @@ async function pushPendingRecords(container: LocalContainer) {
     }
   }
 
-  const punishments = Object.values(container.records.punishments).filter(
-    (record) => record.meta.state === 'pending_upsert' && record.data.scope === 'personal',
-  );
-  if (punishments.length) {
-    const resolvedCategoryIds = await Promise.all(
-      punishments.map((record) => resolveCategoryId(record.data.categoryId, record.data.categoryName)),
-    );
-    const payload = punishments.map((record, index) => ({
-      category: resolvedCategoryIds[index],
-      description: record.data.description,
-      difficulty: record.data.difficulty,
-      id: record.data.id,
-      is_custom: true,
-      origin_device_id: deviceId,
-      owner_id: userId,
-      source_guest_id: record.meta.sourceGuestId ?? null,
-      title: record.data.title,
-    }));
-    const payloadWithoutMetadata = punishments.map((record, index) => ({
-      category: resolvedCategoryIds[index],
-      description: record.data.description,
-      difficulty: record.data.difficulty,
-      id: record.data.id,
-      is_custom: true,
-      owner_id: userId,
-      title: record.data.title,
-    }));
-    const { error } = await upsertWithSyncMetadataFallback('punishments', payload, payloadWithoutMetadata, 'id');
-    if (error) throw error;
-    for (const record of punishments) {
-      container.records.punishments[record.data.id] = markSynced(record);
-    }
-  }
-
   const history = Object.values(container.records.punishmentHistory).filter((record) => record.meta.state === 'pending_upsert');
   if (history.length) {
     const payload = history.map((record) => ({
@@ -1829,6 +1890,8 @@ async function syncAuthenticatedContainer(container: LocalContainer) {
   if (container.actorType !== 'authenticated') {
     return container;
   }
+
+  reconcileBrokenPunishmentReferences(container);
 
   setSyncStatus(container, 'syncing');
   await saveContainer(container);
@@ -2473,6 +2536,17 @@ export async function updateCustomPunishmentRecord(punishmentId: string, input: 
 
 export async function deleteCustomPunishmentRecord(punishmentId: string) {
   return withActiveContainer(async (container) => {
+    const isReferencedByAssignedPunishment = Object.values(container.records.assignedPunishments).some(
+      (record) => record.data.punishmentId === punishmentId,
+    );
+    const isReferencedByHistory = Object.values(container.records.punishmentHistory).some(
+      (record) => record.data.punishmentId === punishmentId,
+    );
+
+    if (isReferencedByAssignedPunishment || isReferencedByHistory) {
+      throw new Error('No se puede borrar un castigo personalizado que ya est\u00e1 asignado o completado.');
+    }
+
     delete container.records.punishments[punishmentId];
     setDeleted(container, 'punishments', punishmentId);
   });
@@ -2529,4 +2603,15 @@ export async function resetUserData() {
     next.records.userSettings = createSyncRecord(defaultSettings, container.actorType === 'authenticated' ? 'pending_upsert' : 'synced');
     Object.assign(container, next);
   });
+}
+
+export async function clearLocalPersistence() {
+  const keys = await AsyncStorage.getAllKeys();
+  const castigoalKeys = keys.filter(isCastigoalStorageKey);
+
+  if (castigoalKeys.length === 0) {
+    return;
+  }
+
+  await AsyncStorage.multiRemove(castigoalKeys);
 }

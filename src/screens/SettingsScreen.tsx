@@ -15,6 +15,8 @@ import { UserSettings } from '@/src/models/types';
 import { appRoutes } from '@/src/navigation/app-routes';
 import { resetAppTutorial } from '@/src/services/app-tutorial';
 import { requestNotificationPermissions } from '@/src/services/notifications';
+import { clearReminderScheduleUseCase } from '@/src/use-cases/settings-actions';
+import { clearLocalPersistence } from '@/src/services/progress-service';
 import { resetWelcomeOnboarding } from '@/src/services/welcome-onboarding';
 import { useAppStore } from '@/src/store/app-store';
 
@@ -30,8 +32,9 @@ const ACCOUNT_BUTTON_HEIGHT = 40;
 
 export function SettingsScreen() {
   const { deleteAccount, signOut, session } = useAuth();
-  const { retrySync, sessionState, settings, updateSettings } = useAppStore(
+  const { initializeApp, retrySync, sessionState, settings, updateSettings } = useAppStore(
     useShallow((state) => ({
+      initializeApp: state.initializeApp,
       retrySync: state.retrySync,
       sessionState: state.sessionState,
       settings: state.userSettings,
@@ -44,6 +47,7 @@ export function SettingsScreen() {
   const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
   const [notificationToggleBusyKey, setNotificationToggleBusyKey] = useState<NotificationToggleKey | null>(null);
   const [isPrivacySectionOpen, setIsPrivacySectionOpen] = useState(false);
+  const [isClearingLocalPersistence, setIsClearingLocalPersistence] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const tabBarHeight = useBottomTabBarHeight();
   const insets = useSafeAreaInsets();
@@ -178,6 +182,35 @@ export function SettingsScreen() {
           onPress: () => {
             void (async () => {
               await resetAppTutorial();
+            })();
+          },
+        },
+      ],
+    );
+  };
+
+  const handleClearLocalPersistence = () => {
+    Alert.alert(
+      'Vaciar persistencia local',
+      'Se borrar\u00e1n los datos guardados en este dispositivo, incluyendo progreso local, onboarding, tutorial y referencias de recordatorios. La sesi\u00f3n actual no se cerrar\u00e1.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Vaciar',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              try {
+                setIsClearingLocalPersistence(true);
+                await clearReminderScheduleUseCase();
+                await clearLocalPersistence();
+                await initializeApp();
+                Alert.alert('Persistencia local vaciada', 'Los datos locales de la app se han limpiado correctamente.');
+              } catch (error) {
+                Alert.alert('No se pudo vaciar la persistencia local', getErrorMessage(error));
+              } finally {
+                setIsClearingLocalPersistence(false);
+              }
             })();
           },
         },
@@ -368,11 +401,19 @@ export function SettingsScreen() {
             <View style={styles.card}>
               <Text style={styles.sectionTitle}>Desarrollo</Text>
               <Text style={styles.helperText}>Utilidades para repetir la bienvenida y el tutorial durante pruebas y validaciones.</Text>
-              <Pressable onPress={handleResetOnboarding} style={styles.compactSecondaryButton}>
+              <Pressable disabled={isClearingLocalPersistence} onPress={handleResetOnboarding} style={[styles.compactSecondaryButton, isClearingLocalPersistence && styles.disabled]}>
                 <Text style={styles.secondaryLabel}>Reset onboarding</Text>
               </Pressable>
-              <Pressable onPress={handleResetTutorial} style={styles.compactSecondaryButton}>
+              <Pressable disabled={isClearingLocalPersistence} onPress={handleResetTutorial} style={[styles.compactSecondaryButton, isClearingLocalPersistence && styles.disabled]}>
                 <Text style={styles.secondaryLabel}>Reset tutorial</Text>
+              </Pressable>
+              <Pressable
+                disabled={isClearingLocalPersistence}
+                onPress={handleClearLocalPersistence}
+                style={[styles.compactDangerButton, isClearingLocalPersistence && styles.disabled]}>
+                <Text style={styles.dangerLabel}>
+                  {isClearingLocalPersistence ? 'Vaciando persistencia...' : 'Vaciar persistencia local'}
+                </Text>
               </Pressable>
             </View>
           ) : null}
