@@ -2,6 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { radius } from '@/src/constants/theme';
+import { commonCopy } from '@/src/i18n/common';
 import { Goal } from '@/src/models/types';
 
 type Props = {
@@ -16,7 +17,7 @@ function getBadgeCopy(lifecycleStatus: Goal['lifecycleStatus'], resolutionStatus
       borderColor: '#CBECD8',
       color: '#177245',
       icon: 'play' as const,
-      label: 'Activo',
+      label: commonCopy.states.active,
     };
   }
 
@@ -26,7 +27,7 @@ function getBadgeCopy(lifecycleStatus: Goal['lifecycleStatus'], resolutionStatus
       borderColor: '#C6F6D5',
       color: '#15803D',
       icon: 'check' as const,
-      label: 'Aprobado',
+      label: commonCopy.states.approved,
     };
   }
 
@@ -36,7 +37,7 @@ function getBadgeCopy(lifecycleStatus: Goal['lifecycleStatus'], resolutionStatus
       borderColor: '#FECACA',
       color: '#B91C1C',
       icon: 'x' as const,
-      label: 'Fallido',
+      label: commonCopy.states.failed,
     };
   }
 
@@ -45,7 +46,7 @@ function getBadgeCopy(lifecycleStatus: Goal['lifecycleStatus'], resolutionStatus
     borderColor: '#D9E4F2',
     color: '#45607E',
     icon: 'square' as const,
-    label: 'Cerrado',
+    label: commonCopy.states.closed,
   };
 }
 

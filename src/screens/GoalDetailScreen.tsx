@@ -1,6 +1,7 @@
 import { Feather, Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { type ComponentProps, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Directions, FlingGestureHandler } from 'react-native-gesture-handler';
 
@@ -9,15 +10,23 @@ import { GoalActionConfirmationModal } from '@/src/components/GoalActionConfirma
 import { ProgressRing } from '@/src/components/ProgressRing';
 import { ScreenContainer } from '@/src/components/ScreenContainer';
 import { StatusBadge } from '@/src/components/StatusBadge';
-import { PUNISHMENT_CATEGORY_OPTIONS } from '@/src/constants/punishments';
+import { getPunishmentCategoryOptions, getPunishmentDisplay } from '@/src/constants/punishments';
 import { palette, radius, shadows, spacing } from '@/src/constants/theme';
 import { buildMonthCalendar } from '@/src/features/goals/goal-form';
 import { usePunishmentCatalog } from '@/src/features/punishments/selectors';
-import { getMonthStart, WEEKDAY_LABELS } from '@/src/features/stats/calendar';
+import { commonCopy, formatDays } from '@/src/i18n/common';
+import {
+  getGoalProgressAlmostThere,
+  getGoalProgressHelper,
+  getGoalProgressUnreachable,
+  getGoalPunishmentScopeLabel,
+  goalsCopy,
+} from '@/src/i18n/goals';
+import { getMonthStart, getWeekdayLabels } from '@/src/features/stats/calendar';
 import { Goal, GoalCalendarDay } from '@/src/models/types';
 import { appRoutes } from '@/src/navigation/app-routes';
 import { selectAssignedPunishmentDetail, selectGoalDetail, selectStatsCalendar, useAppStore } from '@/src/store/app-store';
-import { addMonths, diffInDays, formatCompactDate, startOfToday } from '@/src/utils/date';
+import { addMonths, diffInDays, formatCompactDate, formatDatePartsByLocale, startOfToday } from '@/src/utils/date';
 import { getGoalDeadline, getGoalRequiredDays } from '@/src/utils/goal-evaluation';
 
 type Props = {
@@ -87,29 +96,18 @@ function getCalendarFallback(monthDate: Date): GoalCalendarDay[] {
 }
 
 function formatCalendarMonthLabel(date: Date) {
-  const parts = new Intl.DateTimeFormat('es-ES', {
+  const parts = formatDatePartsByLocale(date, {
     month: 'long',
     year: 'numeric',
-  }).formatToParts(date);
+  });
   const month = parts.find((part) => part.type === 'month')?.value ?? '';
   const year = parts.find((part) => part.type === 'year')?.value ?? '';
 
   return `${month.charAt(0).toUpperCase()}${month.slice(1)} ${year}`.trim();
 }
 
-function getPunishmentScopeLabel(scope: Goal['punishmentConfig']['scope']) {
-  if (scope === 'base') {
-    return 'Estandar';
-  }
-
-  if (scope === 'personal') {
-    return 'Personales';
-  }
-
-  return 'Ambos';
-}
-
 export function GoalDetailScreen({ goal }: Props) {
+  useTranslation();
   const detail = useAppStore(selectGoalDetail(goal?.id ?? ''));
   const assignedPunishmentId = detail?.outcome?.assignedPunishmentId;
   const assignedPunishmentDetail = useAppStore(selectAssignedPunishmentDetail(assignedPunishmentId ?? ''));
@@ -119,6 +117,8 @@ export function GoalDetailScreen({ goal }: Props) {
   const finalizeGoal = useAppStore((state) => state.finalizeGoal);
   const { punishmentsLoaded, refreshPunishmentCatalog, basePunishments, personalPunishments } = usePunishmentCatalog();
   const evaluation = useAppStore((state) => (goal ? state.goalEvaluations[goal.id] : undefined));
+  const punishmentCategoryOptions = getPunishmentCategoryOptions();
+  const weekdayLabels = getWeekdayLabels();
   const goalSubtitle = goal?.description?.trim() || undefined;
   const [monthOffset, setMonthOffset] = useState(0);
   const [showFinalizeConfirmation, setShowFinalizeConfirmation] = useState(false);
@@ -164,8 +164,8 @@ export function GoalDetailScreen({ goal }: Props) {
 
   if (!goal) {
     return (
-      <ScreenContainer title="Objetivo" subtitle="No he encontrado ese objetivo.">
-        <EmptyState title="Objetivo no disponible" message="Puede haber sido eliminado o nunca se guardo." />
+      <ScreenContainer title={goalsCopy.detail.screenTitle} subtitle={goalsCopy.detail.notFound.subtitle}>
+        <EmptyState title={goalsCopy.detail.notFound.title} message={goalsCopy.detail.notFound.message} />
       </ScreenContainer>
     );
   }
@@ -176,7 +176,7 @@ export function GoalDetailScreen({ goal }: Props) {
     deadline: getGoalDeadline(goal),
     daysUntilStart: 0,
     remainingDays: 0,
-    scheduleStatus: 'Cargando historial del objetivo...',
+    scheduleStatus: goalsCopy.detail.loadingScheduleStatus,
     currentStreak: 0,
     bestStreak: 0,
     recentCheckins: [],
@@ -205,7 +205,8 @@ export function GoalDetailScreen({ goal }: Props) {
   const monthLabel = formatCalendarMonthLabel(monthDate);
   const progressTone = isResolvedFailed ? palette.danger : isResolvedPassed ? palette.success : palette.primary;
   const durationDays = diffInDays(goal.startDate, viewModel.deadline) + 1;
-  const eligiblePunishments = useMemo(() => {
+  const displayedAssignedPunishment = assignedPunishmentDetail ? getPunishmentDisplay(assignedPunishmentDetail.punishment) : null;
+  const eligiblePunishments = (() => {
     const sourcePunishments =
       goal.punishmentConfig.scope === 'base'
         ? basePunishments
@@ -220,24 +221,24 @@ export function GoalDetailScreen({ goal }: Props) {
 
       return goal.punishmentConfig.categoryNames.includes(punishment.categoryName);
     });
-  }, [basePunishments, goal.punishmentConfig, personalPunishments]);
+  })();
   const progressHint = isResolvedPassed
-    ? 'Objetivo aprobado. El ciclo ya quedo resuelto.'
+    ? goalsCopy.detail.progress.approvedHint
     : isResolvedFailed
       ? viewModel.outcome?.assignedPunishmentId
-        ? 'Objetivo fallido. El castigo de este ciclo ya fue asignado.'
-        : 'Objetivo fallido sin castigo asignado. El pool guardado ya no tenia opciones elegibles.'
+        ? goalsCopy.detail.progress.failedAssignedHint
+        : goalsCopy.detail.progress.failedWithoutPunishmentHint
       : showUnreachableHint
-        ? `Objetivo no alcanzable. Necesitas ${pendingRequiredDays} ${pendingRequiredDays === 1 ? 'dia cumplido' : 'dias cumplidos'} y solo quedan ${viewModel.remainingDays}.`
+        ? getGoalProgressUnreachable(pendingRequiredDays, viewModel.remainingDays)
         : approvalProgress < 25
-          ? 'El ciclo acaba de arrancar. Ve sumando dias cumplidos.'
+          ? goalsCopy.detail.progress.justStarted
           : approvalProgress < 50
-            ? 'Vas por buen camino.'
+            ? goalsCopy.detail.progress.onTrack
             : approvalProgress < 75
-              ? 'Ya superaste la mitad del objetivo.'
+              ? goalsCopy.detail.progress.halfway
               : approvalProgress < 100
-                ? `Quedan ${pendingRequiredDays} ${pendingRequiredDays === 1 ? 'dia' : 'dias'} para aprobarlo.`
-                : 'Ya tienes el minimo necesario para aprobar si cierras hoy.';
+                ? getGoalProgressAlmostThere(pendingRequiredDays)
+                : goalsCopy.detail.progress.minimumReached;
 
   const handleCalendarSwipe = (direction: 'left' | 'right') => {
     setMonthOffset((current) => (direction === 'left' ? current + 1 : current - 1));
@@ -251,7 +252,7 @@ export function GoalDetailScreen({ goal }: Props) {
         </View>
 
         <ProgressRing
-          helperText={`${approvalProgress}% completado`}
+          helperText={getGoalProgressHelper(approvalProgress)}
           helperColor={palette.slate}
           showDivider
           size={124}
@@ -270,12 +271,12 @@ export function GoalDetailScreen({ goal }: Props) {
           <View style={styles.actionRow}>
             {canEdit ? (
               <Pressable onPress={() => router.push(appRoutes.editGoal(goal.id))} style={styles.secondaryActionButton}>
-                <Text style={styles.secondaryActionLabel}>Editar</Text>
+                <Text style={styles.secondaryActionLabel}>{goalsCopy.detail.actions.edit}</Text>
               </Pressable>
             ) : null}
             {canFinalize ? (
               <Pressable onPress={() => setShowFinalizeConfirmation(true)} style={styles.primaryActionButton}>
-                <Text style={styles.primaryActionLabel}>Finalizar</Text>
+                <Text style={styles.primaryActionLabel}>{goalsCopy.detail.actions.finalize}</Text>
               </Pressable>
             ) : null}
           </View>
@@ -284,10 +285,10 @@ export function GoalDetailScreen({ goal }: Props) {
 
       <View style={styles.statsSection}>
         <View style={styles.statsRow}>
-          <DetailStat label="Racha actual" iconColor="#F97316" iconName="fire" value={`${viewModel.currentStreak}`} />
-          <DetailStat label="Mejor racha" iconColor="#B45309" iconFamily="feather" iconName="award" value={`${viewModel.bestStreak}`} />
+          <DetailStat label={goalsCopy.detail.labels.currentStreak} iconColor="#F97316" iconName="fire" value={`${viewModel.currentStreak}`} />
+          <DetailStat label={goalsCopy.detail.labels.bestStreak} iconColor="#B45309" iconFamily="feather" iconName="award" value={`${viewModel.bestStreak}`} />
           <DetailStat
-            label={viewModel.daysUntilStart > 0 ? 'Dias para empezar' : 'Dias restantes'}
+            label={viewModel.daysUntilStart > 0 ? goalsCopy.detail.labels.daysUntilStart : goalsCopy.detail.labels.daysRemaining}
             iconColor={palette.ink}
             iconName="flag-checkered"
             value={viewModel.daysUntilStart > 0 ? `${viewModel.daysUntilStart}` : `${viewModel.remainingDays}`}
@@ -296,20 +297,20 @@ export function GoalDetailScreen({ goal }: Props) {
       </View>
 
       <View style={styles.infoCard}>
-        <Text style={styles.infoTitle}>Informacion</Text>
+        <Text style={styles.infoTitle}>{goalsCopy.detail.infoTitle}</Text>
         <View style={styles.infoGrid}>
           <InfoItem
             iconBackgroundColor="#E8F1FF"
             iconColor={palette.primaryDeep}
             iconName="calendar-start"
-            label="Inicio"
+            label={goalsCopy.detail.labels.start}
             value={formatCompactDate(goal.startDate)}
           />
           <InfoItem
             iconBackgroundColor="#FFF2E7"
             iconColor={palette.accent}
             iconName="calendar-end"
-            label="Fin"
+            label={goalsCopy.detail.labels.end}
             value={formatCompactDate(viewModel.deadline)}
           />
           <InfoItem
@@ -317,15 +318,15 @@ export function GoalDetailScreen({ goal }: Props) {
             iconColor="#43B66E"
             iconFamily="material"
             iconName="hourglass-top"
-            label="Duracion"
-            value={`${durationDays} ${durationDays === 1 ? 'dia' : 'dias'}`}
+            label={goalsCopy.detail.labels.duration}
+            value={formatDays(durationDays)}
           />
           <InfoItem
             iconBackgroundColor="#FFF6E5"
             iconColor={palette.warning}
             iconName="check-decagram"
-            label="Requisito"
-            value={`${safeRequiredDays} ${safeRequiredDays === 1 ? 'dia' : 'dias'}`}
+            label={goalsCopy.detail.labels.requirement}
+            value={formatDays(safeRequiredDays)}
           />
         </View>
       </View>
@@ -333,7 +334,7 @@ export function GoalDetailScreen({ goal }: Props) {
       {goal.lifecycleStatus === 'active' ? (
         <View style={styles.infoCard}>
           <View style={styles.contentSectionHeader}>
-            <Text style={styles.infoTitle}>Posibles castigos</Text>
+            <Text style={styles.infoTitle}>{goalsCopy.detail.labels.possiblePunishments}</Text>
             <View style={styles.countBadge}>
               <Text style={styles.countBadgeLabel}>{eligiblePunishments.length}</Text>
             </View>
@@ -344,14 +345,14 @@ export function GoalDetailScreen({ goal }: Props) {
             contentContainerStyle={styles.punishmentChipsRow}
             style={styles.punishmentChipsScroll}>
             <View style={[styles.filterChipOption, styles.filterChipOptionActive]}>
-              <Text style={[styles.filterChipOptionLabel, styles.filterChipOptionLabelActive]}>{getPunishmentScopeLabel(goal.punishmentConfig.scope)}</Text>
+              <Text style={[styles.filterChipOptionLabel, styles.filterChipOptionLabelActive]}>{getGoalPunishmentScopeLabel(goal.punishmentConfig.scope)}</Text>
             </View>
             {goal.punishmentConfig.categoryMode === 'all' ? (
               <View style={[styles.filterChipOption, styles.filterChipOptionActive]}>
-                <Text style={[styles.filterChipOptionLabel, styles.filterChipOptionLabelActive]}>Todas</Text>
+                <Text style={[styles.filterChipOptionLabel, styles.filterChipOptionLabelActive]}>{goalsCopy.form.categoryMode.all}</Text>
               </View>
             ) : (
-              PUNISHMENT_CATEGORY_OPTIONS.filter((option) => goal.punishmentConfig.categoryNames.includes(option.name)).map((option) => (
+              punishmentCategoryOptions.filter((option) => goal.punishmentConfig.categoryNames.includes(option.name)).map((option) => (
                 <View
                   key={option.name}
                   style={[
@@ -386,7 +387,7 @@ export function GoalDetailScreen({ goal }: Props) {
                     contentContainerStyle={styles.availablePunishmentsContent}
                     style={styles.availablePunishmentsScroll}>
                     {eligiblePunishments.map((punishment) => {
-                      const categoryOption = PUNISHMENT_CATEGORY_OPTIONS.find((option) => option.name === punishment.categoryName);
+                      const categoryOption = punishmentCategoryOptions.find((option) => option.name === punishment.categoryName);
 
                       return (
                         <View key={punishment.id} style={styles.availablePunishmentRow}>
@@ -406,10 +407,10 @@ export function GoalDetailScreen({ goal }: Props) {
                   </ScrollView>
                 </View>
               ) : (
-                <Text style={styles.availablePunishmentEmpty}>No hay castigos disponibles con esta seleccion.</Text>
+                <Text style={styles.availablePunishmentEmpty}>{goalsCopy.form.summary.noAvailablePunishments}</Text>
               )
             ) : (
-              <Text style={styles.availablePunishmentEmpty}>Cargando catalogo de castigos...</Text>
+              <Text style={styles.availablePunishmentEmpty}>{goalsCopy.form.summary.availablePunishmentsLoading}</Text>
             )}
           </View>
         </View>
@@ -417,21 +418,21 @@ export function GoalDetailScreen({ goal }: Props) {
 
       {isResolvedFailed ? (
         <View style={styles.infoCard}>
-          <Text style={styles.infoTitle}>Consecuencia</Text>
+          <Text style={styles.infoTitle}>{goalsCopy.detail.consequenceTitle}</Text>
           {assignedPunishmentId ? (
             assignedPunishmentDetail ? (
               <View style={styles.consequenceCard}>
                 <View style={styles.consequenceHeader}>
-                  <Text style={styles.consequenceTitle}>{assignedPunishmentDetail.punishment.title}</Text>
+                  <Text style={styles.consequenceTitle}>{displayedAssignedPunishment?.title}</Text>
                   <View style={styles.consequenceMetaRow}>
                     <View style={[styles.filterChipOption, styles.consequenceTypeChip]}>
                       <Text style={[styles.filterChipOptionLabel, styles.consequenceTypeChipLabel]}>
-                        {assignedPunishmentDetail.punishment.scope === 'personal' ? 'Personal' : 'Estandar'}
+                        {displayedAssignedPunishment?.scope === 'personal' ? commonCopy.filters.personal : commonCopy.filters.base}
                       </Text>
                     </View>
                     {(() => {
-                      const categoryOption = PUNISHMENT_CATEGORY_OPTIONS.find(
-                        (option) => option.name === assignedPunishmentDetail.punishment.categoryName,
+                      const categoryOption = punishmentCategoryOptions.find(
+                        (option) => option.name === displayedAssignedPunishment?.categoryName,
                       );
 
                       if (!categoryOption) {
@@ -457,15 +458,13 @@ export function GoalDetailScreen({ goal }: Props) {
                     })()}
                   </View>
                 </View>
-                <Text style={styles.consequenceDescription}>{assignedPunishmentDetail.punishment.description}</Text>
+                <Text style={styles.consequenceDescription}>{displayedAssignedPunishment?.description}</Text>
               </View>
             ) : (
-              <Text style={styles.copyLine}>Cargando castigo asignado...</Text>
+              <Text style={styles.copyLine}>{goalsCopy.detail.assignedPunishmentLoading}</Text>
             )
           ) : (
-            <Text style={[styles.copyLine, styles.dangerText]}>
-              El objetivo fallo, pero no se pudo asignar un castigo porque el pool guardado ya no tenia opciones elegibles.
-            </Text>
+            <Text style={[styles.copyLine, styles.dangerText]}>{goalsCopy.detail.failureWithoutEligiblePunishment}</Text>
           )}
         </View>
       ) : null}
@@ -473,7 +472,7 @@ export function GoalDetailScreen({ goal }: Props) {
       <View style={styles.infoCard}>
         <View style={styles.calendarSection}>
           <View style={styles.calendarHeader}>
-            <Text style={styles.sectionTitle}>Calendario</Text>
+            <Text style={styles.sectionTitle}>{goalsCopy.detail.calendarTitle}</Text>
             <View style={styles.monthSwitcher}>
               <Pressable onPress={() => setMonthOffset((current) => current - 1)} style={styles.monthButton}>
                 <Feather color={palette.primaryDeep} name="chevron-left" size={18} />
@@ -489,7 +488,7 @@ export function GoalDetailScreen({ goal }: Props) {
             <FlingGestureHandler direction={Directions.RIGHT} onActivated={() => handleCalendarSwipe('right')}>
               <View style={styles.calendarCard}>
                 <View style={styles.weekRow}>
-                  {WEEKDAY_LABELS.map((label) => (
+                  {weekdayLabels.map((label) => (
                     <Text key={label} style={styles.weekday}>
                       {label}
                     </Text>
@@ -533,15 +532,15 @@ export function GoalDetailScreen({ goal }: Props) {
           <View style={styles.legend}>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, styles.dayCompleted]} />
-              <Text style={styles.legendText}>Cumplido</Text>
+              <Text style={styles.legendText}>{commonCopy.calendar.legend.completed}</Text>
             </View>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, styles.dayMissed]} />
-              <Text style={styles.legendText}>Fallado</Text>
+              <Text style={styles.legendText}>{commonCopy.calendar.legend.missed}</Text>
             </View>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, styles.dayEmpty]} />
-              <Text style={styles.legendText}>Sin check-in</Text>
+              <Text style={styles.legendText}>{commonCopy.calendar.legend.noCheckin}</Text>
             </View>
           </View>
 
@@ -549,15 +548,15 @@ export function GoalDetailScreen({ goal }: Props) {
       </View>
 
       <GoalActionConfirmationModal
-        confirmLabel="Finalizar"
-        description="Se resolvera el objetivo antes de llegar su fecha de finalizacion. Esta accion no podra deshacerse."
+        confirmLabel={goalsCopy.list.confirmation.finalize.confirm}
+        description={goalsCopy.list.confirmation.finalize.description}
         eyebrow=""
         onCancel={() => setShowFinalizeConfirmation(false)}
         onConfirm={() => {
           setShowFinalizeConfirmation(false);
           void finalizeGoal(goal.id);
         }}
-        title="Finalizar objetivo"
+        title={goalsCopy.list.confirmation.finalize.title}
         visible={showFinalizeConfirmation}
       />
     </ScreenContainer>

@@ -1,9 +1,12 @@
 import { Tabs } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 
 import { BottomNavIcon, getBottomNavScreenOptions } from '@/src/components/BottomNav';
+import { navigationCopy } from '@/src/i18n/navigation';
 import { useAppStore } from '@/src/store/app-store';
 
 export default function TabLayout() {
+  useTranslation();
   const pendingPunishmentsCount = useAppStore((state) => state.homeSummary.pendingPunishmentsCount);
 
   return (
@@ -19,7 +22,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="home"
         options={{
-          title: 'Hoy',
+          title: navigationCopy.tabs.home,
           tabBarIcon: ({ color, focused, size }) => (
             <BottomNavIcon color={color} focused={focused} iconFamily="ionicons" name="home" size={size} />
           ),
@@ -28,7 +31,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="goals"
         options={{
-          title: 'Objetivos',
+          title: navigationCopy.tabs.goals,
           tabBarIcon: ({ color, focused, size }) => (
             <BottomNavIcon color={color} focused={focused} iconFamily="ionicons" name="compass" size={size} />
           ),
@@ -43,7 +46,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="punishments"
         options={{
-          title: 'Castigos',
+          title: navigationCopy.tabs.punishments,
           tabBarIcon: ({ color, focused, size }) => (
             <BottomNavIcon
               color={color}
@@ -59,7 +62,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="stats"
         options={{
-          title: 'Stats',
+          title: navigationCopy.tabs.stats,
           tabBarIcon: ({ color, focused, size }) => (
             <BottomNavIcon color={color} focused={focused} iconFamily="feather" name="stats" size={size} />
           ),
@@ -68,7 +71,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="settings"
         options={{
-          title: 'Ajustes',
+          title: navigationCopy.tabs.settings,
           tabBarIcon: ({ color, focused, size }) => (
             <BottomNavIcon color={color} focused={focused} iconFamily="ionicons" name="settings" size={size} />
           ),

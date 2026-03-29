@@ -3,6 +3,8 @@ import { Modal, PanResponder, Pressable, StyleSheet, Text, View } from 'react-na
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { palette, radius, shadows, spacing } from '@/src/constants/theme';
+import { commonCopy } from '@/src/i18n/common';
+import { goalsCopy } from '@/src/i18n/goals';
 
 type Props = {
   visible: boolean;
@@ -55,20 +57,20 @@ export function ObjectiveActionsMenu({
         {...swipeToCloseResponder.panHandlers}
         style={styles.root}>
         <Pressable
-          accessibilityLabel="Cerrar menu de acciones"
+          accessibilityLabel={commonCopy.actions.close}
           onPress={onClose}
           style={styles.backdrop}
         />
         <View style={[styles.sheet, { paddingBottom: spacing.lg + insets.bottom }]}>
           <View style={styles.handle} />
-          <Text style={styles.eyebrow}>Acciones</Text>
+          <Text style={styles.eyebrow}>{goalsCopy.detail.actionMenu.eyebrow}</Text>
           <Text numberOfLines={2} style={styles.title}>
             {goalTitle}
           </Text>
 
           {showFinalize ? (
             <Pressable
-              accessibilityHint="Cierra y resuelve este objetivo ahora"
+              accessibilityHint={goalsCopy.detail.actionMenu.finalizeDescription}
               accessibilityRole="button"
               onPress={onFinalize}
               style={styles.actionButton}>
@@ -76,15 +78,15 @@ export function ObjectiveActionsMenu({
                 <Feather color="#16A34A" name="check-circle" size={18} />
               </View>
               <View style={styles.actionCopy}>
-                <Text style={styles.actionTitle}>Finalizar</Text>
-                <Text style={styles.actionSubtitle}>Cierra el ciclo y calcula el resultado al momento.</Text>
+                <Text style={styles.actionTitle}>{commonCopy.actions.finish}</Text>
+                <Text style={styles.actionSubtitle}>{goalsCopy.detail.actionMenu.finalizeDescription}</Text>
               </View>
             </Pressable>
           ) : null}
 
           {showEdit ? (
             <Pressable
-              accessibilityHint="Abre la pantalla para editar este objetivo"
+              accessibilityHint={goalsCopy.detail.actionMenu.editDescription}
               accessibilityRole="button"
               onPress={onEdit}
               style={styles.actionButton}>
@@ -92,14 +94,14 @@ export function ObjectiveActionsMenu({
                 <Feather color={palette.primaryDeep} name="edit-2" size={18} />
               </View>
               <View style={styles.actionCopy}>
-                <Text style={styles.actionTitle}>Editar</Text>
-                <Text style={styles.actionSubtitle}>Modifica nombre, descripcion y reglas.</Text>
+                <Text style={styles.actionTitle}>{commonCopy.actions.edit}</Text>
+                <Text style={styles.actionSubtitle}>{goalsCopy.detail.actionMenu.editDescription}</Text>
               </View>
             </Pressable>
           ) : null}
 
           <Pressable
-            accessibilityHint="Solicita confirmacion antes de eliminar el objetivo"
+            accessibilityHint={goalsCopy.detail.actionMenu.deleteDescription}
             accessibilityRole="button"
             onPress={onDelete}
             style={styles.actionButton}>
@@ -107,13 +109,13 @@ export function ObjectiveActionsMenu({
               <Feather color={palette.danger} name="trash-2" size={18} />
             </View>
             <View style={styles.actionCopy}>
-              <Text style={[styles.actionTitle, styles.dangerTitle]}>Borrar</Text>
-              <Text style={styles.actionSubtitle}>Se pedira confirmacion antes de eliminarlo.</Text>
+              <Text style={[styles.actionTitle, styles.dangerTitle]}>{commonCopy.actions.delete}</Text>
+              <Text style={styles.actionSubtitle}>{goalsCopy.detail.actionMenu.deleteDescription}</Text>
             </View>
           </Pressable>
 
           <Pressable accessibilityRole="button" onPress={onClose} style={styles.cancelButton}>
-            <Text style={styles.cancelLabel}>Cancelar</Text>
+            <Text style={styles.cancelLabel}>{commonCopy.actions.cancel}</Text>
           </Pressable>
         </View>
       </View>

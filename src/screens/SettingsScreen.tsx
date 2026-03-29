@@ -4,12 +4,18 @@ import { Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } f
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
 
 import { ScreenContainer } from '@/src/components/ScreenContainer';
 import { palette, radius, spacing } from '@/src/constants/theme';
 import { useAuth } from '@/src/hooks/use-auth';
+import { AppLanguage } from '@/src/i18n/config';
+import { setManualLanguage, useCurrentLanguage } from '@/src/i18n';
+import { authCopy } from '@/src/i18n/auth';
+import { commonCopy } from '@/src/i18n/common';
+import { getLinkedAccountCopy, settingsCopy } from '@/src/i18n/settings';
 import { getErrorMessage } from '@/src/lib/app-error';
 import { UserSettings } from '@/src/models/types';
 import { appRoutes } from '@/src/navigation/app-routes';
@@ -29,7 +35,9 @@ type ComboOption = {
 const ACCOUNT_BUTTON_HEIGHT = 40;
 
 export function SettingsScreen() {
+  useTranslation();
   const { deleteAccount, signOut, session } = useAuth();
+  const currentLanguage = useCurrentLanguage();
   const { retrySync, sessionState, settings, updateSettings } = useAppStore(
     useShallow((state) => ({
       retrySync: state.retrySync,
@@ -43,6 +51,7 @@ export function SettingsScreen() {
   const [deleteAccountModalVisible, setDeleteAccountModalVisible] = useState(false);
   const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
   const [notificationToggleBusyKey, setNotificationToggleBusyKey] = useState<NotificationToggleKey | null>(null);
+  const [languageChangeInFlight, setLanguageChangeInFlight] = useState<AppLanguage | null>(null);
   const [isPrivacySectionOpen, setIsPrivacySectionOpen] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const tabBarHeight = useBottomTabBarHeight();
@@ -83,7 +92,7 @@ export function SettingsScreen() {
   const selectedHour = settings.reminderHour === 0 ? 24 : settings.reminderHour;
   const selectedMinute = settings.reminderMinute;
 
-  const comboTitle = openField === 'hour' ? 'Hora' : 'Minuto';
+  const comboTitle = openField === 'hour' ? commonCopy.entities.hour : commonCopy.entities.minute;
   const comboOptions = openField === 'hour' ? hourOptions : minuteOptions;
 
   const handleHourChange = (value: number) => {
@@ -108,7 +117,7 @@ export function SettingsScreen() {
         const granted = await requestNotificationPermissions();
         await updateSettings({ [key]: granted } as Partial<UserSettings>);
       } catch (error) {
-        Alert.alert('No se pudieron actualizar los recordatorios', getErrorMessage(error));
+        Alert.alert(authCopy.alerts.reminderUpdateFailed, getErrorMessage(error));
       } finally {
         setNotificationToggleBusyKey(null);
       }
@@ -147,16 +156,16 @@ export function SettingsScreen() {
   const isAuthenticated = sessionState.mode === 'authenticated' && Boolean(session);
   const isSyncing = sessionState.syncStatus === 'syncing';
   const hasSyncError = sessionState.syncStatus === 'error' && Boolean(sessionState.syncError);
-  const linkedEmail = session?.user.email || 'tu email';
+  const linkedEmail = session?.user.email || settingsCopy.account.linkedEmailFallback;
 
   const handleResetOnboarding = () => {
     Alert.alert(
-      'Reset onboarding',
-      'Se borrara la bienvenida guardada en este dispositivo y se abrira de nuevo.',
+      settingsCopy.developer.onboardingResetAlertTitle,
+      settingsCopy.developer.onboardingResetAlertDescription,
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: commonCopy.actions.cancel, style: 'cancel' },
         {
-          text: 'Reiniciar',
+          text: commonCopy.actions.retry,
           onPress: () => {
             void (async () => {
               await resetWelcomeOnboarding();
@@ -169,12 +178,12 @@ export function SettingsScreen() {
 
   const handleResetTutorial = () => {
     Alert.alert(
-      'Reset tutorial',
-      'Se borrara el tutorial guiado guardado en este dispositivo y volvera a mostrarse despues de la bienvenida.',
+      settingsCopy.developer.tutorialResetAlertTitle,
+      settingsCopy.developer.tutorialResetAlertDescription,
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: commonCopy.actions.cancel, style: 'cancel' },
         {
-          text: 'Reiniciar',
+          text: commonCopy.actions.retry,
           onPress: () => {
             void (async () => {
               await resetAppTutorial();
@@ -192,10 +201,28 @@ export function SettingsScreen() {
     }
   }, [isAuthenticated]);
 
+  const handleLanguageChange = useCallback(
+    async (language: AppLanguage) => {
+      if (language === currentLanguage || languageChangeInFlight) {
+        return;
+      }
+
+      try {
+        setLanguageChangeInFlight(language);
+        await setManualLanguage(language);
+      } catch (error) {
+        Alert.alert(settingsCopy.language.changeError, getErrorMessage(error));
+      } finally {
+        setLanguageChangeInFlight(null);
+      }
+    },
+    [currentLanguage, languageChangeInFlight],
+  );
+
   return (
     <ScreenContainer
       bodyStyle={styles.screenBody}
-      title="Ajustes"
+      title={settingsCopy.screenTitle}
       scroll={false}>
       <Modal
         animationType="fade"
@@ -210,18 +237,16 @@ export function SettingsScreen() {
           />
 
           <View style={styles.modalCard}>
-            <Text style={styles.modalEyebrow}>Privacidad y cuenta</Text>
-            <Text style={styles.modalTitle}>Eliminar cuenta</Text>
-            <Text style={styles.modalDescription}>
-              {'Se eliminar\u00e1 tu cuenta, tu perfil y tus datos sincronizados en la base de datos. Esta acci\u00f3n no se puede deshacer.'}
-            </Text>
+            <Text style={styles.modalEyebrow}>{settingsCopy.deleteAccount.confirmSection}</Text>
+            <Text style={styles.modalTitle}>{settingsCopy.deleteAccount.title}</Text>
+            <Text style={styles.modalDescription}>{settingsCopy.deleteAccount.body}</Text>
             {deleteAccountError ? <Text style={styles.modalError}>{deleteAccountError}</Text> : null}
             <View style={styles.modalActions}>
               <Pressable
                 disabled={accountAction === 'delete'}
                 onPress={closeDeleteAccountModal}
                 style={[styles.modalSecondaryButton, accountAction === 'delete' && styles.disabled]}>
-                <Text style={styles.secondaryLabel}>Cancelar</Text>
+                <Text style={styles.secondaryLabel}>{commonCopy.actions.cancel}</Text>
               </Pressable>
               <Pressable
                 disabled={accountAction === 'delete'}
@@ -230,7 +255,7 @@ export function SettingsScreen() {
                 }}
                 style={[styles.modalDangerButton, accountAction === 'delete' && styles.disabled]}>
                 <Text style={styles.modalDangerLabel}>
-                  {accountAction === 'delete' ? 'Borrando...' : 'Borrar cuenta'}
+                  {accountAction === 'delete' ? settingsCopy.deleteAccount.buttonBusy : settingsCopy.deleteAccount.button}
                 </Text>
               </Pressable>
             </View>
@@ -249,33 +274,29 @@ export function SettingsScreen() {
           showsVerticalScrollIndicator={false}>
           {!isAuthenticated ? (
             <View style={styles.ctaCard}>
-              <Text style={styles.sectionTitle}>Guardar tu progreso</Text>
-              <Text style={styles.helperText}>
-                Crea una cuenta para guardar tu progreso y recuperarlo cuando quieras.
-              </Text>
+              <Text style={styles.sectionTitle}>{settingsCopy.account.saveProgress}</Text>
+              <Text style={styles.helperText}>{settingsCopy.account.helper}</Text>
               <Pressable
                 onPress={() => router.push({ pathname: appRoutes.auth, params: { returnTo: appRoutes.settings, mode: 'signup' } })}
                 style={styles.primaryButton}>
-                <Text style={styles.primaryLabel}>Crear cuenta</Text>
+                <Text style={styles.primaryLabel}>{settingsCopy.account.create}</Text>
               </Pressable>
               <Pressable
                 onPress={() => router.push({ pathname: appRoutes.auth, params: { returnTo: appRoutes.settings, mode: 'signin' } })}
                 style={styles.compactSecondaryButton}>
-                <Text style={styles.secondaryLabel}>Iniciar sesion</Text>
+                <Text style={styles.secondaryLabel}>{settingsCopy.account.login}</Text>
               </Pressable>
             </View>
           ) : (
             <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Cuenta activa</Text>
-              <Text style={styles.helperText}>Progreso vinculado a {linkedEmail}</Text>
-              {isSyncing ? <Text style={styles.syncInfo}>Estamos guardando tu progreso en tu cuenta...</Text> : null}
+              <Text style={styles.sectionTitle}>{settingsCopy.account.active}</Text>
+              <Text style={styles.helperText}>{getLinkedAccountCopy(linkedEmail)}</Text>
+              {isSyncing ? <Text style={styles.syncInfo}>{settingsCopy.account.syncing}</Text> : null}
               {hasSyncError ? (
                 <>
-                  <Text style={styles.syncError}>
-                    No pudimos completar la sincronizacion. Tus datos siguen en este dispositivo y volveremos a intentarlo.
-                  </Text>
+                  <Text style={styles.syncError}>{settingsCopy.account.syncError}</Text>
                   <Pressable onPress={() => void retrySync()} style={styles.secondaryButton}>
-                    <Text style={styles.secondaryLabel}>Reintentar sincronizacion</Text>
+                    <Text style={styles.secondaryLabel}>{settingsCopy.account.retrySync}</Text>
                   </Pressable>
                 </>
               ) : null}
@@ -286,23 +307,51 @@ export function SettingsScreen() {
                     setAccountAction('signout');
                     await signOut();
                   } catch (error) {
-                    Alert.alert('No se pudo cerrar sesion', error instanceof Error ? error.message : 'Error desconocido');
+                    Alert.alert(settingsCopy.account.logoutError, error instanceof Error ? error.message : settingsCopy.account.unknownError);
                   } finally {
                     setAccountAction(null);
                   }
                 }}
                 style={[styles.compactPrimaryButton, accountAction === 'signout' && styles.disabled]}>
                 <Text style={styles.compactPrimaryLabel}>
-                  {accountAction === 'signout' ? 'Cerrando sesion...' : 'Cerrar sesion'}
+                  {accountAction === 'signout' ? settingsCopy.account.logoutBusy : settingsCopy.account.logout}
                 </Text>
               </Pressable>
             </View>
           )}
 
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>{settingsCopy.language.sectionTitle}</Text>
+            <Text style={styles.helperText}>{settingsCopy.language.helper}</Text>
+            <View style={styles.languageOptions}>
+              {([
+                { code: 'es', label: settingsCopy.language.spanish },
+                { code: 'en', label: settingsCopy.language.english },
+              ] as const).map((option) => {
+                const selected = currentLanguage === option.code;
+                const busy = languageChangeInFlight === option.code;
+
+                return (
+                  <Pressable
+                    key={option.code}
+                    disabled={Boolean(languageChangeInFlight)}
+                    onPress={() => {
+                      void handleLanguageChange(option.code);
+                    }}
+                    style={[styles.languageOption, selected ? styles.languageOptionSelected : null, busy ? styles.disabled : null]}>
+                    <Text style={[styles.languageOptionLabel, selected ? styles.languageOptionLabelSelected : null]}>
+                      {busy ? settingsCopy.language.syncing : option.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
           <View style={[styles.card, styles.remindersCard]}>
-            <Text style={styles.sectionTitle}>Recordatorios</Text>
+            <Text style={styles.sectionTitle}>{settingsCopy.reminders.sectionTitle}</Text>
             <View style={styles.settingRow}>
-              <Text style={styles.label}>Recordatorio check-in</Text>
+              <Text style={styles.label}>{settingsCopy.reminders.checkin}</Text>
               <Switch
                 value={settings.remindersEnabled}
                 disabled={notificationToggleBusyKey === 'remindersEnabled'}
@@ -312,7 +361,7 @@ export function SettingsScreen() {
               />
             </View>
             <View style={styles.settingRow}>
-              <Text style={styles.label}>Recordatorio objetivo finalizado</Text>
+              <Text style={styles.label}>{settingsCopy.reminders.goalResolution}</Text>
               <Switch
                 value={settings.goalResolutionReminderEnabled}
                 disabled={notificationToggleBusyKey === 'goalResolutionReminderEnabled'}
@@ -322,7 +371,7 @@ export function SettingsScreen() {
               />
             </View>
             <View style={styles.settingRow}>
-              <Text style={styles.label}>Recordatorio de castigo pendiente</Text>
+              <Text style={styles.label}>{settingsCopy.reminders.pendingPunishment}</Text>
               <Switch
                 value={settings.pendingPunishmentReminderEnabled}
                 disabled={notificationToggleBusyKey === 'pendingPunishmentReminderEnabled'}
@@ -332,7 +381,7 @@ export function SettingsScreen() {
               />
             </View>
             <View style={styles.timeRow}>
-              <Text style={styles.timeRowLabel}>Hora</Text>
+              <Text style={styles.timeRowLabel}>{commonCopy.entities.hour}</Text>
               <View style={styles.timeInputs}>
                 <Pressable onPress={() => setOpenField('hour')} style={styles.timeInputButton}>
                   <Text style={styles.comboValue}>{String(selectedHour).padStart(2, '0')}</Text>
@@ -346,19 +395,19 @@ export function SettingsScreen() {
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Comentarios y ayuda</Text>
-            <Text style={styles.helperText}>Comparte errores, sugerencias o ideas para mejorar la app.</Text>
+            <Text style={styles.sectionTitle}>{settingsCopy.feedback.sectionTitle}</Text>
+            <Text style={styles.helperText}>{settingsCopy.feedback.helper}</Text>
             <View style={styles.feedbackActions}>
               <Pressable onPress={() => router.push(appRoutes.feedbackSuggestion)} style={styles.compactSectionPrimaryButton}>
                 <View style={styles.buttonContent}>
                   <MaterialCommunityIcons color={palette.primaryDeep} name="lightbulb-outline" size={18} />
-                  <Text style={styles.primaryLabel}>Enviar sugerencia</Text>
+                  <Text style={styles.primaryLabel}>{settingsCopy.feedback.suggestion}</Text>
                 </View>
               </Pressable>
               <Pressable onPress={() => router.push(appRoutes.feedbackBugReport)} style={styles.compactSectionPrimaryButton}>
                 <View style={styles.buttonContent}>
                   <MaterialCommunityIcons color={palette.primaryDeep} name="bug-outline" size={18} />
-                  <Text style={styles.primaryLabel}>Reportar error</Text>
+                  <Text style={styles.primaryLabel}>{settingsCopy.feedback.bugReport}</Text>
                 </View>
               </Pressable>
             </View>
@@ -366,13 +415,13 @@ export function SettingsScreen() {
 
           {__DEV__ ? (
             <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Desarrollo</Text>
-              <Text style={styles.helperText}>Utilidades para repetir la bienvenida y el tutorial durante pruebas y validaciones.</Text>
+              <Text style={styles.sectionTitle}>{settingsCopy.developer.sectionTitle}</Text>
+              <Text style={styles.helperText}>{settingsCopy.developer.helper}</Text>
               <Pressable onPress={handleResetOnboarding} style={styles.compactSecondaryButton}>
-                <Text style={styles.secondaryLabel}>Reset onboarding</Text>
+                <Text style={styles.secondaryLabel}>{settingsCopy.developer.onboardingResetButton}</Text>
               </Pressable>
               <Pressable onPress={handleResetTutorial} style={styles.compactSecondaryButton}>
-                <Text style={styles.secondaryLabel}>Reset tutorial</Text>
+                <Text style={styles.secondaryLabel}>{settingsCopy.developer.tutorialResetButton}</Text>
               </Pressable>
             </View>
           ) : null}
@@ -381,7 +430,7 @@ export function SettingsScreen() {
             <Pressable
               onPress={() => setIsPrivacySectionOpen((current) => !current)}
               style={({ pressed }) => [styles.collapsibleHeader, pressed && styles.collapsibleHeaderPressed]}>
-              <Text style={styles.sectionTitle}>Privacidad y cuenta</Text>
+              <Text style={styles.sectionTitle}>{settingsCopy.privacy.sectionTitle}</Text>
               <Feather
                 color={palette.primaryDeep}
                 name={isPrivacySectionOpen ? 'chevron-up' : 'chevron-down'}
@@ -393,12 +442,12 @@ export function SettingsScreen() {
               <>
                 <Text style={styles.helperText}>
                   {isAuthenticated
-                    ? 'Revisa la politica de privacidad o elimina tu cuenta.'
-                    : 'Revisa la politica de privacidad.'}
+                    ? settingsCopy.privacy.helperAuthenticated
+                    : settingsCopy.privacy.helperGuest}
                 </Text>
 
                 <Pressable onPress={() => router.push(appRoutes.privacy)} style={styles.compactSectionPrimaryButton}>
-                  <Text style={styles.primaryLabel}>Ver politica de privacidad</Text>
+                  <Text style={styles.primaryLabel}>{settingsCopy.privacy.action}</Text>
                 </Pressable>
 
                 {isAuthenticated ? (
@@ -407,7 +456,7 @@ export function SettingsScreen() {
                     onPress={handleDeleteAccount}
                     style={[styles.compactDangerButton, accountAction === 'delete' && styles.disabled]}>
                     <Text style={styles.dangerLabel}>
-                      {accountAction === 'delete' ? 'Borrando cuenta...' : 'Eliminar cuenta'}
+                      {accountAction === 'delete' ? settingsCopy.deleteAccount.buttonBusy : settingsCopy.deleteAccount.title}
                     </Text>
                   </Pressable>
                 ) : null}
@@ -421,7 +470,7 @@ export function SettingsScreen() {
         <View style={styles.overlay}>
           <Pressable style={styles.backdrop} onPress={() => setOpenField(null)} />
           <View style={styles.sheet}>
-            <Text style={styles.sheetEyebrow}>Selecciona</Text>
+            <Text style={styles.sheetEyebrow}>{settingsCopy.reminders.selectLabel}</Text>
             <Text style={styles.sheetTitle}>{comboTitle}</Text>
             <ScrollView contentContainerStyle={styles.optionList}>
               {comboOptions.map((option) => {
@@ -508,6 +557,33 @@ const styles = StyleSheet.create({
     flex: 1,
     color: palette.ink,
     fontWeight: '600',
+  },
+  languageOptions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  languageOption: {
+    flex: 1,
+    minHeight: ACCOUNT_BUTTON_HEIGHT,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: palette.line,
+    backgroundColor: palette.snow,
+  },
+  languageOptionSelected: {
+    borderColor: '#C9D9F8',
+    backgroundColor: '#E4EDFF',
+  },
+  languageOptionLabel: {
+    color: palette.ink,
+    fontWeight: '800',
+  },
+  languageOptionLabelSelected: {
+    color: palette.primaryDeep,
   },
   helperText: {
     color: palette.slate,

@@ -1,4 +1,6 @@
+import { feedbackCopy } from '@/src/i18n/feedback';
 import { FeedbackType } from '@/src/features/feedback/form';
+import type { FeedbackCategoryId } from '@/src/i18n/feedback';
 import { normalizeRepositoryError } from '@/src/lib/app-error';
 import type { Database } from '@/src/lib/database.types';
 import { supabase } from '@/src/lib/supabase';
@@ -6,7 +8,7 @@ import { supabase } from '@/src/lib/supabase';
 type SubmitFeedbackInput = {
   affectedSection?: string | null;
   appVersion?: string | null;
-  category?: string | null;
+  category?: FeedbackCategoryId | null;
   deviceModel?: string | null;
   locale?: string | null;
   message: string;
@@ -60,7 +62,7 @@ export async function submitUserFeedback(input: SubmitFeedbackInput) {
   if (error) {
     throw normalizeRepositoryError(error, {
       code: 'FEEDBACK_SUBMIT_FAILED',
-      fallback: 'No hemos podido enviar tu mensaje. Intentalo de nuevo.',
+      fallback: feedbackCopy.repository.submitFailed,
     });
   }
 }

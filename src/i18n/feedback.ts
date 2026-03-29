@@ -1,0 +1,128 @@
+import { createNamespaceProxy, translateObject } from '@/src/i18n/runtime';
+
+export const feedbackResources = {
+  es: {
+    categoryOptions: [
+      { id: 'new_feature', label: 'Nueva función' },
+      { id: 'design_improvement', label: 'Mejora de diseño' },
+      { id: 'performance', label: 'Rendimiento' },
+      { id: 'navigation', label: 'Navegación' },
+      { id: 'notifications', label: 'Notificaciones' },
+      { id: 'other', label: 'Otro' },
+    ],
+    bugReport: {
+      affectedSectionLabel: 'Pantalla o sección afectada (opcional)',
+      affectedSectionPlaceholder: 'Ej. Ajustes o Favoritos',
+      contactEmailHelper: 'Si quieres que podamos responderte, deja tu correo electrónico.',
+      contactEmailLabel: 'Correo electrónico de contacto',
+      contactEmailPlaceholder: 'tuemail@ejemplo.com',
+      messageError: 'Describe el problema.',
+      messageLabel: 'Descripción',
+      messagePlaceholder: 'Explica qué ocurrió y qué estabas intentando hacer',
+      screenDescription: 'Cuéntanos qué ha fallado para que podamos revisarlo.',
+      screenTitle: 'Reportar error',
+      subjectError: 'Introduce un título.',
+      subjectLabel: 'Título del problema',
+      subjectPlaceholder: 'Ej. La app se cierra al abrir favoritos',
+      submitLabel: 'Enviar reporte',
+      successMessage: 'Hemos recibido tu reporte y lo revisaremos lo antes posible.',
+      successTitle: 'Gracias por avisarnos',
+    },
+    common: {
+      backToSettings: 'Volver a ajustes',
+      categoryLabel: 'Categoría',
+      optionalAffectedSectionLabel: 'Pantalla o sección afectada',
+      optionalReproductionStepsLabel: 'Pasos para reproducirlo',
+      reproductionStepsPlaceholder: '1. Entro en...\n2. Pulso en...\n3. Ocurre...',
+      submitting: 'Enviando...',
+      submitError: 'No hemos podido enviar tu mensaje. Inténtalo de nuevo.',
+    },
+    repository: {
+      submitFailed: 'No hemos podido enviar tu mensaje. Inténtalo de nuevo.',
+    },
+    suggestion: {
+      affectedSectionLabel: '',
+      affectedSectionPlaceholder: '',
+      contactEmailHelper: 'Si quieres que podamos responderte, deja tu correo electrónico.',
+      contactEmailLabel: 'Correo electrónico de contacto',
+      contactEmailPlaceholder: 'tuemail@ejemplo.com',
+      messageError: 'Describe tu sugerencia.',
+      messageLabel: 'Sugerencia',
+      messagePlaceholder: 'Describe tu idea o mejora',
+      screenDescription: 'Cuéntanos qué te gustaría mejorar o qué idea te gustaría ver en la app.',
+      screenTitle: 'Enviar sugerencia',
+      subjectError: 'Introduce un asunto.',
+      subjectLabel: 'Asunto',
+      subjectPlaceholder: 'Ej. Poder guardar favoritos más rápido',
+      submitLabel: 'Enviar sugerencia',
+      successMessage: 'Hemos recibido tu mensaje y lo tendremos en cuenta para seguir mejorando la app.',
+      successTitle: 'Gracias por tu sugerencia',
+    },
+  },
+  en: {
+    categoryOptions: [
+      { id: 'new_feature', label: 'New feature' },
+      { id: 'design_improvement', label: 'Design improvement' },
+      { id: 'performance', label: 'Performance' },
+      { id: 'navigation', label: 'Navigation' },
+      { id: 'notifications', label: 'Notifications' },
+      { id: 'other', label: 'Other' },
+    ],
+    bugReport: {
+      affectedSectionLabel: 'Affected screen or section (optional)',
+      affectedSectionPlaceholder: 'E.g. Settings or Favorites',
+      contactEmailHelper: 'If you want us to reply, leave your email address.',
+      contactEmailLabel: 'Contact email',
+      contactEmailPlaceholder: 'you@example.com',
+      messageError: 'Describe the issue.',
+      messageLabel: 'Description',
+      messagePlaceholder: 'Explain what happened and what you were trying to do',
+      screenDescription: 'Tell us what failed so we can review it.',
+      screenTitle: 'Report a bug',
+      subjectError: 'Enter a title.',
+      subjectLabel: 'Issue title',
+      subjectPlaceholder: 'E.g. The app closes when opening favorites',
+      submitLabel: 'Send report',
+      successMessage: 'We received your report and will review it as soon as possible.',
+      successTitle: 'Thanks for letting us know',
+    },
+    common: {
+      backToSettings: 'Back to settings',
+      categoryLabel: 'Category',
+      optionalAffectedSectionLabel: 'Affected screen or section',
+      optionalReproductionStepsLabel: 'Steps to reproduce',
+      reproductionStepsPlaceholder: '1. I open...\n2. I tap...\n3. It happens...',
+      submitting: 'Sending...',
+      submitError: 'We could not send your message. Please try again.',
+    },
+    repository: {
+      submitFailed: 'We could not send your message. Please try again.',
+    },
+    suggestion: {
+      affectedSectionLabel: '',
+      affectedSectionPlaceholder: '',
+      contactEmailHelper: 'If you want us to reply, leave your email address.',
+      contactEmailLabel: 'Contact email',
+      contactEmailPlaceholder: 'you@example.com',
+      messageError: 'Describe your suggestion.',
+      messageLabel: 'Suggestion',
+      messagePlaceholder: 'Describe your idea or improvement',
+      screenDescription: 'Tell us what you would like to improve or what idea you would like to see in the app.',
+      screenTitle: 'Send suggestion',
+      subjectError: 'Enter a subject.',
+      subjectLabel: 'Subject',
+      subjectPlaceholder: 'E.g. Save favorites faster',
+      submitLabel: 'Send suggestion',
+      successMessage: 'We received your message and will keep it in mind as we improve the app.',
+      successTitle: 'Thanks for your suggestion',
+    },
+  },
+} as const;
+
+export type FeedbackCategoryId = (typeof feedbackResources.es.categoryOptions)[number]['id'];
+
+export const feedbackCopy = createNamespaceProxy('feedback', feedbackResources.es);
+
+export function getFeedbackCategoryOptions() {
+  return translateObject<typeof feedbackResources.es.categoryOptions>('feedback:categoryOptions');
+}

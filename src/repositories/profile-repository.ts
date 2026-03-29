@@ -1,5 +1,6 @@
 import { Session } from '@supabase/supabase-js';
 
+import { errorCopy } from '@/src/i18n/errors';
 import { normalizeRepositoryError } from '@/src/lib/app-error';
 import { Tables } from '@/src/lib/database.types';
 import { supabase } from '@/src/lib/supabase';
@@ -21,9 +22,9 @@ export async function getOrCreateProfile(session: Session): Promise<Profile> {
 
   if (error) {
     throw normalizeRepositoryError(error, {
-      authMessage: 'No se pudo cargar el perfil.',
+      authMessage: errorCopy.profile.loadFailed,
       code: 'PROFILE_LOAD_FAILED',
-      fallback: 'No se pudo cargar el perfil.',
+      fallback: errorCopy.profile.loadFailed,
     });
   }
 
@@ -39,9 +40,9 @@ export async function getOrCreateProfile(session: Session): Promise<Profile> {
 
   if (upsertError) {
     throw normalizeRepositoryError(upsertError, {
-      authMessage: 'No se pudo crear el perfil.',
+      authMessage: errorCopy.profile.createFailed,
       code: 'PROFILE_CREATE_FAILED',
-      fallback: 'No se pudo crear el perfil.',
+      fallback: errorCopy.profile.createFailed,
     });
   }
 
@@ -60,9 +61,9 @@ export async function completeProfileOnboarding(userId: string, displayName: str
 
   if (error) {
     throw normalizeRepositoryError(error, {
-      authMessage: 'No se pudo guardar el onboarding.',
+      authMessage: errorCopy.profile.saveOnboardingFailed,
       code: 'PROFILE_ONBOARDING_FAILED',
-      fallback: 'No se pudo guardar el onboarding.',
+      fallback: errorCopy.profile.saveOnboardingFailed,
     });
   }
 }

@@ -1,6 +1,7 @@
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Keyboard,
   Pressable,
@@ -14,6 +15,9 @@ import {
 import { ScreenContainer } from '@/src/components/ScreenContainer';
 import { palette, radius, shadows, spacing } from '@/src/constants/theme';
 import { useAuth } from '@/src/hooks/use-auth';
+import { authCopy, getContinueFailedMessage } from '@/src/i18n/auth';
+import { commonCopy } from '@/src/i18n/common';
+import { errorCopy } from '@/src/i18n/errors';
 import { buildPasswordRecoveryRedirectUrl } from '@/src/lib/auth-deep-links';
 import { getEmailValidationError, normalizeEmail } from '@/src/lib/email';
 import { appRoutes } from '@/src/navigation/app-routes';
@@ -27,29 +31,29 @@ function getFriendlyAuthMessage(message: string) {
   const normalized = message.toLowerCase();
 
   if (normalized.includes('email rate limit exceeded')) {
-    return 'Has hecho demasiados intentos seguidos. Espera un poco antes de volver a intentarlo.';
+    return authCopy.friendlyMessages.rateLimit;
   }
 
   if (normalized.includes('email address') && normalized.includes('invalid')) {
-    return 'El correo que has escrito no es valido. Usa una direccion de email real.';
+    return authCopy.friendlyMessages.emailInvalid;
   }
 
   if (normalized.includes('invalid login credentials')) {
-    return 'El email o la contrasena no son correctos.';
+    return authCopy.friendlyMessages.invalidCredentials;
   }
 
   if (normalized.includes('user already registered')) {
-    return 'Ya existe una cuenta con ese correo. Prueba a iniciar sesion.';
+    return authCopy.friendlyMessages.userAlreadyRegistered;
   }
 
   if (normalized.includes('signup is disabled')) {
-    return 'El registro esta desactivado en este momento.';
+    return authCopy.friendlyMessages.signupDisabled;
   }
 
   if (normalized.includes('password should be at least')) {
-    return 'La contrasena es demasiado corta. Usa al menos 6 caracteres.';
+    return authCopy.friendlyMessages.passwordTooShort;
   }
-  return `No se pudo continuar: ${message}`;
+  return getContinueFailedMessage(message);
 }
 
 type AuthMode = 'signin' | 'signup' | 'recovery';
@@ -89,6 +93,7 @@ function HeroArtwork() {
 }
 
 export function AuthScreen() {
+  useTranslation();
   const params = useLocalSearchParams<{ email?: string; returnTo?: string; mode?: string }>();
   const { session } = useAuth();
   const initialMode = getAuthModeFromParam(params.mode);
@@ -174,8 +179,8 @@ export function AuthScreen() {
     if (nextEmailError || password.trim().length < 6) {
       const message =
         nextEmailError && password.trim().length < 6
-          ? 'Introduce un email valido y una contrasena de al menos 6 caracteres.'
-          : nextEmailError ?? 'La contrasena debe tener al menos 6 caracteres.';
+          ? authCopy.authScreen.invalidSubmitBoth
+          : nextEmailError ?? authCopy.authScreen.invalidSubmitPassword;
 
       setFeedback({
         kind: 'error',
@@ -198,7 +203,7 @@ export function AuthScreen() {
       if (action === 'signup' && !response.data.session) {
         setFeedback({
           kind: 'success',
-          message: 'Cuenta creada. Revisa tu email y confirma el registro para poder entrar.',
+          message: authCopy.authScreen.signUpSuccess,
         });
         return;
       }
@@ -206,13 +211,13 @@ export function AuthScreen() {
       if (action === 'signin') {
         setFeedback({
           kind: 'success',
-          message: 'Inicio de sesion correcto.',
+          message: authCopy.authScreen.loginSuccess,
         });
       }
     } catch (error) {
       setFeedback({
         kind: 'error',
-        message: error instanceof Error ? getFriendlyAuthMessage(error.message) : 'Ha ocurrido un error inesperado.',
+        message: error instanceof Error ? getFriendlyAuthMessage(error.message) : errorCopy.fallback.unexpected,
       });
     } finally {
       inFlightRef.current = false;
@@ -238,7 +243,7 @@ export function AuthScreen() {
     if (nextEmailError) {
       setFeedback({
         kind: 'error',
-        message: 'Escribe un email valido para recuperar tu contrasena.',
+        message: authCopy.authScreen.invalidRecoveryEmail,
       });
       return;
     }
@@ -252,12 +257,12 @@ export function AuthScreen() {
       await requestPasswordReset(trimmedEmail, passwordResetRedirectTo);
       setFeedback({
         kind: 'success',
-        message: 'Si existe una cuenta asociada a este correo, te hemos enviado instrucciones para restablecer tu contrasena.',
+        message: authCopy.authScreen.recoverySuccess,
       });
     } catch (error) {
       setFeedback({
         kind: 'error',
-        message: error instanceof Error ? getFriendlyAuthMessage(error.message) : 'Ha ocurrido un error inesperado.',
+        message: error instanceof Error ? getFriendlyAuthMessage(error.message) : errorCopy.fallback.unexpected,
       });
     } finally {
       inFlightRef.current = false;
@@ -269,7 +274,7 @@ export function AuthScreen() {
     <ScreenContainer
       bodyStyle={styles.screenBody}
       scroll={false}
-      title="Accede a tu progreso">
+      title={authCopy.authScreen.title}>
       <View style={styles.keyboardArea}>
         <ScrollView
           bounces={false}
@@ -293,7 +298,7 @@ export function AuthScreen() {
                       onPress={() => switchMode('signin')}
                       style={[styles.modeChip, mode === 'signin' && styles.modeChipActive]}>
                       <Text style={[styles.modeChipLabel, mode === 'signin' && styles.modeChipLabelActive]}>
-                        Iniciar sesion
+                        {authCopy.authScreen.signIn}
                       </Text>
                     </Pressable>
 
@@ -302,14 +307,14 @@ export function AuthScreen() {
                       onPress={() => switchMode('signup')}
                       style={[styles.modeChip, mode === 'signup' && styles.modeChipActive]}>
                       <Text style={[styles.modeChipLabel, mode === 'signup' && styles.modeChipLabelActive]}>
-                        Crear cuenta
+                        {authCopy.authScreen.createAccount}
                       </Text>
                     </Pressable>
                   </View>
                 ) : null}
 
                 <View style={styles.group}>
-                  <Text style={styles.label}>Email</Text>
+                  <Text style={styles.label}>{authCopy.authScreen.emailLabel}</Text>
                   <View style={[styles.inputField, showEmailError && styles.inputFieldError]}>
                     <Feather color="#97A3BC" name="mail" size={18} style={styles.inputIcon} />
                     <TextInput
@@ -320,7 +325,7 @@ export function AuthScreen() {
                       keyboardType="email-address"
                       onBlur={handleEmailBlur}
                       onChangeText={handleEmailChange}
-                      placeholder="tu@email.com"
+                      placeholder={authCopy.authScreen.emailPlaceholder}
                       placeholderTextColor="#98A2B3"
                       returnKeyType={mode === 'recovery' ? 'go' : 'next'}
                       style={styles.input}
@@ -338,14 +343,14 @@ export function AuthScreen() {
                 {mode !== 'recovery' ? (
                   <>
                     <View style={styles.group}>
-                      <Text style={styles.label}>Contrasena</Text>
+                      <Text style={styles.label}>{authCopy.authScreen.passwordLabel}</Text>
                       <View style={styles.inputField}>
                         <Feather color="#97A3BC" name="lock" size={18} style={styles.inputIcon} />
                         <TextInput
                           autoCapitalize="none"
                           autoCorrect={false}
                           editable={!loadingAction}
-                          placeholder="Minimo 6 caracteres"
+                          placeholder={authCopy.authScreen.passwordPlaceholder}
                           placeholderTextColor="#98A2B3"
                           returnKeyType="go"
                           secureTextEntry={!isPasswordVisible}
@@ -379,14 +384,14 @@ export function AuthScreen() {
                         onPress={() => switchMode('recovery')}
                         style={styles.compactLinkWrap}>
                         <Text style={[styles.linkLabel, !!loadingAction && styles.linkDisabled]}>
-                          {loadingAction === 'reset' ? 'Enviando enlace...' : 'Olvidaste tu contrasena?'}
+                          {loadingAction === 'reset' ? authCopy.authScreen.sendingRecoveryLink : authCopy.authScreen.forgotPassword}
                         </Text>
                       </Pressable>
                     ) : null}
                   </>
                 ) : (
                   <Pressable disabled={!!loadingAction} hitSlop={8} onPress={() => switchMode('signin')}>
-                    <Text style={[styles.linkLabel, !!loadingAction && styles.linkDisabled]}>Volver al login</Text>
+                    <Text style={[styles.linkLabel, !!loadingAction && styles.linkDisabled]}>{authCopy.authScreen.returnToLogin}</Text>
                   </Pressable>
                 )}
 
@@ -404,7 +409,7 @@ export function AuthScreen() {
                     onPress={() => void submit('signin')}
                     style={[styles.submitPrimary, (!canSubmit || !!loadingAction) && styles.buttonDisabled]}>
                     <Text style={styles.submitPrimaryLabel}>
-                      {loadingAction === 'signin' ? 'Cargando...' : 'Iniciar sesion'}
+                      {loadingAction === 'signin' ? authCopy.authScreen.loading : authCopy.authScreen.signIn}
                     </Text>
                   </Pressable>
                 ) : mode === 'signup' ? (
@@ -413,7 +418,7 @@ export function AuthScreen() {
                     onPress={() => void submit('signup')}
                     style={[styles.submitPrimary, (!canSubmit || !!loadingAction) && styles.buttonDisabled]}>
                     <Text style={styles.submitPrimaryLabel}>
-                      {loadingAction === 'signup' ? 'Cargando...' : 'Crear cuenta'}
+                      {loadingAction === 'signup' ? authCopy.authScreen.loading : authCopy.authScreen.createAccount}
                     </Text>
                   </Pressable>
                 ) : (
@@ -422,7 +427,7 @@ export function AuthScreen() {
                     onPress={() => void handlePasswordReset()}
                     style={[styles.submitPrimary, (!canRecover || !!loadingAction) && styles.buttonDisabled]}>
                     <Text style={styles.submitPrimaryLabel}>
-                      {loadingAction === 'reset' ? 'Enviando...' : 'Enviar enlace'}
+                      {loadingAction === 'reset' ? commonCopy.actions.sending : authCopy.authScreen.submitRecovery}
                     </Text>
                   </Pressable>
                 )}

@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import { palette, radius } from '@/src/constants/theme';
+import { commonCopy } from '@/src/i18n/common';
 
 type Props = {
   value: number;
@@ -18,7 +19,7 @@ type Props = {
 export function ProgressRing({
   value,
   size = 88,
-  label = 'cumplido',
+  label = commonCopy.states.completed.toLowerCase(),
   valueText,
   helperText,
   showDivider = false,

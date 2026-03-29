@@ -1,12 +1,18 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import {
-  defaultPunishments,
+  getBasePunishmentDefinition,
+  getCompletedPunishmentHistoryDisplay,
+  getDefaultPunishments,
   getPunishmentCategoryName,
+  getPunishmentDisplay,
   isPunishmentCategoryName,
   normalizePunishmentCategoryId,
   resolveLegacyPunishmentCategoryId,
 } from '@/src/constants/punishments';
+import { errorCopy, getCategoryResolveErrorCopy } from '@/src/i18n/errors';
+import { getGoalRemainingDaysCopy, getGoalStartsInDaysCopy, goalsCopy } from '@/src/i18n/goals';
+import { punishmentsCopy } from '@/src/i18n/punishments';
 import type { Tables } from '@/src/lib/database.types';
 import { supabase } from '@/src/lib/supabase';
 import type {
@@ -495,7 +501,7 @@ function seedBasePunishments(container: LocalContainer) {
     return;
   }
 
-  for (const punishment of defaultPunishments) {
+  for (const punishment of getDefaultPunishments()) {
     container.records.punishments[punishment.id] = createSyncRecord(punishment, 'synced');
   }
 
@@ -774,21 +780,21 @@ function buildGoalDetailSummary(
     remainingDays,
     scheduleStatus: isGoalClosed(goal)
       ? goal.resolutionStatus === 'passed'
-        ? 'Objetivo finalizado y aprobado.'
+        ? goalsCopy.home.scheduleStatus.passed
         : goal.resolutionStatus === 'failed'
           ? outcome?.assignedPunishmentId
-            ? 'Objetivo finalizado y fallado. Tiene un castigo pendiente.'
-            : 'Objetivo finalizado y fallado. No habia castigos elegibles.'
-          : 'Objetivo finalizado y pendiente de resolucion.'
+            ? goalsCopy.home.scheduleStatus.failedPendingPunishment
+            : goalsCopy.home.scheduleStatus.failedWithoutPunishment
+          : goalsCopy.home.scheduleStatus.pendingResolution
       : daysUntilStart > 0
         ? daysUntilStart === 1
-          ? 'Empieza manana.'
-          : `Empieza en ${daysUntilStart} dias.`
+          ? goalsCopy.home.scheduleStatus.startsTomorrow
+          : getGoalStartsInDaysCopy(daysUntilStart)
         : remainingDays > 0
           ? remainingDays === 1
-            ? 'Queda 1 dia para cerrar el plazo.'
-            : `Quedan ${remainingDays} dias para cerrar el plazo.`
-          : 'El plazo configurado ya ha terminado.',
+            ? goalsCopy.home.scheduleStatus.remainingOne
+            : getGoalRemainingDaysCopy(remainingDays)
+          : goalsCopy.home.scheduleStatus.deadlineFinished,
   };
 }
 
@@ -903,7 +909,9 @@ function getDerivedData(container: LocalContainer, referenceDate = startOfToday(
   const goalOutcomes = getValues(container.records.goalOutcomes).sort((left, right) =>
     right.evaluatedAt.localeCompare(left.evaluatedAt),
   );
-  const punishments = getValues(container.records.punishments).sort((left, right) => {
+  const punishments = getValues(container.records.punishments)
+    .map((punishment) => getPunishmentDisplay(punishment))
+    .sort((left, right) => {
     if (left.scope === 'personal' && right.scope === 'personal') {
       return (right.createdAt ?? '').localeCompare(left.createdAt ?? '');
     }
@@ -916,11 +924,11 @@ function getDerivedData(container: LocalContainer, referenceDate = startOfToday(
       return 1;
     }
 
-    return left.title.localeCompare(right.title, 'es');
+    return left.title.localeCompare(right.title);
   });
-  const completedHistory = getValues(container.records.punishmentHistory).sort((left, right) =>
-    right.completedAt.localeCompare(left.completedAt),
-  );
+  const completedHistory = getValues(container.records.punishmentHistory)
+    .map((entry) => getCompletedPunishmentHistoryDisplay(entry))
+    .sort((left, right) => right.completedAt.localeCompare(left.completedAt));
   const pendingPunishments = getPendingPunishmentSummaries(assignedPunishments, goals, punishments);
   const latestOutcomesByGoalId = getGoalOutcomeByGoalId(goalOutcomes);
   const goalEvaluations = getGoalEvaluationsMap(goals, checkins, latestOutcomesByGoalId, referenceDate);
@@ -1285,18 +1293,19 @@ type PunishmentCatalogRow = {
 
 function mapPunishmentCatalogRow(row: PunishmentCatalogRow): SyncRecord<Punishment> {
   const categoryId = normalizePunishmentCategoryId(row.category_id);
+  const punishment = getPunishmentDisplay({
+    categoryId,
+    categoryName: getPunishmentCategoryName(categoryId, row.category_name),
+    createdAt: row.created_at,
+    description: row.description,
+    difficulty: row.difficulty,
+    id: row.id,
+    scope: row.scope,
+    title: row.title,
+  });
 
   return {
-    data: {
-      categoryId,
-      categoryName: getPunishmentCategoryName(categoryId, row.category_name),
-      createdAt: row.created_at,
-      description: row.description,
-      difficulty: row.difficulty,
-      id: row.id,
-      scope: row.scope,
-      title: row.title,
-    },
+    data: punishment,
     meta: {
       lastModifiedAt: row.created_at,
       lastSyncedAt: row.created_at,
@@ -1310,7 +1319,7 @@ async function resolveCategoryId(categoryId: string, categoryName: Punishment['c
   const resolvedByName = categoryMap[categoryName];
 
   if (!resolvedByName) {
-    throw new Error(`No se pudo resolver la categoria ${categoryName}.`);
+    throw new Error(getCategoryResolveErrorCopy());
   }
 
   if (categoryId !== resolvedByName) {
@@ -1361,7 +1370,7 @@ async function resolveGoalCategoryIds(categoryNames: Goal['punishmentConfig']['c
     const categoryId = categoryMap[categoryName];
 
     if (!categoryId) {
-      throw new Error(`No se pudo resolver la categoria ${categoryName}.`);
+      throw new Error(getCategoryResolveErrorCopy());
     }
 
     return categoryId;
@@ -1372,42 +1381,48 @@ async function resolveAssignedPunishmentWritePunishmentId(container: LocalContai
   const linkedPunishment = container.records.punishments[assignedPunishment.punishmentId]?.data;
 
   if (!linkedPunishment) {
-    return assignedPunishment.punishmentId;
+    return getBasePunishmentDefinition({ id: assignedPunishment.punishmentId })?.id ?? assignedPunishment.punishmentId;
   }
 
   if (linkedPunishment.scope === 'personal') {
     return linkedPunishment.id;
   }
 
-  const { data, error } = await supabase
-    .from('punishments')
-    .select('id')
-    .is('owner_id', null)
-    .eq('title', linkedPunishment.title)
-    .maybeSingle();
+  const basePunishment = getBasePunishmentDefinition(
+    { id: linkedPunishment.id, title: linkedPunishment.title },
+    { allowTitleFallback: true },
+  );
+
+  if (!basePunishment) {
+    return linkedPunishment.id;
+  }
+
+  const { data, error } = await supabase.from('punishments').select('id').is('owner_id', null).eq('id', basePunishment.id).maybeSingle();
 
   if (error) {
     throw error;
   }
 
-  return data?.id ?? linkedPunishment.id;
+  return data?.id ?? basePunishment.id;
 }
 
 function mapHistoryRow(
   row: Tables<'punishment_completion_history'>,
   goals: Record<string, SyncRecord<Goal>>,
 ): SyncRecord<CompletedPunishmentHistoryEntry> {
+  const entry = getCompletedPunishmentHistoryDisplay({
+    assignedPunishmentId: row.assigned_punishment_id ?? undefined,
+    completedAt: row.completed_at,
+    goalId: row.goal_id ?? undefined,
+    goalTitle: row.goal_id ? goals[row.goal_id]?.data.title : undefined,
+    id: row.id,
+    punishmentDescription: row.punishment_description,
+    punishmentId: row.punishment_id ?? undefined,
+    punishmentTitle: row.punishment_title,
+  });
+
   return {
-    data: {
-      assignedPunishmentId: row.assigned_punishment_id ?? undefined,
-      completedAt: row.completed_at,
-      goalId: row.goal_id ?? undefined,
-      goalTitle: row.goal_id ? goals[row.goal_id]?.data.title : undefined,
-      id: row.id,
-      punishmentDescription: row.punishment_description,
-      punishmentId: row.punishment_id ?? undefined,
-      punishmentTitle: row.punishment_title,
-    },
+    data: entry,
     meta: {
       lastModifiedAt: row.completed_at,
       lastSyncedAt: row.completed_at,
@@ -1845,7 +1860,7 @@ async function syncAuthenticatedContainer(container: LocalContainer) {
     await saveContainer(container);
     return container;
   } catch (error) {
-    setSyncStatus(container, 'error', error instanceof Error ? error.message : 'No se pudo sincronizar.');
+    setSyncStatus(container, 'error', error instanceof Error ? error.message : errorCopy.fallback.unexpected);
     await saveContainer(container);
     return container;
   }
@@ -1985,7 +2000,7 @@ export async function loadGoalResolutionAnnouncements(): Promise<GoalResolutionA
   const goalOutcomes = getValues(container.records.goalOutcomes).sort((left, right) => right.evaluatedAt.localeCompare(left.evaluatedAt));
   const goals = sortGoals(getValues(container.records.goals));
   const assignedPunishments = getValues(container.records.assignedPunishments);
-  const punishments = getValues(container.records.punishments);
+  const punishments = getValues(container.records.punishments).map((punishment) => getPunishmentDisplay(punishment));
 
   return buildGoalResolutionAnnouncements(
     goalOutcomes,
@@ -2043,7 +2058,8 @@ export async function loadAssignedPunishmentById(assignedId: string) {
 
 export async function loadPunishmentById(punishmentId: string) {
   const { container } = await getActiveContainer();
-  return container.records.punishments[punishmentId]?.data ?? null;
+  const punishment = container.records.punishments[punishmentId]?.data;
+  return punishment ? getPunishmentDisplay(punishment) : null;
 }
 
 function findLatestGoalOutcomeRecord(container: LocalContainer, goalId: string) {
@@ -2082,7 +2098,7 @@ function resolveGoalIfNeeded(
   const goalRecord = container.records.goals[goalId];
 
   if (!goalRecord) {
-    throw new Error('No he encontrado el objetivo para resolverlo.');
+    throw new Error(errorCopy.progressService.resolveGoalNotFound);
   }
 
   const goal = goalRecord.data;
@@ -2225,11 +2241,11 @@ export async function updateGoalRecord(goalId: string, input: GoalInput) {
   return withActiveContainer(async (container) => {
     const current = container.records.goals[goalId]?.data;
     if (!current) {
-      throw new Error('No he encontrado el objetivo para actualizarlo.');
+      throw new Error(errorCopy.progressService.updateGoalNotFound);
     }
 
     if (isGoalClosed(current)) {
-      throw new Error('Los objetivos cerrados ya no se pueden editar.');
+      throw new Error(errorCopy.progressService.closedGoalsNotEditable);
     }
 
     const goal: Goal = {
@@ -2282,7 +2298,7 @@ export async function finalizeGoalRecord(goalId: string, referenceDate = startOf
     const goal = container.records.goals[goalId]?.data;
 
     if (!goal) {
-      throw new Error('No he encontrado el objetivo para finalizarlo.');
+      throw new Error(errorCopy.progressService.finalizeGoalNotFound);
     }
 
     return resolveGoalIfNeeded(container, goalId, {
@@ -2309,11 +2325,11 @@ export async function recordGoalCheckinRecord(input: CheckinInput & { date: stri
   return withActiveContainer(async (container) => {
     const goal = container.records.goals[input.goalId]?.data;
     if (!goal) {
-      throw new Error('No he encontrado el objetivo para registrar el check-in.');
+      throw new Error(errorCopy.progressService.recordCheckinGoalNotFound);
     }
 
     if (!isGoalActive(goal)) {
-      throw new Error('Solo los objetivos activos admiten check-ins.');
+      throw new Error(errorCopy.progressService.onlyActiveGoalsAllowCheckins);
     }
 
     const existing = findCheckinByGoalDate(container, input.goalId, input.date);
@@ -2351,11 +2367,11 @@ export async function clearGoalCheckinRecord(input: { date: string; goalId: stri
   return withActiveContainer(async (container) => {
     const goal = container.records.goals[input.goalId]?.data;
     if (!goal) {
-      throw new Error('No he encontrado el objetivo para actualizar el check-in.');
+      throw new Error(errorCopy.progressService.updateCheckinGoalNotFound);
     }
 
     if (!isGoalActive(goal)) {
-      throw new Error('Solo los objetivos activos permiten cambiar check-ins.');
+      throw new Error(errorCopy.progressService.onlyActiveGoalsAllowCheckinChanges);
     }
 
     const existing = findCheckinByGoalDate(container, input.goalId, input.date);
@@ -2381,7 +2397,7 @@ export async function completeAssignedPunishmentRecord(assignedId: string) {
   return withActiveContainer(async (container) => {
     const current = container.records.assignedPunishments[assignedId]?.data;
     if (!current) {
-      throw new Error('No he encontrado el castigo asignado.');
+      throw new Error(errorCopy.progressService.assignedPunishmentNotFound);
     }
 
     const completed = completePunishment(current);
@@ -2394,6 +2410,9 @@ export async function completeAssignedPunishmentRecord(assignedId: string) {
     );
 
     const punishment = container.records.punishments[completed.punishmentId]?.data;
+    const displayedPunishment =
+      (punishment ? getPunishmentDisplay(punishment) : null) ??
+      getBasePunishmentDefinition({ id: completed.punishmentId });
     const goal = container.records.goals[completed.goalId]?.data;
     const historyEntry: CompletedPunishmentHistoryEntry = {
       assignedPunishmentId: completed.id,
@@ -2401,9 +2420,9 @@ export async function completeAssignedPunishmentRecord(assignedId: string) {
       goalId: goal?.id,
       goalTitle: goal?.title,
       id: buildHistoryId(completed.id),
-      punishmentDescription: punishment?.description ?? 'Castigo completado.',
-      punishmentId: punishment?.id,
-      punishmentTitle: punishment?.title ?? 'Castigo',
+      punishmentDescription: displayedPunishment?.description ?? punishmentsCopy.history.detailModal.fallbackDescription,
+      punishmentId: punishment?.id ?? displayedPunishment?.id,
+      punishmentTitle: displayedPunishment?.title ?? punishmentsCopy.history.detailModal.fallbackTitle,
     };
 
     setRecord(
@@ -2447,7 +2466,7 @@ export async function updateCustomPunishmentRecord(punishmentId: string, input: 
   return withActiveContainer(async (container) => {
     const current = container.records.punishments[punishmentId]?.data;
     if (!current || current.scope !== 'personal') {
-      throw new Error('Solo se pueden editar castigos personalizados.');
+      throw new Error(errorCopy.progressService.onlyCustomPunishmentsEditable);
     }
 
     const punishment: Punishment = {

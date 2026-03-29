@@ -2,6 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Directions, FlingGestureHandler } from 'react-native-gesture-handler';
 
@@ -9,7 +10,9 @@ import { EmptyState } from '@/src/components/EmptyState';
 import { HorizontalDateCalendar } from '@/src/components/HorizontalDateCalendar';
 import { ScreenContainer } from '@/src/components/ScreenContainer';
 import { palette, radius, shadows, spacing } from '@/src/constants/theme';
-import { APP_TUTORIAL_STEPS, AppTutorialState, getAppTutorialState, subscribeToAppTutorial } from '@/src/services/app-tutorial';
+import { AppTutorialState, getAppTutorialState, getAppTutorialSteps, subscribeToAppTutorial } from '@/src/services/app-tutorial';
+import { commonCopy } from '@/src/i18n/common';
+import { getGoalDeadlineCopy, getGoalProgressDaysCopy, goalsCopy } from '@/src/i18n/goals';
 import { Goal, HomeGoalSummary, HomeSummary, Checkin } from '@/src/models/types';
 import { appRoutes } from '@/src/navigation/app-routes';
 import { useAppStore } from '@/src/store/app-store';
@@ -33,17 +36,17 @@ const TUTORIAL_HOME_DEMO_GOAL_ID = 'tutorial-home-demo-goal';
 
 function getDeadlineCopy(remainingDays: number) {
   if (remainingDays <= 0) {
-    return 'Acaba hoy';
+    return goalsCopy.home.deadlineEndsToday;
   }
 
-  return remainingDays === 1 ? 'Acaba en 1 dia' : `Acaba en ${remainingDays} dias`;
+  return getGoalDeadlineCopy(remainingDays);
 }
 
 function getDateHeading(selectedDate: string) {
   const today = startOfToday();
 
   if (selectedDate === today) {
-    return 'Hoy';
+    return commonCopy.calendar.today;
   }
 
   return formatCompactDate(selectedDate);
@@ -174,7 +177,7 @@ function ActiveGoalCardView({
 
           <View style={styles.progressMetaRow}>
             <Text style={styles.progressLabel}>
-              {clampedCompletedDays}/{safeRequiredDays} dias cumplidos
+              {getGoalProgressDaysCopy(clampedCompletedDays, safeRequiredDays)}
             </Text>
             {isTodaySelected ? <Text style={styles.progressDeadline}>{getDeadlineCopy(summary.remainingDays)}</Text> : null}
           </View>
@@ -234,8 +237,8 @@ function LoadingGoalsModal({ visible }: { visible: boolean }) {
       <View style={styles.loadingOverlay}>
         <View style={styles.loadingModal}>
           <ActivityIndicator color={palette.primary} size="small" />
-          <Text style={styles.loadingModalTitle}>Actualizando objetivos</Text>
-          <Text style={styles.loadingModalCopy}>Cargando el estado del dia seleccionado...</Text>
+          <Text style={styles.loadingModalTitle}>{goalsCopy.home.loading.title}</Text>
+          <Text style={styles.loadingModalCopy}>{goalsCopy.home.loading.message}</Text>
         </View>
       </View>
     </Modal>
@@ -243,6 +246,7 @@ function LoadingGoalsModal({ visible }: { visible: boolean }) {
 }
 
 export function HomeScreen() {
+  useTranslation();
   const homeSummary = useAppStore((state) => state.homeSummary);
   const goals = useAppStore((state) => state.goals);
   const recordCheckin = useAppStore((state) => state.recordCheckin);
@@ -355,7 +359,7 @@ export function HomeScreen() {
 
   const isFutureSelected = selectedDate > startOfToday();
   const isTutorialHomeStep =
-    tutorialState?.status === 'in_progress' && APP_TUTORIAL_STEPS[tutorialState.currentStep]?.id === 'home';
+    tutorialState?.status === 'in_progress' && getAppTutorialSteps()[tutorialState.currentStep]?.id === 'home';
   const showTutorialDemoGoal = isTutorialHomeStep && selectedDate === today;
 
   const tutorialDemoGoal = useMemo<GoalCardViewModel | null>(() => {
@@ -365,8 +369,8 @@ export function HomeScreen() {
 
     const summary: HomeGoalSummary = {
       goalId: TUTORIAL_HOME_DEMO_GOAL_ID,
-      title: 'Salir a correr 30 minutos',
-      description: 'Objetivo de ejemplo del tutorial.',
+      title: goalsCopy.home.tutorialDemoTitle,
+      description: goalsCopy.home.tutorialDemoDescription,
       active: true,
       lifecycleStatus: 'active',
       resolutionStatus: 'pending',
@@ -539,16 +543,16 @@ export function HomeScreen() {
               </ScrollView>
             ) : selectedSummary.goalSummaries.length === 0 ? (
               <EmptyState
-                title="No hay objetivos todavia"
-                message="Cuando tengas objetivos creados, aqui veras tus tareas del dia para resolverlas rapido."
-                actionLabel="Crear objetivo"
+                title={goalsCopy.home.emptyState.title}
+                message={goalsCopy.home.emptyState.message}
+                actionLabel={goalsCopy.home.emptyState.action}
                 onAction={() => router.push(appRoutes.createGoal)}
               />
             ) : activeGoals.length === 0 ? (
               <EmptyState
-                title="No habia objetivos vigentes ese dia"
-                message="Cambia la fecha para revisar otro momento o crea un nuevo objetivo para empezar a registrar actividad."
-                actionLabel="Crear objetivo"
+                title={goalsCopy.home.emptyForDate.title}
+                message={goalsCopy.home.emptyForDate.message}
+                actionLabel={goalsCopy.home.emptyForDate.action}
                 onAction={() => router.push(appRoutes.createGoal)}
               />
             ) : null}

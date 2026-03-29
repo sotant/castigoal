@@ -2,6 +2,7 @@ import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FlatList, InteractionManager, ListRenderItem, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useFocusEffect } from '@react-navigation/native';
@@ -15,6 +16,8 @@ import { ObjectiveActionsMenu } from '@/src/components/ObjectiveActionsMenu';
 import { ObjectiveListItem } from '@/src/components/ObjectiveListItem';
 import { ScreenContainer } from '@/src/components/ScreenContainer';
 import { palette, spacing } from '@/src/constants/theme';
+import { commonCopy, formatPageCounter } from '@/src/i18n/common';
+import { getGoalSectionToggleHint, goalsCopy } from '@/src/i18n/goals';
 import { HomeGoalSummary, Goal } from '@/src/models/types';
 import { appRoutes } from '@/src/navigation/app-routes';
 import { useAppStore } from '@/src/store/app-store';
@@ -122,6 +125,7 @@ function paginateEntries<T>(entries: T[], page: number) {
 }
 
 export function GoalsScreen() {
+  useTranslation();
   const listRef = useRef<FlatList<GoalListEntry>>(null);
   const { deleteGoal, finalizeGoal, goals, homeSummary } = useAppStore(
     useShallow((state) => ({
@@ -216,7 +220,7 @@ export function GoalsScreen() {
       {
         type: 'section',
         key: 'section-active',
-        title: 'Activos',
+        title: goalsCopy.list.sections.active,
         count: activeGoals.length,
         expanded: showActiveGoals,
       },
@@ -227,7 +231,7 @@ export function GoalsScreen() {
         items.push({
           type: 'empty',
           key: 'empty-active',
-          message: 'No tienes objetivos activos ahora mismo.',
+          message: goalsCopy.list.empty.active,
         });
       } else {
         items.push(
@@ -254,7 +258,7 @@ export function GoalsScreen() {
     items.push({
       type: 'section',
       key: 'section-closed',
-      title: 'Finalizados',
+      title: goalsCopy.list.sections.closed,
       count: closedGoals.length,
       expanded: showClosedGoals,
     });
@@ -264,7 +268,7 @@ export function GoalsScreen() {
         items.push({
           type: 'empty',
           key: 'empty-closed',
-          message: 'Todavia no hay objetivos finalizados.',
+          message: goalsCopy.list.empty.closed,
         });
       } else {
         items.push(
@@ -349,19 +353,19 @@ export function GoalsScreen() {
 
     if (pendingAction.type === 'delete') {
       return {
-        eyebrow: 'Eliminar objetivo',
-        title: 'Borrar objetivo',
-        description: 'Se borraran tambien sus check-ins, outcomes y castigos asignados. Esta accion no se puede deshacer.',
-        confirmLabel: 'Borrar',
+        eyebrow: goalsCopy.list.confirmation.delete.eyebrow,
+        title: goalsCopy.list.confirmation.delete.title,
+        description: goalsCopy.list.confirmation.delete.description,
+        confirmLabel: goalsCopy.list.confirmation.delete.confirm,
         tone: 'danger' as const,
       };
     }
 
     return {
       eyebrow: '',
-      title: 'Finalizar objetivo',
-      description: 'Se resolvera el objetivo antes de llegar su fecha de finalizacion. Esta accion no podra deshacerse.',
-      confirmLabel: 'Finalizar',
+      title: goalsCopy.list.confirmation.finalize.title,
+      description: goalsCopy.list.confirmation.finalize.description,
+      confirmLabel: goalsCopy.list.confirmation.finalize.confirm,
       tone: 'default' as const,
     };
   }, [pendingAction]);
@@ -375,7 +379,7 @@ export function GoalsScreen() {
 
       return (
         <Pressable
-          accessibilityHint={`${item.expanded ? 'Oculta' : 'Muestra'} la seccion ${item.title.toLowerCase()}`}
+          accessibilityHint={getGoalSectionToggleHint(item.expanded ? commonCopy.actions.hide : commonCopy.actions.view, item.title)}
           accessibilityRole="button"
           onPress={onToggle}
           style={({ pressed }) => [styles.sectionHeader, item.key !== 'section-active' && styles.sectionHeaderSpaced, pressed && styles.sectionHeaderPressed]}>
@@ -431,11 +435,11 @@ export function GoalsScreen() {
               pressed && item.currentPage > 1 && styles.paginationButtonPressed,
             ]}>
             <Feather color={palette.primaryDeep} name="chevron-left" size={16} />
-            <Text style={styles.paginationButtonLabel}>Anterior</Text>
+            <Text style={styles.paginationButtonLabel}>{goalsCopy.list.pagination.previous}</Text>
           </Pressable>
 
           <Text style={styles.paginationLabel}>
-            {item.currentPage} de {item.totalPages}
+            {formatPageCounter(item.currentPage, item.totalPages)}
           </Text>
 
           <Pressable
@@ -447,7 +451,7 @@ export function GoalsScreen() {
               item.currentPage === item.totalPages && styles.paginationButtonDisabled,
               pressed && item.currentPage < item.totalPages && styles.paginationButtonPressed,
             ]}>
-            <Text style={styles.paginationButtonLabel}>Siguiente</Text>
+            <Text style={styles.paginationButtonLabel}>{goalsCopy.list.pagination.next}</Text>
             <Feather color={palette.primaryDeep} name="chevron-right" size={16} />
           </Pressable>
         </View>
@@ -470,14 +474,14 @@ export function GoalsScreen() {
   };
 
   return (
-    <ScreenContainer bodyStyle={styles.screenBody} title="Objetivos" scroll={false}>
+    <ScreenContainer bodyStyle={styles.screenBody} title={goalsCopy.list.screenTitle} scroll={false}>
       {goals.length === 0 ? (
         <View style={styles.contentSurface}>
           <View style={[styles.emptyStateWrapper, { paddingBottom: tabBarHeight + insets.bottom + 96 }]}>
             <EmptyState
-              title="No hay objetivos todavia"
-              message="Crea tu primer objetivo para empezar a registrar avances, cerrar ciclos y mantener el foco."
-              actionLabel="Crear objetivo"
+              title={goalsCopy.list.empty.noGoalsTitle}
+              message={goalsCopy.list.empty.noGoalsMessage}
+              actionLabel={goalsCopy.form.buttons.createGoal}
               onAction={() => router.push(appRoutes.createGoal)}
             />
           </View>
@@ -511,7 +515,13 @@ export function GoalsScreen() {
         </View>
       )}
 
-      <FloatingAddButton bottomOffset={floatingButtonBottomOffset} rightOffset={floatingButtonRightOffset} onPress={() => router.push(appRoutes.createGoal)} />
+      <FloatingAddButton
+        accessibilityHint={goalsCopy.form.buttons.createGoal}
+        accessibilityLabel={goalsCopy.form.buttons.createGoal}
+        bottomOffset={floatingButtonBottomOffset}
+        rightOffset={floatingButtonRightOffset}
+        onPress={() => router.push(appRoutes.createGoal)}
+      />
 
       <ObjectiveActionsMenu
         goalTitle={activeMenuGoal?.title ?? ''}

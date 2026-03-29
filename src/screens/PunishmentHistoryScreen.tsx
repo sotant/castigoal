@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams, usePathname } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { ComponentProps, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { Directions, FlingGestureHandler } from 'react-native-gesture-handler';
@@ -12,12 +13,23 @@ import { GoalActionConfirmationModal } from '@/src/components/GoalActionConfirma
 import { ObjectiveActionsMenu } from '@/src/components/ObjectiveActionsMenu';
 import { ScreenContainer } from '@/src/components/ScreenContainer';
 import {
+  getCompletedPunishmentHistoryDisplay,
+  getPunishmentDisplay,
   getPunishmentCategoryOption,
-  PUNISHMENT_CATEGORY_OPTIONS,
-  PUNISHMENT_DIFFICULTY_OPTIONS,
+  getPunishmentCategoryOptions,
+  getPunishmentDifficultyOptions,
 } from '@/src/constants/punishments';
 import { palette, radius, shadows, spacing } from '@/src/constants/theme';
 import { usePunishmentCatalog } from '@/src/features/punishments/selectors';
+import { getCurrentLanguage } from '@/src/i18n';
+import { commonCopy } from '@/src/i18n/common';
+import {
+  getPunishmentActionsLabel,
+  getPunishmentCompletedOn,
+  getPunishmentHistoryPageLabel,
+  getToggleCompletedSectionCopy,
+  punishmentsCopy,
+} from '@/src/i18n/punishments';
 import { CompletedPunishmentHistoryEntry, PendingAssignedPunishmentSummary, Punishment } from '@/src/models/types';
 import { appRoutes, getAdjacentTabHref } from '@/src/navigation/app-routes';
 import { useAppStore } from '@/src/store/app-store';
@@ -40,37 +52,46 @@ type SecondaryNavItem =
       icon: ComponentProps<typeof Ionicons>['name'];
     };
 
-const SECONDARY_NAV_ITEMS: SecondaryNavItem[] = [
-  { type: 'tab', key: 'mine', label: 'Mis castigos', icon: 'shield-half' },
-  { type: 'tab', key: 'library', label: 'Biblioteca', icon: 'library' },
-  { type: 'action', key: 'new', label: 'Nuevo', icon: 'add-outline' },
-];
-
-const PRIMARY_TABS = SECONDARY_NAV_ITEMS.filter((item): item is Extract<SecondaryNavItem, { type: 'tab' }> => item.type === 'tab');
-const ORIGIN_FILTER_OPTIONS: { label: string; value: LibraryOriginFilter }[] = [
-  { label: 'Todos', value: 'all' },
-  { label: 'Personal', value: 'personal' },
-  { label: 'Base', value: 'base' },
-];
 const LIBRARY_PAGE_SIZE = 10;
 
+function getSecondaryNavItems(): SecondaryNavItem[] {
+  return [
+    { type: 'tab', key: 'mine', label: punishmentsCopy.history.labels.mine, icon: 'shield-half' },
+    { type: 'tab', key: 'library', label: punishmentsCopy.history.labels.library, icon: 'library' },
+    { type: 'action', key: 'new', label: punishmentsCopy.history.actions.new, icon: 'add-outline' },
+  ];
+}
+
+function getPrimaryTabs() {
+  return getSecondaryNavItems().filter((item): item is Extract<SecondaryNavItem, { type: 'tab' }> => item.type === 'tab');
+}
+
+function getOriginFilterOptions(): { label: string; value: LibraryOriginFilter }[] {
+  return [
+    { label: commonCopy.filters.all, value: 'all' },
+    { label: commonCopy.filters.personal, value: 'personal' },
+    { label: commonCopy.filters.base, value: 'base' },
+  ];
+}
+
 function PunishmentCard({ punishment, actions }: { punishment: Punishment; actions?: ReactNode }) {
-  const categoryOption = getPunishmentCategoryOption(punishment.categoryId, punishment.categoryName);
+  const displayedPunishment = getPunishmentDisplay(punishment);
+  const categoryOption = getPunishmentCategoryOption(displayedPunishment.categoryId, displayedPunishment.categoryName);
   const difficultyOption =
-    PUNISHMENT_DIFFICULTY_OPTIONS.find((option) => option.value === punishment.difficulty) ?? PUNISHMENT_DIFFICULTY_OPTIONS[0];
+    getPunishmentDifficultyOptions().find((option) => option.value === displayedPunishment.difficulty) ?? getPunishmentDifficultyOptions()[0];
 
   return (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
-        <Text style={styles.cardTitle}>{punishment.title}</Text>
-        <Text style={[styles.badge, punishment.scope === 'personal' ? styles.badgeCustom : styles.badgeDefault]}>
-          {punishment.scope === 'personal' ? 'Personal' : 'Base'}
+        <Text style={styles.cardTitle}>{displayedPunishment.title}</Text>
+        <Text style={[styles.badge, displayedPunishment.scope === 'personal' ? styles.badgeCustom : styles.badgeDefault]}>
+          {displayedPunishment.scope === 'personal' ? commonCopy.filters.personal : commonCopy.filters.base}
         </Text>
       </View>
 
-      {punishment.description ? (
+      {displayedPunishment.description ? (
         <Text numberOfLines={2} style={styles.cardDescription}>
-          {punishment.description}
+          {displayedPunishment.description}
         </Text>
       ) : null}
 
@@ -100,20 +121,25 @@ function PendingPunishmentCard({
   pendingPunishment: PendingAssignedPunishmentSummary;
   working: boolean;
 }) {
+  const displayedPunishment = getPunishmentDisplay(pendingPunishment.punishment);
+
   return (
     <View style={styles.pendingItem}>
       <View style={styles.pendingCopy}>
-        <Text style={styles.pendingTitle}>{pendingPunishment.punishment.title}</Text>
-        <Text style={styles.pendingDescription}>{pendingPunishment.punishment.description}</Text>
+        <Text style={styles.pendingTitle}>{displayedPunishment.title}</Text>
+        <Text style={styles.pendingDescription}>{displayedPunishment.description}</Text>
       </View>
 
       <View style={styles.pendingActionRow}>
-        <Pressable accessibilityLabel="Ver informacion del objetivo" onPress={onShowInfo} style={styles.pendingInfoButton}>
+        <Pressable
+          accessibilityLabel={punishmentsCopy.history.accessibility.pendingGoalInfo}
+          onPress={onShowInfo}
+          style={styles.pendingInfoButton}>
           <Ionicons color="#92400E" name="information-circle-outline" size={20} />
         </Pressable>
         <Pressable disabled={working} onPress={onComplete} style={[styles.pendingCompleteButton, working && styles.disabled]}>
           <Ionicons color={palette.snow} name="checkmark" size={16} />
-          <Text style={styles.pendingButtonLabel}>{working ? 'Guardando...' : 'Completar'}</Text>
+          <Text style={styles.pendingButtonLabel}>{working ? commonCopy.actions.saving : punishmentsCopy.history.actions.complete}</Text>
         </Pressable>
       </View>
     </View>
@@ -127,14 +153,19 @@ function CompletedHistoryCard({
   entry: CompletedPunishmentHistoryEntry;
   onShowInfo: () => void;
 }) {
+  const displayedEntry = getCompletedPunishmentHistoryDisplay(entry);
+
   return (
     <View style={styles.historyCard}>
       <View style={styles.historyCardHeader}>
         <View style={styles.historyCardCopy}>
-          <Text style={styles.historyTitle}>{entry.punishmentTitle}</Text>
-          <Text style={styles.historyMeta}>Cumplido el {formatLongDate(toISODate(entry.completedAt))}</Text>
+          <Text style={styles.historyTitle}>{displayedEntry.punishmentTitle}</Text>
+          <Text style={styles.historyMeta}>{getPunishmentCompletedOn(formatLongDate(toISODate(displayedEntry.completedAt)))}</Text>
         </View>
-        <Pressable accessibilityLabel="Ver informacion del castigo cumplido" onPress={onShowInfo} style={styles.historyInfoButton}>
+        <Pressable
+          accessibilityLabel={punishmentsCopy.history.accessibility.completedPunishmentInfo}
+          onPress={onShowInfo}
+          style={styles.historyInfoButton}>
           <Ionicons color={palette.primaryDeep} name="information-circle-outline" size={22} />
         </Pressable>
       </View>
@@ -143,6 +174,7 @@ function CompletedHistoryCard({
 }
 
 export function PunishmentHistoryScreen() {
+  useTranslation();
   const pathname = usePathname();
   const params = useLocalSearchParams<{ tab?: PrimaryTabKey }>();
   const { personalPunishments, basePunishments, deleteCustomPunishment, punishmentsLoaded, refreshPunishmentCatalog } =
@@ -175,25 +207,33 @@ export function PunishmentHistoryScreen() {
   const [draftDifficultyFilters, setDraftDifficultyFilters] = useState<(1 | 2 | 3)[]>([]);
   const [librarySectionY, setLibrarySectionY] = useState(0);
   const [secondaryNavHeight, setSecondaryNavHeight] = useState(0);
+  const secondaryNavItems = getSecondaryNavItems();
+  const primaryTabs = getPrimaryTabs();
+  const originFilterOptions = getOriginFilterOptions();
+  const punishmentCategoryOptions = getPunishmentCategoryOptions();
+  const punishmentDifficultyOptions = getPunishmentDifficultyOptions();
 
   const activeMenuPunishment = personalPunishments.find((item) => item.id === activeMenuPunishmentId) ?? null;
   const pendingDeletePunishment = personalPunishments.find((item) => item.id === pendingDeletePunishmentId) ?? null;
+  const displayedInfoCompletedEntry = infoCompletedEntry ? getCompletedPunishmentHistoryDisplay(infoCompletedEntry) : null;
   const allLibraryPunishments = useMemo(() => [...personalPunishments, ...basePunishments], [basePunishments, personalPunishments]);
-  const normalizedSearchQuery = searchQuery.trim().toLocaleLowerCase('es');
+  const currentLanguage = getCurrentLanguage();
+  const normalizedSearchQuery = searchQuery.trim().toLocaleLowerCase(currentLanguage);
 
   const filteredLibraryPunishments = useMemo(
     () =>
       allLibraryPunishments.filter((punishment) => {
+        const displayedPunishment = getPunishmentDisplay(punishment);
         const matchesOrigin = originFilter === 'all' ? true : punishment.scope === originFilter;
         const matchesCategory = categoryFilters.length === 0 ? true : categoryFilters.includes(punishment.categoryName);
         const matchesDifficulty = difficultyFilters.length === 0 ? true : difficultyFilters.includes(punishment.difficulty);
         const matchesSearch = normalizedSearchQuery
-          ? `${punishment.title} ${punishment.description}`.toLocaleLowerCase('es').includes(normalizedSearchQuery)
+          ? `${displayedPunishment.title} ${displayedPunishment.description}`.toLocaleLowerCase(currentLanguage).includes(normalizedSearchQuery)
           : true;
 
         return matchesOrigin && matchesCategory && matchesDifficulty && matchesSearch;
       }),
-    [allLibraryPunishments, categoryFilters, difficultyFilters, normalizedSearchQuery, originFilter],
+    [allLibraryPunishments, categoryFilters, currentLanguage, difficultyFilters, normalizedSearchQuery, originFilter],
   );
   const totalLibraryPages = Math.max(1, Math.ceil(filteredLibraryPunishments.length / LIBRARY_PAGE_SIZE));
   const paginatedLibraryPunishments = useMemo(() => {
@@ -207,13 +247,13 @@ export function PunishmentHistoryScreen() {
     if (originFilter !== 'all') {
       chips.push({
         key: `origin-${originFilter}`,
-        label: originFilter === 'personal' ? 'Personal' : 'Base',
+        label: originFilter === 'personal' ? commonCopy.filters.personal : commonCopy.filters.base,
         onRemove: () => setOriginFilter('all'),
       });
     }
 
     categoryFilters.forEach((value) => {
-      const option = PUNISHMENT_CATEGORY_OPTIONS.find((item) => item.name === value);
+      const option = punishmentCategoryOptions.find((item) => item.name === value);
 
       if (option) {
         chips.push({
@@ -225,7 +265,7 @@ export function PunishmentHistoryScreen() {
     });
 
     difficultyFilters.forEach((value) => {
-      const option = PUNISHMENT_DIFFICULTY_OPTIONS.find((item) => item.value === value);
+      const option = punishmentDifficultyOptions.find((item) => item.value === value);
 
       if (option) {
         chips.push({
@@ -245,7 +285,7 @@ export function PunishmentHistoryScreen() {
     }
 
     return chips;
-  }, [categoryFilters, difficultyFilters, originFilter, searchQuery]);
+  }, [categoryFilters, difficultyFilters, originFilter, punishmentCategoryOptions, punishmentDifficultyOptions, searchQuery]);
 
   useEffect(() => {
     const tasks: Promise<unknown>[] = [];
@@ -329,14 +369,14 @@ export function PunishmentHistoryScreen() {
   };
 
   const handlePrimaryTabSwipe = (direction: 'left' | 'right') => {
-    const currentIndex = PRIMARY_TABS.findIndex((tab) => tab.key === activePrimaryTab);
+    const currentIndex = primaryTabs.findIndex((tab) => tab.key === activePrimaryTab);
 
     if (currentIndex === -1) {
       return;
     }
 
     const targetIndex = direction === 'left' ? currentIndex + 1 : currentIndex - 1;
-    const targetTab = PRIMARY_TABS[targetIndex];
+    const targetTab = primaryTabs[targetIndex];
 
     if (targetTab) {
       setActivePrimaryTab(targetTab.key);
@@ -404,13 +444,13 @@ export function PunishmentHistoryScreen() {
   const renderHistoryView = () => (
     <View style={styles.contentSection}>
       <Pressable
-        accessibilityHint={`${isCompletedHistoryOpen ? 'Oculta' : 'Muestra'} la seccion de castigos cumplidos`}
-        accessibilityLabel="Alternar castigos cumplidos"
+        accessibilityHint={getToggleCompletedSectionCopy(isCompletedHistoryOpen)}
+        accessibilityLabel={punishmentsCopy.history.accessibility.toggleCompletedLabel}
         accessibilityRole="button"
         onPress={() => setIsCompletedHistoryOpen((current) => !current)}
         style={({ pressed }) => [styles.contentSectionHeader, styles.collapsibleSectionHeader, pressed && styles.secondaryNavPressed]}>
         <View style={styles.sectionHeaderCopy}>
-          <Text style={styles.sectionTitle}>Cumplidos</Text>
+          <Text style={styles.sectionTitle}>{punishmentsCopy.history.labels.completed}</Text>
         </View>
         <View style={styles.historyHeaderActions}>
           <View style={[styles.countBadge, styles.historyCountBadge]}>
@@ -425,8 +465,8 @@ export function PunishmentHistoryScreen() {
       {!isCompletedHistoryOpen ? null : completedPunishmentHistory.length === 0 ? (
         <View style={styles.inlineEmpty}>
           <EmptyState
-            title="Sin castigos cumplidos"
-            message="Cuando confirmes un castigo como cumplido, se guardara aqui con su fecha."
+            title={punishmentsCopy.history.empty.historyTitle}
+            message={punishmentsCopy.history.empty.historyMessage}
           />
         </View>
       ) : (
@@ -442,9 +482,9 @@ export function PunishmentHistoryScreen() {
       return (
         <View style={styles.inlineEmpty}>
           <EmptyState
-            title="No hay castigos todavia"
-            message="Crea tu primer castigo para empezar a construir tu biblioteca."
-            actionLabel="Crear castigo"
+            title={punishmentsCopy.history.empty.libraryTitle}
+            message={punishmentsCopy.history.empty.libraryMessage}
+            actionLabel={punishmentsCopy.form.createTitle}
             onAction={() => router.push(appRoutes.createPunishment)}
           />
         </View>
@@ -455,9 +495,9 @@ export function PunishmentHistoryScreen() {
       return (
         <View style={styles.inlineEmpty}>
           <EmptyState
-            title="No hay castigos que coincidan con los filtros"
-            message="Prueba con otra combinacion o limpia los filtros activos."
-            actionLabel="Limpiar filtros"
+            title={punishmentsCopy.history.empty.filteredLibraryTitle}
+            message={punishmentsCopy.history.empty.filteredLibraryMessage}
+            actionLabel={punishmentsCopy.history.filters.clearAll}
             onAction={resetAllFilters}
           />
         </View>
@@ -471,8 +511,8 @@ export function PunishmentHistoryScreen() {
         actions={
           punishment.scope === 'personal' ? (
             <Pressable
-              accessibilityHint="Muestra mas acciones para este castigo"
-              accessibilityLabel={`Abrir menu de ${punishment.title}`}
+              accessibilityHint={punishmentsCopy.history.accessibility.punishmentActions}
+              accessibilityLabel={getPunishmentActionsLabel(getPunishmentDisplay(punishment).title)}
               accessibilityRole="button"
               disabled={saving}
               onPress={(event) => {
@@ -493,12 +533,12 @@ export function PunishmentHistoryScreen() {
       <View style={[styles.summaryCard, styles.librarySummaryCard]}>
         <View style={styles.summaryStats}>
           <View style={styles.summaryStat}>
-            <Text style={styles.summaryStatLabel}>Mis castigos</Text>
+            <Text style={styles.summaryStatLabel}>{punishmentsCopy.history.libraryStats.mine}</Text>
             <Text style={styles.summaryStatValue}>{personalPunishments.length}</Text>
           </View>
           <View style={styles.summaryStatDivider} />
           <View style={styles.summaryStat}>
-            <Text style={styles.summaryStatLabel}>Estándar</Text>
+            <Text style={styles.summaryStatLabel}>{punishmentsCopy.history.libraryStats.standard}</Text>
             <Text style={styles.summaryStatValue}>{basePunishments.length}</Text>
           </View>
         </View>
@@ -511,7 +551,7 @@ export function PunishmentHistoryScreen() {
         style={styles.contentSection}>
         <View style={styles.contentSectionHeader}>
           <View style={styles.sectionHeaderCopy}>
-            <Text style={styles.sectionTitle}>Biblioteca</Text>
+            <Text style={styles.sectionTitle}>{punishmentsCopy.history.labels.library}</Text>
           </View>
           <View style={[styles.countBadge, styles.historyCountBadge]}>
             <Text style={[styles.countBadgeLabel, styles.historyCountBadgeLabel]}>{filteredLibraryPunishments.length}</Text>
@@ -523,7 +563,7 @@ export function PunishmentHistoryScreen() {
             <Ionicons color="#708198" name="search-outline" size={18} />
             <TextInput
               onChangeText={setSearchQuery}
-              placeholder="Nombre o descripción"
+              placeholder={punishmentsCopy.history.filters.searchPlaceholder}
               placeholderTextColor="#8EA0B7"
               style={styles.searchInput}
               value={searchQuery}
@@ -532,7 +572,7 @@ export function PunishmentHistoryScreen() {
 
           <Pressable onPress={() => setIsFiltersOpen(true)} style={styles.filterButton}>
             <Ionicons color={palette.primaryDeep} name="options-outline" size={18} />
-            <Text style={styles.filterButtonLabel}>Filtros</Text>
+            <Text style={styles.filterButtonLabel}>{punishmentsCopy.history.filters.sectionTitle}</Text>
           </Pressable>
         </View>
 
@@ -546,7 +586,7 @@ export function PunishmentHistoryScreen() {
                 </Pressable>
               ))}
               <Pressable onPress={resetAllFilters} style={styles.clearFiltersChip}>
-                <Text style={styles.clearFiltersChipLabel}>Limpiar filtros</Text>
+                <Text style={styles.clearFiltersChipLabel}>{punishmentsCopy.history.filters.clearAll}</Text>
               </Pressable>
             </ScrollView>
           </View>
@@ -561,18 +601,16 @@ export function PunishmentHistoryScreen() {
               onPress={() => goToLibraryPage(Math.max(1, libraryPage - 1))}
               style={[styles.paginationButton, libraryPage === 1 && styles.disabled]}>
               <Ionicons color={palette.primaryDeep} name="chevron-back" size={16} />
-              <Text style={styles.paginationButtonLabel}>Anterior</Text>
+              <Text style={styles.paginationButtonLabel}>{punishmentsCopy.history.pagination.previous}</Text>
             </Pressable>
 
-            <Text style={styles.paginationLabel}>
-              Página {libraryPage} de {totalLibraryPages}
-            </Text>
+            <Text style={styles.paginationLabel}>{getPunishmentHistoryPageLabel(libraryPage, totalLibraryPages)}</Text>
 
             <Pressable
               disabled={libraryPage === totalLibraryPages}
               onPress={() => goToLibraryPage(Math.min(totalLibraryPages, libraryPage + 1))}
               style={[styles.paginationButton, libraryPage === totalLibraryPages && styles.disabled]}>
-              <Text style={styles.paginationButtonLabel}>Siguiente</Text>
+              <Text style={styles.paginationButtonLabel}>{punishmentsCopy.history.pagination.next}</Text>
               <Ionicons color={palette.primaryDeep} name="chevron-forward" size={16} />
             </Pressable>
           </View>
@@ -587,7 +625,7 @@ export function PunishmentHistoryScreen() {
         <View style={[styles.summaryCard, styles.mineSummaryCard]}>
           <View style={styles.contentSectionHeader}>
             <View style={styles.sectionHeaderCopy}>
-              <Text style={styles.sectionTitle}>Pendientes</Text>
+              <Text style={styles.sectionTitle}>{punishmentsCopy.history.labels.pending}</Text>
             </View>
             <View style={[styles.countBadge, styles.historyCountBadge, styles.pendingCountBadge]}>
               <Text style={[styles.countBadgeLabel, styles.historyCountBadgeLabel, styles.pendingCountBadgeLabel]}>
@@ -599,7 +637,7 @@ export function PunishmentHistoryScreen() {
         </View>
       ) : (
         <View style={[styles.summaryCard, styles.mineSuccessCard]}>
-          <Text style={styles.mineSuccessTitle}>¡Enhorabuena! No tienes castigos pendientes</Text>
+          <Text style={styles.mineSuccessTitle}>{punishmentsCopy.history.empty.mineSuccessTitle}</Text>
         </View>
       )}
 
@@ -615,7 +653,7 @@ export function PunishmentHistoryScreen() {
       }}
       style={styles.secondaryNavShell}>
       <View style={styles.secondaryNavBar}>
-        {SECONDARY_NAV_ITEMS.map((item, index) => {
+        {secondaryNavItems.map((item, index) => {
           const isTab = item.type === 'tab';
           const isActive = isTab && item.key === activePrimaryTab;
           const iconColor = isActive ? palette.primaryDeep : '#708198';
@@ -631,8 +669,8 @@ export function PunishmentHistoryScreen() {
           return (
             <View key={item.key} style={styles.secondaryNavItem}>
               <Pressable
-                accessibilityHint={item.type === 'action' ? 'Abre la pantalla para crear un castigo' : undefined}
-                accessibilityLabel={item.type === 'action' ? 'Agregar castigo' : item.label}
+                accessibilityHint={item.type === 'action' ? punishmentsCopy.history.accessibility.createPunishmentHint : undefined}
+                accessibilityLabel={item.type === 'action' ? punishmentsCopy.history.accessibility.createPunishmentLabel : item.label}
                 accessibilityRole="button"
                 onPress={handlePress}
                 style={({ pressed }) => [
@@ -650,7 +688,7 @@ export function PunishmentHistoryScreen() {
                   {item.label}
                 </Text>
               </Pressable>
-              {index < SECONDARY_NAV_ITEMS.length - 1 ? <View pointerEvents="none" style={styles.secondaryNavDivider} /> : null}
+              {index < secondaryNavItems.length - 1 ? <View pointerEvents="none" style={styles.secondaryNavDivider} /> : null}
             </View>
           );
         })}
@@ -659,7 +697,7 @@ export function PunishmentHistoryScreen() {
   );
 
   return (
-    <ScreenContainer title="Castigos" scroll={false} enableTabSwipe={false} stableOverlay={renderSecondaryNav()}>
+    <ScreenContainer title={punishmentsCopy.history.labels.screenTitle} scroll={false} enableTabSwipe={false} stableOverlay={renderSecondaryNav()}>
       <Modal
         animationType="fade"
         transparent
@@ -669,35 +707,35 @@ export function PunishmentHistoryScreen() {
           <Pressable style={styles.modalBackdrop} onPress={() => setInfoCompletedEntry(null)} />
 
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Detalle del castigo</Text>
+            <Text style={styles.modalTitle}>{punishmentsCopy.history.detailModal.titleLabel}</Text>
 
             <View style={styles.infoDetailGroup}>
-              <Text style={styles.infoDetailLabel}>Titulo</Text>
-              <Text style={styles.infoDetailValue}>{infoCompletedEntry?.punishmentTitle}</Text>
+              <Text style={styles.infoDetailLabel}>{punishmentsCopy.history.detailModal.title}</Text>
+              <Text style={styles.infoDetailValue}>{displayedInfoCompletedEntry?.punishmentTitle}</Text>
             </View>
 
             <View style={styles.infoDetailGroup}>
-              <Text style={styles.infoDetailLabel}>Descripcion</Text>
+              <Text style={styles.infoDetailLabel}>{punishmentsCopy.history.detailModal.description}</Text>
               <Text style={styles.infoDetailValue}>
-                {infoCompletedEntry?.punishmentDescription || 'Sin descripcion disponible.'}
+                {displayedInfoCompletedEntry?.punishmentDescription || punishmentsCopy.history.detailModal.noDescription}
               </Text>
             </View>
 
             <View style={styles.infoDetailGroup}>
-              <Text style={styles.infoDetailLabel}>Fecha</Text>
+              <Text style={styles.infoDetailLabel}>{punishmentsCopy.history.detailModal.date}</Text>
               <Text style={styles.infoDetailValue}>
-                {infoCompletedEntry ? formatLongDate(toISODate(infoCompletedEntry.completedAt)) : ''}
+                {displayedInfoCompletedEntry ? formatLongDate(toISODate(displayedInfoCompletedEntry.completedAt)) : ''}
               </Text>
             </View>
 
             <View style={styles.infoDetailGroup}>
-              <Text style={styles.infoDetailLabel}>Objetivo relacionado</Text>
-              <Text style={styles.infoDetailValue}>{infoCompletedEntry?.goalTitle || 'Sin objetivo relacionado'}</Text>
+              <Text style={styles.infoDetailLabel}>{punishmentsCopy.history.detailModal.relatedGoal}</Text>
+              <Text style={styles.infoDetailValue}>{infoCompletedEntry?.goalTitle || punishmentsCopy.history.detailModal.relatedGoalFallback}</Text>
             </View>
 
             <View style={styles.modalActions}>
               <Pressable onPress={() => setInfoCompletedEntry(null)} style={styles.secondaryButton}>
-                <Text style={styles.secondaryLabel}>Cerrar</Text>
+                <Text style={styles.secondaryLabel}>{commonCopy.actions.close}</Text>
               </Pressable>
             </View>
           </View>
@@ -709,14 +747,14 @@ export function PunishmentHistoryScreen() {
           <Pressable style={styles.modalBackdrop} onPress={() => setInfoPunishment(null)} />
 
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Informacion</Text>
+            <Text style={styles.modalTitle}>{punishmentsCopy.history.infoModal.title}</Text>
             <Text style={styles.infoModalMessage}>
-              <Text style={styles.pendingAlertLabel}>No cumpliste: </Text>
+              <Text style={styles.pendingAlertLabel}>{punishmentsCopy.history.infoModal.unmetGoalLabel}</Text>
               {infoPunishment?.goalTitle}
             </Text>
             <View style={styles.modalActions}>
               <Pressable onPress={() => setInfoPunishment(null)} style={styles.secondaryButton}>
-                <Text style={styles.secondaryLabel}>Cerrar</Text>
+                <Text style={styles.secondaryLabel}>{commonCopy.actions.close}</Text>
               </Pressable>
             </View>
           </View>
@@ -744,13 +782,13 @@ export function PunishmentHistoryScreen() {
           />
 
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Has cumplido el castigo?</Text>
+            <Text style={styles.modalTitle}>{punishmentsCopy.history.completeConfirmationTitle}</Text>
             <View style={styles.modalActions}>
               <Pressable
                 disabled={Boolean(completingAssignedId)}
                 onPress={() => setPendingCompletion(null)}
                 style={[styles.secondaryButton, completingAssignedId && styles.disabled]}>
-                <Text style={styles.secondaryLabel}>No</Text>
+                <Text style={styles.secondaryLabel}>{commonCopy.actions.no}</Text>
               </Pressable>
               <Pressable
                 disabled={Boolean(completingAssignedId)}
@@ -758,7 +796,7 @@ export function PunishmentHistoryScreen() {
                   void handleCompleteConfirmed();
                 }}
                 style={[styles.pendingButton, completingAssignedId && styles.disabled]}>
-                <Text style={styles.pendingButtonLabel}>{completingAssignedId ? 'Guardando...' : 'Si'}</Text>
+                <Text style={styles.pendingButtonLabel}>{completingAssignedId ? commonCopy.actions.saving : commonCopy.actions.yes}</Text>
               </Pressable>
             </View>
           </View>
@@ -773,8 +811,8 @@ export function PunishmentHistoryScreen() {
             <View style={styles.filterHandle} />
             <View style={styles.filterSheetHeader}>
               <View>
-                <Text style={styles.filterEyebrow}>Filtros</Text>
-                <Text style={styles.filterTitle}>Refina la biblioteca</Text>
+                <Text style={styles.filterEyebrow}>{punishmentsCopy.history.filters.sectionTitle}</Text>
+                <Text style={styles.filterTitle}>{punishmentsCopy.history.filters.libraryTitle}</Text>
               </View>
               <Pressable onPress={() => setIsFiltersOpen(false)} style={styles.filterCloseButton}>
                 <Ionicons color={palette.ink} name="close" size={18} />
@@ -783,9 +821,9 @@ export function PunishmentHistoryScreen() {
 
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.filterSections}>
               <View style={styles.filterSection}>
-                <Text style={styles.filterSectionTitle}>Origen</Text>
+                <Text style={styles.filterSectionTitle}>{punishmentsCopy.history.filters.origin}</Text>
                 <View style={styles.filterOptionWrap}>
-                  {ORIGIN_FILTER_OPTIONS.map((option) => {
+                  {originFilterOptions.map((option) => {
                     const isActive = draftOriginFilter === option.value;
 
                     return (
@@ -801,9 +839,9 @@ export function PunishmentHistoryScreen() {
               </View>
 
               <View style={styles.filterSection}>
-                <Text style={styles.filterSectionTitle}>Categoria</Text>
+                <Text style={styles.filterSectionTitle}>{punishmentsCopy.history.filters.category}</Text>
                 <View style={styles.filterOptionWrap}>
-                  {PUNISHMENT_CATEGORY_OPTIONS.map((option) => {
+                  {punishmentCategoryOptions.map((option) => {
                     const isActive = draftCategoryFilters.includes(option.value);
 
                     return (
@@ -823,9 +861,9 @@ export function PunishmentHistoryScreen() {
               </View>
 
               <View style={styles.filterSection}>
-                <Text style={styles.filterSectionTitle}>Dificultad</Text>
+                <Text style={styles.filterSectionTitle}>{punishmentsCopy.history.filters.difficulty}</Text>
                 <View style={styles.filterOptionWrap}>
-                  {PUNISHMENT_DIFFICULTY_OPTIONS.map((option) => {
+                  {punishmentDifficultyOptions.map((option) => {
                     const isActive = draftDifficultyFilters.includes(option.value);
 
                     return (
@@ -853,10 +891,10 @@ export function PunishmentHistoryScreen() {
                   setDraftDifficultyFilters([]);
                 }}
                 style={styles.filterSecondaryButton}>
-                <Text style={styles.filterSecondaryLabel}>Limpiar</Text>
+                <Text style={styles.filterSecondaryLabel}>{commonCopy.actions.clear}</Text>
               </Pressable>
               <Pressable onPress={applyFilters} style={styles.filterPrimaryButton}>
-                <Text style={styles.filterPrimaryLabel}>Aplicar</Text>
+                <Text style={styles.filterPrimaryLabel}>{commonCopy.actions.apply}</Text>
               </Pressable>
             </View>
           </View>
@@ -890,9 +928,9 @@ export function PunishmentHistoryScreen() {
 
       {pendingDeletePunishment ? (
         <GoalActionConfirmationModal
-          confirmLabel={saving ? 'Borrando...' : 'Borrar'}
-          description="El servidor bloqueara el borrado si este castigo ya fue asignado para conservar el historial."
-          eyebrow="Eliminar castigo"
+          confirmLabel={saving ? commonCopy.actions.saving : punishmentsCopy.history.deleteConfirmation.confirm}
+          description={punishmentsCopy.history.deleteConfirmation.description}
+          eyebrow={punishmentsCopy.history.deleteConfirmation.eyebrow}
           onCancel={() => {
             if (!saving) {
               setPendingDeletePunishmentId(null);
@@ -916,7 +954,7 @@ export function PunishmentHistoryScreen() {
               }
             })();
           }}
-          title="Borrar castigo"
+          title={punishmentsCopy.history.deleteConfirmation.title}
           tone="danger"
           visible
         />

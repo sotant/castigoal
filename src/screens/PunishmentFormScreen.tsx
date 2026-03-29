@@ -1,24 +1,33 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Alert, Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View, ActivityIndicator } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 
 import {
   DEFAULT_CATEGORY_ID,
-  PUNISHMENT_CATEGORY_OPTIONS,
-  PUNISHMENT_DIFFICULTY_OPTIONS,
+  getPunishmentCategoryOptions,
+  getPunishmentDifficultyOptions,
   getPunishmentCategoryOption,
 } from '@/src/constants/punishments';
 import { palette, radius, shadows, spacing } from '@/src/constants/theme';
 import { usePunishmentCatalog } from '@/src/features/punishments/selectors';
+import { commonCopy } from '@/src/i18n/common';
+import {
+  getPunishmentCategoryInfoAccessibility,
+  getPunishmentDifficultyInfoAccessibility,
+  punishmentsCopy,
+} from '@/src/i18n/punishments';
 import { getErrorMessage } from '@/src/lib/app-error';
+import { PunishmentCategoryName } from '@/src/models/types';
 import { appRoutes } from '@/src/navigation/app-routes';
 import { ScreenContainer } from '@/src/components/ScreenContainer';
 
-const DEFAULT_DIFFICULTY = PUNISHMENT_DIFFICULTY_OPTIONS[0].value;
+const DEFAULT_DIFFICULTY: 1 = 1;
 
 export function PunishmentFormScreen() {
+  useTranslation();
   const params = useLocalSearchParams<{ id?: string }>();
   const { addCustomPunishment, personalPunishments, punishmentsLoaded, refreshPunishmentCatalog, updateCustomPunishment } =
     usePunishmentCatalog();
@@ -33,6 +42,8 @@ export function PunishmentFormScreen() {
   const [hasTouchedTitle, setHasTouchedTitle] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [saving, setSaving] = useState(false);
+  const punishmentCategoryOptions = getPunishmentCategoryOptions();
+  const punishmentDifficultyOptions = getPunishmentDifficultyOptions();
 
   const editingPunishment = useMemo(
     () => (punishmentId ? personalPunishments.find((item) => item.id === punishmentId) ?? null : null),
@@ -40,7 +51,7 @@ export function PunishmentFormScreen() {
   );
   const normalizedTitle = title.trim();
   const normalizedDescription = description.trim();
-  const titleError = normalizedTitle.length >= 3 ? '' : 'Escribe un titulo de al menos 3 caracteres.';
+  const titleError = normalizedTitle.length >= 3 ? '' : punishmentsCopy.form.titleError;
   const showTitleError = hasTouchedTitle && Boolean(titleError);
   const isEditingLoading = isEditing && !punishmentsLoaded;
   const isDirty = useMemo(() => {
@@ -61,7 +72,7 @@ export function PunishmentFormScreen() {
   }, [categoryName, difficulty, editingPunishment, isEditing, normalizedDescription, normalizedTitle]);
   const selectedCategory = getPunishmentCategoryOption(undefined, categoryName);
   const selectedDifficulty =
-    PUNISHMENT_DIFFICULTY_OPTIONS.find((option) => option.value === difficulty) ?? PUNISHMENT_DIFFICULTY_OPTIONS[0];
+    punishmentDifficultyOptions.find((option) => option.value === difficulty) ?? punishmentDifficultyOptions[0];
 
   useFocusEffect(
     useCallback(() => {
@@ -133,7 +144,7 @@ export function PunishmentFormScreen() {
       Keyboard.dismiss();
       router.replace({ pathname: appRoutes.punishments, params: { tab: 'library' } });
     } catch (error) {
-      setSubmitError(getErrorMessage(error, 'No se pudo guardar el castigo.'));
+      setSubmitError(getErrorMessage(error, punishmentsCopy.form.submitError));
     } finally {
       setSaving(false);
     }
@@ -146,14 +157,14 @@ export function PunishmentFormScreen() {
 
     if (isDirty) {
       Alert.alert(
-        isEditing ? 'Descartar cambios' : 'Descartar borrador',
+        isEditing ? punishmentsCopy.form.unsavedChanges.editTitle : punishmentsCopy.form.unsavedChanges.createTitle,
         isEditing
-          ? 'Se perderan los cambios que has hecho en este castigo.'
-          : 'Se perdera la informacion que has escrito para este castigo.',
+          ? punishmentsCopy.form.unsavedChanges.editDescription
+          : punishmentsCopy.form.unsavedChanges.createDescription,
         [
-          { text: 'Seguir editando', style: 'cancel' },
+          { text: punishmentsCopy.form.unsavedChanges.keepEditing, style: 'cancel' },
           {
-            text: 'Descartar',
+            text: commonCopy.actions.discard,
             style: 'destructive',
             onPress: () => {
               Keyboard.dismiss();
@@ -174,18 +185,18 @@ export function PunishmentFormScreen() {
     setDifficultyInfoValue(null);
   };
 
-  const handleSelectCategory = (value: string) => {
+  const handleSelectCategory = (value: PunishmentCategoryName) => {
     setCategoryName(value);
     setCategoryInfoValue(null);
   };
 
   if (isEditingLoading) {
     return (
-      <ScreenContainer title="Editar castigo" scroll={false}>
+      <ScreenContainer title={punishmentsCopy.form.editTitle} scroll={false}>
         <View style={styles.loadingState}>
           <ActivityIndicator color={palette.primaryDeep} size="large" />
-          <Text style={styles.loadingTitle}>Preparando el formulario</Text>
-          <Text style={styles.loadingDescription}>Estoy recuperando el castigo para que puedas editarlo sin sobrescribir datos.</Text>
+          <Text style={styles.loadingTitle}>{punishmentsCopy.form.loading.title}</Text>
+          <Text style={styles.loadingDescription}>{punishmentsCopy.form.loading.description}</Text>
         </View>
       </ScreenContainer>
     );
@@ -193,12 +204,12 @@ export function PunishmentFormScreen() {
 
   if (isEditing && punishmentsLoaded && !editingPunishment) {
     return (
-      <ScreenContainer title="Editar castigo" scroll={false}>
+      <ScreenContainer title={punishmentsCopy.form.editTitle} scroll={false}>
         <View style={styles.missingState}>
-          <Text style={styles.missingTitle}>Castigo no disponible</Text>
-          <Text style={styles.missingDescription}>No he encontrado ese castigo personalizado para editarlo.</Text>
+          <Text style={styles.missingTitle}>{punishmentsCopy.form.missing.title}</Text>
+          <Text style={styles.missingDescription}>{punishmentsCopy.form.missing.description}</Text>
           <Pressable onPress={handleBack} style={styles.secondaryButton}>
-            <Text style={styles.secondaryLabel}>Volver</Text>
+            <Text style={styles.secondaryLabel}>{commonCopy.actions.back}</Text>
           </Pressable>
         </View>
       </ScreenContainer>
@@ -206,7 +217,7 @@ export function PunishmentFormScreen() {
   }
 
   return (
-    <ScreenContainer title={isEditing ? 'Editar castigo' : 'Crear castigo'} scroll={false}>
+    <ScreenContainer title={isEditing ? punishmentsCopy.form.editTitle : punishmentsCopy.form.createTitle} scroll={false}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
@@ -214,13 +225,13 @@ export function PunishmentFormScreen() {
         <View style={styles.formSectionCard}>
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Identidad del castigo</Text>
+              <Text style={styles.sectionTitle}>{punishmentsCopy.form.sections.identity}</Text>
             </View>
 
             <View style={styles.field}>
               <View style={styles.inlineHeader}>
-                <Text style={styles.label}>Titulo del castigo</Text>
-                <Text style={styles.requiredTag}>Obligatorio</Text>
+                <Text style={styles.label}>{punishmentsCopy.form.fields.title}</Text>
+                <Text style={styles.requiredTag}>{commonCopy.badges.required}</Text>
               </View>
               <TextInput
                 editable={!saving}
@@ -234,7 +245,7 @@ export function PunishmentFormScreen() {
                 onSubmitEditing={() => {
                   void handleSubmit();
                 }}
-                placeholder="Ordenar la habitacion"
+                placeholder={punishmentsCopy.form.placeholders.title}
                 returnKeyType="done"
                 style={[styles.input, styles.compactInput, showTitleError ? styles.inputError : null]}
                 value={title}
@@ -244,8 +255,8 @@ export function PunishmentFormScreen() {
 
             <View style={styles.field}>
               <View style={styles.inlineHeader}>
-                <Text style={styles.label}>Descripcion</Text>
-                <Text style={styles.optionalTag}>Opcional</Text>
+                <Text style={styles.label}>{punishmentsCopy.form.fields.description}</Text>
+                <Text style={styles.optionalTag}>{commonCopy.badges.optional}</Text>
               </View>
               <TextInput
                 editable={!saving}
@@ -253,7 +264,7 @@ export function PunishmentFormScreen() {
                 multiline
                 numberOfLines={4}
                 onChangeText={setDescription}
-                placeholder="Recoger y ordenar toda la habitacion"
+                placeholder={punishmentsCopy.form.placeholders.description}
                 style={[styles.input, styles.multiline]}
                 textAlignVertical="top"
                 value={description}
@@ -265,11 +276,11 @@ export function PunishmentFormScreen() {
         <View style={styles.formSectionCard}>
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Selecciona la dificultad</Text>
+              <Text style={styles.sectionTitle}>{punishmentsCopy.form.sections.difficulty}</Text>
             </View>
 
             <View style={styles.difficultyGrid}>
-              {PUNISHMENT_DIFFICULTY_OPTIONS.map((option) => {
+              {punishmentDifficultyOptions.map((option) => {
                 const isSelected = option.value === difficulty;
 
                 return (
@@ -300,7 +311,7 @@ export function PunishmentFormScreen() {
                         </View>
                       </Pressable>
                       <Pressable
-                        accessibilityLabel={`Ver informacion sobre dificultad ${option.label}`}
+                        accessibilityLabel={getPunishmentDifficultyInfoAccessibility(option.label)}
                         accessibilityRole="button"
                         disabled={saving}
                         hitSlop={8}
@@ -324,11 +335,11 @@ export function PunishmentFormScreen() {
         <View style={styles.formSectionCard}>
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Elige una categoria</Text>
+              <Text style={styles.sectionTitle}>{punishmentsCopy.form.sections.category}</Text>
             </View>
 
             <View style={styles.categoryList}>
-              {PUNISHMENT_CATEGORY_OPTIONS.map((option) => {
+              {punishmentCategoryOptions.map((option) => {
                 const isSelected = option.name === categoryName;
 
                 return (
@@ -365,7 +376,7 @@ export function PunishmentFormScreen() {
                         </View>
                       </Pressable>
                       <Pressable
-                        accessibilityLabel={`Ver informacion sobre categoria ${option.label}`}
+                        accessibilityLabel={getPunishmentCategoryInfoAccessibility(option.label)}
                         accessibilityRole="button"
                         disabled={saving}
                         hitSlop={8}
@@ -389,8 +400,8 @@ export function PunishmentFormScreen() {
         <View style={styles.previewCard}>
           <View style={styles.previewHeader}>
             <View>
-              <Text style={styles.previewEyebrow}>Vista previa</Text>
-              <Text style={styles.previewTitle}>{title.trim() || 'Tu castigo aun no tiene titulo'}</Text>
+              <Text style={styles.previewEyebrow}>{punishmentsCopy.form.preview.eyebrow}</Text>
+              <Text style={styles.previewTitle}>{title.trim() || punishmentsCopy.form.preview.emptyTitle}</Text>
             </View>
           </View>
 
@@ -404,7 +415,7 @@ export function PunishmentFormScreen() {
           </View>
 
           <Text style={styles.previewDescriptionText}>
-            {description.trim() || 'Sin descripcion. Puedes dejarlo asi o dar mas detalle para hacerlo mas claro al cumplirlo.'}
+            {description.trim() || punishmentsCopy.form.preview.emptyDescription}
           </Text>
         </View>
 
@@ -420,7 +431,7 @@ export function PunishmentFormScreen() {
             disabled={saving}
             onPress={handleBack}
             style={[styles.secondaryButton, saving && styles.disabled]}>
-            <Text style={styles.secondaryLabel}>Cancelar</Text>
+            <Text style={styles.secondaryLabel}>{commonCopy.actions.cancel}</Text>
           </Pressable>
 
           <Pressable
@@ -430,7 +441,7 @@ export function PunishmentFormScreen() {
             }}
             style={[styles.primaryButton, (saving || Boolean(titleError)) && styles.disabled]}>
             <Text style={styles.primaryLabel}>
-              {saving ? 'Guardando...' : isEditing ? 'Guardar cambios' : 'Crear castigo'}
+              {saving ? commonCopy.actions.saving : isEditing ? punishmentsCopy.form.buttons.saveChanges : punishmentsCopy.form.createTitle}
             </Text>
           </Pressable>
         </View>

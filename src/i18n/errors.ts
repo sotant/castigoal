@@ -1,0 +1,128 @@
+import { createNamespaceProxy, getCurrentLanguage } from '@/src/i18n/runtime';
+
+export const errorResources = {
+  es: {
+    auth: {
+      invalidCredentials: 'El correo electrónico o la contraseña no son correctos.',
+      needSession: 'Necesitas iniciar sesión para continuar.',
+      passwordTooShort: 'La contraseña es demasiado corta. Usa al menos 6 caracteres.',
+      rateLimit: 'Has hecho demasiados intentos seguidos. Espera un poco antes de volver a intentarlo.',
+      relationInvalid: 'La relación entre los datos no es válida.',
+      userAlreadyRegistered: 'Ya existe una cuenta con ese correo. Prueba a iniciar sesión.',
+    },
+    fallback: {
+      unexpected: 'Ha ocurrido un error inesperado.',
+    },
+    repository: {
+      duplicateRecord: 'Ya existe un registro con esos datos.',
+    },
+    profile: {
+      createFailed: 'No se pudo crear el perfil.',
+      loadFailed: 'No se pudo cargar el perfil.',
+      saveOnboardingFailed: 'No se pudo guardar el onboarding.',
+    },
+    appRepository: {
+      assignedPunishmentLoadFailed: 'No se pudo cargar el castigo asignado.',
+      assignedPunishmentsClearFailed: 'No se pudieron borrar los castigos asignados.',
+      authRequired: 'Necesitas iniciar sesión para continuar.',
+      customPunishmentCreateFailed: 'No se pudo guardar el castigo personalizado.',
+      customPunishmentDeleteFailed: 'No se pudo borrar el castigo personalizado.',
+      customPunishmentUpdateFailed: 'No se pudo actualizar el castigo personalizado.',
+      customPunishmentsClearFailed: 'No se pudieron borrar los castigos personalizados.',
+      evaluationsLoadFailed: 'No se pudieron calcular las evaluaciones de objetivos.',
+      goalCalendarLoadFailed: 'No se pudo cargar el calendario del objetivo.',
+      goalCreateFailed: 'No se pudo crear el objetivo.',
+      goalDeleteFailed: 'No se pudo borrar el objetivo.',
+      goalHistoryLoadFailed: 'No se pudo cargar el historial del objetivo.',
+      goalUpdateFailed: 'No se pudo actualizar el objetivo.',
+      goalsClearFailed: 'No se pudieron borrar los objetivos.',
+      goalsLoadFailed: 'No se pudieron cargar los objetivos.',
+      homeGoalsLoadFailed: 'No se pudieron cargar los objetivos del inicio.',
+      homeSummaryLoadFailed: 'No se pudo cargar el resumen de inicio.',
+      pendingPunishmentsLoadFailed: 'No se pudieron cargar los castigos pendientes.',
+      punishmentCatalogLoadFailed: 'No se pudo cargar el catálogo de castigos.',
+      punishmentCompleteFailed: 'No se pudo completar el castigo.',
+      punishmentHistoryClearFailed: 'No se pudo borrar el histórico de castigos.',
+      punishmentHistoryLoadFailed: 'No se pudo cargar el histórico de castigos cumplidos.',
+      punishmentLoadFailed: 'No se pudo cargar el castigo.',
+      statsSummaryLoadFailed: 'No se pudo cargar el resumen de estadísticas.',
+    },
+    progressService: {
+      assignedPunishmentNotFound: 'No he encontrado el castigo asignado.',
+      closedGoalsNotEditable: 'Los objetivos cerrados ya no se pueden editar.',
+      finalizeGoalNotFound: 'No he encontrado el objetivo para finalizarlo.',
+      onlyActiveGoalsAllowCheckins: 'Solo los objetivos activos admiten check-ins.',
+      onlyActiveGoalsAllowCheckinChanges: 'Solo los objetivos activos permiten cambiar check-ins.',
+      onlyCustomPunishmentsEditable: 'Solo se pueden editar castigos personalizados.',
+      recordCheckinGoalNotFound: 'No he encontrado el objetivo para registrar el check-in.',
+      resolveGoalNotFound: 'No he encontrado el objetivo para resolverlo.',
+      updateCheckinGoalNotFound: 'No he encontrado el objetivo para actualizar el check-in.',
+      updateGoalNotFound: 'No he encontrado el objetivo para actualizarlo.',
+    },
+  },
+  en: {
+    auth: {
+      invalidCredentials: 'The email address or password is incorrect.',
+      needSession: 'You need to sign in to continue.',
+      passwordTooShort: 'Password is too short. Use at least 6 characters.',
+      rateLimit: 'You made too many attempts in a row. Wait a moment before trying again.',
+      relationInvalid: 'The relationship between the records is invalid.',
+      userAlreadyRegistered: 'An account already exists for that email. Try signing in.',
+    },
+    fallback: {
+      unexpected: 'An unexpected error occurred.',
+    },
+    repository: {
+      duplicateRecord: 'A record with that data already exists.',
+    },
+    profile: {
+      createFailed: 'Could not create the profile.',
+      loadFailed: 'Could not load the profile.',
+      saveOnboardingFailed: 'Could not save onboarding.',
+    },
+    appRepository: {
+      assignedPunishmentLoadFailed: 'Could not load the assigned punishment.',
+      assignedPunishmentsClearFailed: 'Could not clear assigned punishments.',
+      authRequired: 'You need to sign in to continue.',
+      customPunishmentCreateFailed: 'Could not save the custom punishment.',
+      customPunishmentDeleteFailed: 'Could not delete the custom punishment.',
+      customPunishmentUpdateFailed: 'Could not update the custom punishment.',
+      customPunishmentsClearFailed: 'Could not clear custom punishments.',
+      evaluationsLoadFailed: 'Could not calculate goal evaluations.',
+      goalCalendarLoadFailed: 'Could not load the goal calendar.',
+      goalCreateFailed: 'Could not create the goal.',
+      goalDeleteFailed: 'Could not delete the goal.',
+      goalHistoryLoadFailed: 'Could not load the goal history.',
+      goalUpdateFailed: 'Could not update the goal.',
+      goalsClearFailed: 'Could not clear the goals.',
+      goalsLoadFailed: 'Could not load the goals.',
+      homeGoalsLoadFailed: 'Could not load the home goals.',
+      homeSummaryLoadFailed: 'Could not load the home summary.',
+      pendingPunishmentsLoadFailed: 'Could not load pending punishments.',
+      punishmentCatalogLoadFailed: 'Could not load the punishment catalog.',
+      punishmentCompleteFailed: 'Could not complete the punishment.',
+      punishmentHistoryClearFailed: 'Could not clear punishment history.',
+      punishmentHistoryLoadFailed: 'Could not load completed punishment history.',
+      punishmentLoadFailed: 'Could not load the punishment.',
+      statsSummaryLoadFailed: 'Could not load the stats summary.',
+    },
+    progressService: {
+      assignedPunishmentNotFound: 'Assigned punishment not found.',
+      closedGoalsNotEditable: 'Closed goals can no longer be edited.',
+      finalizeGoalNotFound: 'Goal to finalize not found.',
+      onlyActiveGoalsAllowCheckins: 'Only active goals allow check-ins.',
+      onlyActiveGoalsAllowCheckinChanges: 'Only active goals allow check-in changes.',
+      onlyCustomPunishmentsEditable: 'Only custom punishments can be edited.',
+      recordCheckinGoalNotFound: 'Goal to record the check-in was not found.',
+      resolveGoalNotFound: 'Goal to resolve was not found.',
+      updateCheckinGoalNotFound: 'Goal to update the check-in was not found.',
+      updateGoalNotFound: 'Goal to update was not found.',
+    },
+  },
+} as const;
+
+export const errorCopy = createNamespaceProxy('errors', errorResources.es);
+
+export function getCategoryResolveErrorCopy() {
+  return getCurrentLanguage() === 'en' ? 'Could not resolve the selected category.' : 'No se pudo resolver la categoria seleccionada.';
+}

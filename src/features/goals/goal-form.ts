@@ -1,3 +1,6 @@
+import { capitalizeCopy } from '@/src/i18n/common';
+import { formatMonthYearLabel, getLocalizedWeekdayLabels } from '@/src/utils/date';
+
 export type MinimumMode = 'percentage' | 'days';
 
 export type CalendarDay = {
@@ -7,8 +10,11 @@ export type CalendarDay = {
 };
 
 export const minimumRatePresets = [50, 70, 80, 100];
-export const weekdayLabels = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 export const sliderSteps = Array.from({ length: 21 }, (_, index) => index * 5);
+
+export function getWeekdayLabels() {
+  return getLocalizedWeekdayLabels('narrow');
+}
 
 export function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
@@ -19,7 +25,7 @@ export function getRequiredDays(targetDays: number, minimumSuccessRate: number) 
 }
 
 export function getRuleSummary(targetDays: number, requiredDays: number) {
-  return `Debes cumplir ${requiredDays} de los proximos ${targetDays} dias para estar al dia.`;
+  return `Debes cumplir ${requiredDays} de los próximos ${targetDays} días para mantenerte al día.`;
 }
 
 export function getRateForRequiredDays(targetDays: number, requiredDays: number) {
@@ -53,10 +59,7 @@ export function toLocalISODate(date: Date) {
 }
 
 export function formatMonthLabel(date: Date) {
-  return new Intl.DateTimeFormat('es-ES', {
-    month: 'long',
-    year: 'numeric',
-  }).format(date);
+  return capitalizeCopy(formatMonthYearLabel(date));
 }
 
 export function buildMonthCalendar(monthDate: Date): CalendarDay[] {

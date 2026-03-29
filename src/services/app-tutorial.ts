@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { getAppTutorialStepCopy } from '@/src/i18n/tutorial';
 import { appRoutes } from '@/src/navigation/app-routes';
 
 export type AppTutorialStatus = 'not_started' | 'in_progress' | 'skipped' | 'completed';
@@ -37,13 +38,15 @@ const APP_TUTORIAL_KEY = 'castigoal.v1.app-tutorial-state';
 
 const listeners = new Set<(state: AppTutorialState) => void>();
 
-export const APP_TUTORIAL_STEPS: AppTutorialStep[] = [
+export function getAppTutorialSteps(): AppTutorialStep[] {
+  const stepsCopy = getAppTutorialStepCopy();
+
+  return [
   {
     id: 'goals',
-    title: 'Crea tu primer objetivo',
-    description:
-      'Aqui defines que quieres conseguir y desde cuando empieza el reto. Ese objetivo sera la base de tus check-ins y tus consecuencias.',
-    ctaLabel: 'Siguiente',
+    title: stepsCopy[0].title,
+    description: stepsCopy[0].description,
+    ctaLabel: stepsCopy[0].ctaLabel,
     route: {
       pathname: appRoutes.goals,
     },
@@ -58,10 +61,9 @@ export const APP_TUTORIAL_STEPS: AppTutorialStep[] = [
   },
   {
     id: 'home',
-    title: 'Marca tu check-in diario',
-    description:
-      'En Hoy registras si has cumplido o fallado cada objetivo. Esta pantalla te ayuda a mantener el ritmo dia a dia.',
-    ctaLabel: 'Siguiente',
+    title: stepsCopy[1].title,
+    description: stepsCopy[1].description,
+    ctaLabel: stepsCopy[1].ctaLabel,
     route: {
       pathname: appRoutes.home,
     },
@@ -76,10 +78,9 @@ export const APP_TUTORIAL_STEPS: AppTutorialStep[] = [
   },
   {
     id: 'punishments-mine',
-    title: 'Revisa tus castigos pendientes',
-    description:
-      'En Mis castigos veras las consecuencias que tienes pendientes y tambien el historial de las que ya completaste.',
-    ctaLabel: 'Siguiente',
+    title: stepsCopy[2].title,
+    description: stepsCopy[2].description,
+    ctaLabel: stepsCopy[2].ctaLabel,
     route: {
       pathname: appRoutes.punishments,
       params: {
@@ -98,10 +99,9 @@ export const APP_TUTORIAL_STEPS: AppTutorialStep[] = [
   },
   {
     id: 'punishments-library',
-    title: 'Explora tu biblioteca de castigos',
-    description:
-      'Aqui tienes todos los castigos disponibles, tanto los que vienen en la app como los que crees tu para personalizar la experiencia.',
-    ctaLabel: 'Siguiente',
+    title: stepsCopy[3].title,
+    description: stepsCopy[3].description,
+    ctaLabel: stepsCopy[3].ctaLabel,
     route: {
       pathname: appRoutes.punishments,
       params: {
@@ -120,10 +120,9 @@ export const APP_TUTORIAL_STEPS: AppTutorialStep[] = [
   },
   {
     id: 'stats',
-    title: 'Consulta tu progreso',
-    description:
-      'En Stats puedes ver tu resumen general y tambien entrar al calendario de cada objetivo para entender mejor tu evolucion.',
-    ctaLabel: 'Siguiente',
+    title: stepsCopy[4].title,
+    description: stepsCopy[4].description,
+    ctaLabel: stepsCopy[4].ctaLabel,
     route: {
       pathname: appRoutes.stats,
     },
@@ -139,10 +138,9 @@ export const APP_TUTORIAL_STEPS: AppTutorialStep[] = [
   },
   {
     id: 'settings',
-    title: 'Guarda tu progreso en una cuenta',
-    description:
-      'En Ajustes puedes crear una cuenta para no perder tus datos y recuperar tu progreso cuando cambies de dispositivo.',
-    ctaLabel: 'Finalizar',
+    title: stepsCopy[5].title,
+    description: stepsCopy[5].description,
+    ctaLabel: stepsCopy[5].ctaLabel,
     route: {
       pathname: appRoutes.settings,
     },
@@ -156,7 +154,8 @@ export const APP_TUTORIAL_STEPS: AppTutorialStep[] = [
       borderRadius: 24,
     },
   },
-];
+  ];
+}
 
 const defaultState: AppTutorialState = {
   status: 'not_started',
@@ -174,7 +173,7 @@ async function persistState(state: AppTutorialState) {
 }
 
 function normalizeState(value: Partial<AppTutorialState> | null | undefined): AppTutorialState {
-  const stepCount = APP_TUTORIAL_STEPS.length;
+  const stepCount = getAppTutorialSteps().length;
   const currentStep = Math.min(Math.max(value?.currentStep ?? 0, 0), Math.max(stepCount - 1, 0));
   const status = value?.status ?? 'not_started';
 
@@ -212,9 +211,10 @@ export async function startAppTutorial() {
 
 export async function setAppTutorialStep(stepIndex: number) {
   const current = await getAppTutorialState();
+  const totalSteps = getAppTutorialSteps().length;
   const state: AppTutorialState = {
     status: 'in_progress',
-    currentStep: Math.min(Math.max(stepIndex, 0), APP_TUTORIAL_STEPS.length - 1),
+    currentStep: Math.min(Math.max(stepIndex, 0), totalSteps - 1),
     hasShown: current.hasShown || stepIndex > 0,
   };
 
@@ -223,9 +223,10 @@ export async function setAppTutorialStep(stepIndex: number) {
 }
 
 export async function completeAppTutorial() {
+  const totalSteps = getAppTutorialSteps().length;
   const state: AppTutorialState = {
     status: 'completed',
-    currentStep: APP_TUTORIAL_STEPS.length - 1,
+    currentStep: totalSteps - 1,
     hasShown: true,
   };
 

@@ -1,6 +1,8 @@
 import { ComponentProps } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 
+import { getBasePunishmentCatalog, getPunishmentCategoryCopy, getPunishmentDifficultyCopy, punishmentResources } from '@/src/i18n/punishments';
+import { CompletedPunishmentHistoryEntry } from '@/src/contracts/derived-data';
 import { Punishment, PunishmentCategoryId, PunishmentCategoryName } from '@/src/models/types';
 
 type PunishmentCategoryOption = {
@@ -21,133 +23,145 @@ type PunishmentDifficultyOption = {
   tint: string;
 };
 
+type BasePunishmentCatalogEntry = (typeof punishmentResources.es.baseCatalog)[number];
+
 const CATEGORY_METADATA = {
   tarea: {
     accent: '#2563EB',
-    description: 'Recados rapidos, orden de pendientes y pequenas obligaciones.',
     icon: 'checkmark-done-outline',
-    label: 'Tarea',
     tint: '#EAF2FF',
   },
   estudio: {
     accent: '#4F46E5',
-    description: 'Lectura, escritura, repaso y aprendizaje con foco.',
     icon: 'book-outline',
-    label: 'Estudio',
     tint: '#EEF2FF',
   },
   fisico: {
     accent: '#D97706',
-    description: 'Movimiento, resistencia y retos corporales.',
     icon: 'barbell-outline',
-    label: 'Fisico',
     tint: '#FFF4E6',
   },
   social: {
     accent: '#0F766E',
-    description: 'Interacciones, favores y compromisos con otras personas.',
     icon: 'people-outline',
-    label: 'Social',
     tint: '#E8FFFB',
   },
   finanzas: {
     accent: '#7C3AED',
-    description: 'Costes economicos o renuncias con impacto monetario.',
     icon: 'cash-outline',
-    label: 'Finanzas',
     tint: '#F2EBFF',
   },
   entretenimiento: {
     accent: '#DB2777',
-    description: 'Limites al ocio, pantallas y consumo recreativo.',
     icon: 'game-controller-outline',
-    label: 'Entretenimiento',
     tint: '#FCE7F3',
   },
   salud: {
     accent: '#DC2626',
-    description: 'Descanso, movilidad, higiene del sueno y bienestar.',
     icon: 'heart-outline',
-    label: 'Salud',
     tint: '#FEECEC',
   },
   trabajo: {
     accent: '#1D4ED8',
-    description: 'Bloques profundos, ejecucion y tareas profesionales.',
     icon: 'briefcase-outline',
-    label: 'Trabajo',
     tint: '#E8F1FF',
   },
   nutricion: {
     accent: '#059669',
-    description: 'Comidas, hidratacion y decisiones alimentarias.',
     icon: 'restaurant-outline',
-    label: 'Nutricion',
     tint: '#EAFBF4',
   },
   hogar: {
     accent: '#0F766E',
-    description: 'Limpieza, orden y mantenimiento domestico.',
     icon: 'home-outline',
-    label: 'Hogar',
     tint: '#ECFDF5',
   },
   otros: {
     accent: '#475467',
-    description: 'Categoria comodin para casos no previstos o mixtos.',
     icon: 'apps-outline',
-    label: 'Otros',
     tint: '#F3F4F6',
   },
 } as const satisfies Record<
   PunishmentCategoryName,
-  Omit<PunishmentCategoryOption, 'name' | 'value'>
+  Omit<PunishmentCategoryOption, 'description' | 'label' | 'name' | 'value'>
 >;
 
 const DEFAULT_PUNISHMENT_CREATED_AT = '2026-01-01T00:00:00.000Z';
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const BASE_PUNISHMENT_ID_SET = new Set(punishmentResources.es.baseCatalog.map((punishment) => punishment.id));
+const BASE_PUNISHMENT_ID_BY_NORMALIZED_TITLE = Object.fromEntries(
+  [...punishmentResources.es.baseCatalog, ...punishmentResources.en.baseCatalog].map((punishment) => [
+    normalizeCatalogLookupKey(punishment.title),
+    punishment.id,
+  ]),
+) as Record<string, string>;
 
-export const PUNISHMENT_CATEGORY_OPTIONS: PunishmentCategoryOption[] = (
-  Object.entries(CATEGORY_METADATA) as [PunishmentCategoryName, (typeof CATEGORY_METADATA)[PunishmentCategoryName]][]
-).map(([name, metadata]) => ({
-  ...metadata,
-  name,
-  value: name,
-}));
+export const DEFAULT_CATEGORY_ID: PunishmentCategoryName = 'tarea';
 
-export const DEFAULT_CATEGORY_ID = PUNISHMENT_CATEGORY_OPTIONS[0].value;
+function normalizeCatalogLookupKey(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
 
-export const PUNISHMENT_DIFFICULTY_OPTIONS: PunishmentDifficultyOption[] = [
-  {
-    value: 1,
-    label: 'Ligera',
-    description: 'Rapida de cumplir y perfecta para castigos cotidianos.',
-    accent: '#2563EB',
-    tint: '#EDF4FF',
-  },
-  {
-    value: 2,
-    label: 'Media',
-    description: 'Exige esfuerzo real y deja huella durante el dia.',
-    accent: '#D97706',
-    tint: '#FFF4E6',
-  },
-  {
-    value: 3,
-    label: 'Alta',
-    description: 'Mas dura, pensada para fallos importantes.',
-    accent: '#DC2626',
-    tint: '#FEECEC',
-  },
-];
+export function getPunishmentCategoryOptions(): PunishmentCategoryOption[] {
+  const categoryCopy = getPunishmentCategoryCopy();
 
-export const punishmentCategoryLabels: Record<PunishmentCategoryName, string> = Object.fromEntries(
-  PUNISHMENT_CATEGORY_OPTIONS.map((option) => [option.name, option.label]),
-) as Record<PunishmentCategoryName, string>;
+  return (Object.entries(CATEGORY_METADATA) as [PunishmentCategoryName, (typeof CATEGORY_METADATA)[PunishmentCategoryName]][]).map(
+    ([name, metadata]) => ({
+      ...metadata,
+      description: categoryCopy[name].description,
+      label: categoryCopy[name].label,
+      name,
+      value: name,
+    }),
+  );
+}
 
-export const punishmentCategoryNamesById: Record<PunishmentCategoryName, PunishmentCategoryName> = Object.fromEntries(
-  PUNISHMENT_CATEGORY_OPTIONS.map((option) => [option.name, option.name]),
-) as Record<PunishmentCategoryName, PunishmentCategoryName>;
+export function getPunishmentDifficultyOptions(): PunishmentDifficultyOption[] {
+  const difficultyCopy = getPunishmentDifficultyCopy();
+
+  return [
+    {
+      value: 1,
+      label: difficultyCopy[1].label,
+      description: difficultyCopy[1].description,
+      accent: '#2563EB',
+      tint: '#EDF4FF',
+    },
+    {
+      value: 2,
+      label: difficultyCopy[2].label,
+      description: difficultyCopy[2].description,
+      accent: '#D97706',
+      tint: '#FFF4E6',
+    },
+    {
+      value: 3,
+      label: difficultyCopy[3].label,
+      description: difficultyCopy[3].description,
+      accent: '#DC2626',
+      tint: '#FEECEC',
+    },
+  ];
+}
+
+export function getPunishmentCategoryLabels(): Record<PunishmentCategoryName, string> {
+  return Object.fromEntries(getPunishmentCategoryOptions().map((option) => [option.name, option.label])) as Record<
+    PunishmentCategoryName,
+    string
+  >;
+}
+
+export function getPunishmentCategoryNamesById(): Record<PunishmentCategoryName, PunishmentCategoryName> {
+  return Object.fromEntries(getPunishmentCategoryOptions().map((option) => [option.name, option.name])) as Record<
+    PunishmentCategoryName,
+    PunishmentCategoryName
+  >;
+}
 
 const LEGACY_PUNISHMENT_CATEGORY_NAME_BY_NAME: Record<string, PunishmentCategoryName> = {
   custom: 'otros',
@@ -206,6 +220,94 @@ const LEGACY_PUNISHMENT_CATEGORY_NAME_BY_TITLE: Record<string, PunishmentCategor
   'Vaciar bandeja pendiente': 'tarea',
 };
 
+export function isBasePunishmentId(value?: string | null) {
+  return Boolean(value && BASE_PUNISHMENT_ID_SET.has(value));
+}
+
+export function getBasePunishmentDefinition(
+  input: { id?: string | null; title?: string | null },
+  options?: { allowTitleFallback?: boolean },
+) {
+  const baseCatalog = getBasePunishmentCatalog();
+  const punishmentById = Object.fromEntries(baseCatalog.map((punishment) => [punishment.id, punishment])) as Record<
+    string,
+    BasePunishmentCatalogEntry
+  >;
+
+  if (input.id && punishmentById[input.id]) {
+    return punishmentById[input.id];
+  }
+
+  const shouldFallbackByTitle = options?.allowTitleFallback ?? !input.id;
+  const normalizedTitle = shouldFallbackByTitle && input.title ? normalizeCatalogLookupKey(input.title) : '';
+  const resolvedId = normalizedTitle ? BASE_PUNISHMENT_ID_BY_NORMALIZED_TITLE[normalizedTitle] : undefined;
+
+  return resolvedId ? punishmentById[resolvedId] ?? null : null;
+}
+
+export function getPunishmentDisplay(punishment: Punishment): Punishment {
+  if (punishment.scope !== 'base') {
+    return punishment;
+  }
+
+  const baseDefinition = getBasePunishmentDefinition(
+    { id: punishment.id, title: punishment.title },
+    { allowTitleFallback: true },
+  );
+
+  if (!baseDefinition) {
+    return punishment;
+  }
+
+  return {
+    ...punishment,
+    categoryId: normalizePunishmentCategoryId(punishment.categoryId),
+    categoryName: baseDefinition.categoryName,
+    description: baseDefinition.description,
+    difficulty: baseDefinition.difficulty,
+    title: baseDefinition.title,
+  };
+}
+
+export function getPunishmentDisplayTitle(punishment: Punishment) {
+  return getPunishmentDisplay(punishment).title;
+}
+
+export function getPunishmentDisplayDescription(punishment: Punishment) {
+  return getPunishmentDisplay(punishment).description;
+}
+
+export function getPunishmentSystemKey(punishment: Pick<Punishment, 'id' | 'scope' | 'title'>) {
+  if (punishment.scope !== 'base') {
+    return punishment.id;
+  }
+
+  return getBasePunishmentDefinition(
+    { id: punishment.id, title: punishment.title },
+    { allowTitleFallback: true },
+  )?.id ?? punishment.id;
+}
+
+export function getCompletedPunishmentHistoryDisplay(entry: CompletedPunishmentHistoryEntry): CompletedPunishmentHistoryEntry {
+  const baseDefinition = getBasePunishmentDefinition({
+    id: entry.punishmentId,
+    title: entry.punishmentTitle,
+  }, {
+    allowTitleFallback: !entry.punishmentId,
+  });
+
+  if (!baseDefinition) {
+    return entry;
+  }
+
+  return {
+    ...entry,
+    punishmentDescription: baseDefinition.description,
+    punishmentId: entry.punishmentId ?? baseDefinition.id,
+    punishmentTitle: baseDefinition.title,
+  };
+}
+
 export function isPunishmentCategoryName(value: string | null | undefined): value is PunishmentCategoryName {
   return Boolean(value && value in CATEGORY_METADATA);
 }
@@ -233,6 +335,15 @@ export function resolveLegacyPunishmentCategoryId(
   categoryId?: string | number | null,
   categoryName?: string | null,
 ) {
+  const basePunishment = getBasePunishmentDefinition(
+    { id: typeof categoryId === 'string' ? categoryId : null, title },
+    { allowTitleFallback: true },
+  );
+
+  if (basePunishment) {
+    return basePunishment.categoryName;
+  }
+
   if (title) {
     const byTitle = LEGACY_PUNISHMENT_CATEGORY_NAME_BY_TITLE[title.trim()];
 
@@ -268,7 +379,8 @@ export function getPunishmentCategoryOption(
   categoryName?: string | null,
 ) {
   const normalizedName = normalizeKnownCategoryName(categoryName) ?? normalizeKnownCategoryName(categoryId) ?? DEFAULT_CATEGORY_ID;
-  return PUNISHMENT_CATEGORY_OPTIONS.find((option) => option.name === normalizedName) ?? PUNISHMENT_CATEGORY_OPTIONS[0];
+  const categoryOptions = getPunishmentCategoryOptions();
+  return categoryOptions.find((option) => option.name === normalizedName) ?? categoryOptions[0];
 }
 
 export function getPunishmentCategoryName(
@@ -278,205 +390,11 @@ export function getPunishmentCategoryName(
   return getPunishmentCategoryOption(categoryId, categoryName).name;
 }
 
-export const defaultPunishments: Punishment[] = [
-  {
-    id: 'punish-no-social',
-    title: 'Sin redes sociales',
-    description: 'Pasa 30 minutos sin abrir redes sociales.',
-    categoryId: 'entretenimiento',
-    categoryName: 'entretenimiento',
-    difficulty: 1,
-    scope: 'base',
+export function getDefaultPunishments(): Punishment[] {
+  return getBasePunishmentCatalog().map((punishment) => ({
+    ...punishment,
+    categoryId: punishment.categoryName,
+    scope: 'base' as const,
     createdAt: DEFAULT_PUNISHMENT_CREATED_AT,
-  },
-  {
-    id: 'punish-steps',
-    title: 'Camina 8000 pasos',
-    description: 'Completa una caminata de al menos 8000 pasos hoy.',
-    categoryId: 'fisico',
-    categoryName: 'fisico',
-    difficulty: 1,
-    scope: 'base',
-    createdAt: DEFAULT_PUNISHMENT_CREATED_AT,
-  },
-  {
-    id: 'punish-desk',
-    title: 'Ordena el escritorio',
-    description: 'Deja tu zona de trabajo limpia y ordenada.',
-    categoryId: 'trabajo',
-    categoryName: 'trabajo',
-    difficulty: 1,
-    scope: 'base',
-    createdAt: DEFAULT_PUNISHMENT_CREATED_AT,
-  },
-  {
-    id: 'punish-read',
-    title: 'Leer 20 paginas',
-    description: 'Lee 20 paginas de un libro util o formativo.',
-    categoryId: 'estudio',
-    categoryName: 'estudio',
-    difficulty: 1,
-    scope: 'base',
-    createdAt: DEFAULT_PUNISHMENT_CREATED_AT,
-  },
-  {
-    id: 'punish-no-screens',
-    title: 'Dormir sin pantallas',
-    description: 'Pasa la ultima hora del dia sin movil ni ordenador.',
-    categoryId: 'salud',
-    categoryName: 'salud',
-    difficulty: 1,
-    scope: 'base',
-    createdAt: DEFAULT_PUNISHMENT_CREATED_AT,
-  },
-  {
-    id: 'punish-pushups',
-    title: '50 flexiones',
-    description: 'Completa 50 flexiones en una sola tanda o en series.',
-    categoryId: 'fisico',
-    categoryName: 'fisico',
-    difficulty: 2,
-    scope: 'base',
-    createdAt: DEFAULT_PUNISHMENT_CREATED_AT,
-  },
-  {
-    id: 'punish-clean-room',
-    title: 'Limpia una habitacion',
-    description: 'Ordena y limpia por completo una habitacion de tu casa.',
-    categoryId: 'hogar',
-    categoryName: 'hogar',
-    difficulty: 2,
-    scope: 'base',
-    createdAt: DEFAULT_PUNISHMENT_CREATED_AT,
-  },
-  {
-    id: 'punish-donate-5',
-    title: 'Donar 5 EUR',
-    description: 'Haz una donacion de 5 EUR a una causa que apoyes.',
-    categoryId: 'finanzas',
-    categoryName: 'finanzas',
-    difficulty: 2,
-    scope: 'base',
-    createdAt: DEFAULT_PUNISHMENT_CREATED_AT,
-  },
-  {
-    id: 'punish-no-coffee',
-    title: 'Sin cafe manana',
-    description: 'Manten una manana completa sin cafe ni bebidas energizantes.',
-    categoryId: 'salud',
-    categoryName: 'salud',
-    difficulty: 2,
-    scope: 'base',
-    createdAt: DEFAULT_PUNISHMENT_CREATED_AT,
-  },
-  {
-    id: 'punish-cook',
-    title: 'Preparar comida sana',
-    description: 'Cocina una comida completa y saludable en casa.',
-    categoryId: 'nutricion',
-    categoryName: 'nutricion',
-    difficulty: 2,
-    scope: 'base',
-    createdAt: DEFAULT_PUNISHMENT_CREATED_AT,
-  },
-  {
-    id: 'punish-journal',
-    title: 'Escribir reflexion',
-    description: 'Escribe 300 palabras sobre por que fallaste y que haras distinto.',
-    categoryId: 'estudio',
-    categoryName: 'estudio',
-    difficulty: 2,
-    scope: 'base',
-    createdAt: DEFAULT_PUNISHMENT_CREATED_AT,
-  },
-  {
-    id: 'punish-plank',
-    title: 'Plancha 3 minutos',
-    description: 'Haz una plancha acumulada de 3 minutos.',
-    categoryId: 'fisico',
-    categoryName: 'fisico',
-    difficulty: 2,
-    scope: 'base',
-    createdAt: DEFAULT_PUNISHMENT_CREATED_AT,
-  },
-  {
-    id: 'punish-deep-work',
-    title: 'Bloque profundo',
-    description: 'Haz 45 minutos de trabajo profundo sin interrupciones.',
-    categoryId: 'trabajo',
-    categoryName: 'trabajo',
-    difficulty: 3,
-    scope: 'base',
-    createdAt: DEFAULT_PUNISHMENT_CREATED_AT,
-  },
-  {
-    id: 'punish-run',
-    title: 'Correr 5 km',
-    description: 'Completa una carrera continua o combinada de 5 kilometros.',
-    categoryId: 'fisico',
-    categoryName: 'fisico',
-    difficulty: 3,
-    scope: 'base',
-    createdAt: DEFAULT_PUNISHMENT_CREATED_AT,
-  },
-  {
-    id: 'punish-kitchen',
-    title: 'Limpieza profunda cocina',
-    description: 'Haz una limpieza a fondo de la cocina o el bano.',
-    categoryId: 'hogar',
-    categoryName: 'hogar',
-    difficulty: 3,
-    scope: 'base',
-    createdAt: DEFAULT_PUNISHMENT_CREATED_AT,
-  },
-  {
-    id: 'punish-donate-15',
-    title: 'Donar 15 EUR',
-    description: 'Haz una donacion de 15 EUR a una causa que apoyes.',
-    categoryId: 'finanzas',
-    categoryName: 'finanzas',
-    difficulty: 3,
-    scope: 'base',
-    createdAt: DEFAULT_PUNISHMENT_CREATED_AT,
-  },
-  {
-    id: 'punish-no-streaming',
-    title: 'Sin streaming 48h',
-    description: 'Pasa 48 horas sin series, peliculas ni videos de ocio.',
-    categoryId: 'entretenimiento',
-    categoryName: 'entretenimiento',
-    difficulty: 3,
-    scope: 'base',
-    createdAt: DEFAULT_PUNISHMENT_CREATED_AT,
-  },
-  {
-    id: 'punish-mobility',
-    title: 'Sesion de movilidad 40 min',
-    description: 'Completa 40 minutos de movilidad, estiramientos o yoga.',
-    categoryId: 'salud',
-    categoryName: 'salud',
-    difficulty: 3,
-    scope: 'base',
-    createdAt: DEFAULT_PUNISHMENT_CREATED_AT,
-  },
-  {
-    id: 'punish-inbox-zero',
-    title: 'Vaciar bandeja pendiente',
-    description: 'Resuelve o archiva todos los pendientes pequenos acumulados.',
-    categoryId: 'tarea',
-    categoryName: 'tarea',
-    difficulty: 3,
-    scope: 'base',
-    createdAt: DEFAULT_PUNISHMENT_CREATED_AT,
-  },
-  {
-    id: 'punish-laundry',
-    title: 'Lavar y doblar ropa',
-    description: 'Pon una lavadora y deja toda la ropa doblada y guardada.',
-    categoryId: 'hogar',
-    categoryName: 'hogar',
-    difficulty: 2,
-    scope: 'base',
-    createdAt: DEFAULT_PUNISHMENT_CREATED_AT,
-  },
-];
+  }));
+}

@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -16,10 +17,13 @@ import { ScreenContainer } from '@/src/components/ScreenContainer';
 import { getErrorMessage } from '@/src/lib/app-error';
 import { appRoutes } from '@/src/navigation/app-routes';
 import { useAuth } from '@/src/hooks/use-auth';
+import { authCopy } from '@/src/i18n/auth';
+import { commonCopy } from '@/src/i18n/common';
 import { signOutLocal, updatePassword } from '@/src/repositories/auth-repository';
 import { palette, radius, shadows, spacing } from '@/src/constants/theme';
 
 export function ResetPasswordScreen() {
+  useTranslation();
   const { clearPasswordRecovery, passwordRecovery, session } = useAuth();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -40,15 +44,15 @@ export function ResetPasswordScreen() {
     }
 
     if (password.trim().length > 0 && password.trim().length < 6) {
-      return 'La contrasena debe tener al menos 6 caracteres.';
+      return authCopy.resetPassword.validationPasswordTooShort;
     }
 
     if (confirmPassword.trim().length > 0 && confirmPassword.trim().length < 6) {
-      return 'La confirmacion debe tener al menos 6 caracteres.';
+      return authCopy.resetPassword.validationConfirmTooShort;
     }
 
     if (confirmPassword.trim().length > 0 && password !== confirmPassword) {
-      return 'Las contrasenas no coinciden.';
+      return authCopy.resetPassword.mismatch;
     }
 
     return null;
@@ -86,7 +90,7 @@ export function ResetPasswordScreen() {
     if (password !== confirmPassword) {
       setFeedback({
         kind: 'error',
-        message: 'Las contrasenas no coinciden.',
+        message: authCopy.resetPassword.mismatch,
       });
       return;
     }
@@ -102,12 +106,12 @@ export function ResetPasswordScreen() {
       setCompletedRecoveryEmail(session?.user.email ?? null);
       setFeedback({
         kind: 'success',
-        message: 'Tu contrasena se ha actualizado. Vuelve al login para entrar con tu nueva contrasena.',
+        message: authCopy.resetPassword.submitSuccess,
       });
     } catch (error) {
       setFeedback({
         kind: 'error',
-        message: getErrorMessage(error, 'No se pudo actualizar la contrasena.'),
+        message: getErrorMessage(error, authCopy.repository.passwordUpdateFailed),
       });
     } finally {
       setSaving(false);
@@ -130,7 +134,7 @@ export function ResetPasswordScreen() {
     } catch (error) {
       setFeedback({
         kind: 'error',
-        message: getErrorMessage(error, 'La contrasena se actualizo, pero no se pudo cerrar la sesion temporal. Intentalo de nuevo.'),
+        message: getErrorMessage(error, authCopy.resetPassword.updateFailedAndSignOutFailed),
       });
     } finally {
       setRedirectingToLogin(false);
@@ -139,8 +143,8 @@ export function ResetPasswordScreen() {
 
   return (
     <ScreenContainer
-      title="Nueva contrasena"
-      subtitle="Define una nueva contrasena para volver a entrar en tu cuenta."
+      title={authCopy.resetPassword.screenTitle}
+      subtitle={authCopy.resetPassword.screenSubtitle}
       scroll={false}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -156,16 +160,16 @@ export function ResetPasswordScreen() {
             <View style={styles.formCard}>
               {screenState === 'loading' ? (
                 <View style={styles.stateBlock}>
-                  <Text style={styles.cardTitle}>Validando enlace...</Text>
-                  <Text style={styles.cardSubtitle}>Estamos preparando un acceso seguro para que puedas cambiar tu contrasena.</Text>
+                  <Text style={styles.cardTitle}>{authCopy.resetPassword.loadingTitle}</Text>
+                  <Text style={styles.cardSubtitle}>{authCopy.resetPassword.loadingDescription}</Text>
                 </View>
               ) : null}
 
               {screenState === 'error' ? (
                 <View style={styles.stateBlock}>
-                  <Text style={styles.cardTitle}>No se pudo abrir el enlace</Text>
+                  <Text style={styles.cardTitle}>{authCopy.resetPassword.invalidLinkTitle}</Text>
                   <Text style={styles.cardSubtitle}>
-                    {passwordRecovery.error ?? 'Solicita un nuevo email de recuperacion desde la pantalla de acceso.'}
+                    {passwordRecovery.error ?? authCopy.resetPassword.unknownRecoveryError}
                   </Text>
                   <Pressable
                     onPress={() =>
@@ -175,7 +179,7 @@ export function ResetPasswordScreen() {
                       })
                     }
                     style={styles.submitPrimary}>
-                    <Text style={styles.submitPrimaryLabel}>Solicitar otro correo</Text>
+                    <Text style={styles.submitPrimaryLabel}>{authCopy.resetPassword.requestAnotherEmail}</Text>
                   </Pressable>
                 </View>
               ) : null}
@@ -183,21 +187,21 @@ export function ResetPasswordScreen() {
               {(screenState === 'ready' || screenState === 'success') ? (
                 <>
                   <View style={styles.formHeader}>
-                    <Text style={styles.eyebrow}>Recuperacion</Text>
+                    <Text style={styles.eyebrow}>{authCopy.resetPassword.cardEyebrow}</Text>
                     <Text style={styles.cardTitle}>
-                      {screenState === 'success' ? 'Contrasena actualizada.' : 'Crea una contrasena nueva.'}
+                      {screenState === 'success' ? authCopy.resetPassword.successTitle : authCopy.resetPassword.readyTitle}
                     </Text>
                     <Text style={styles.cardSubtitle}>
                       {screenState === 'success'
-                        ? 'Tu cuenta ya esta lista para volver a iniciar sesion.'
-                        : 'Usa al menos 6 caracteres y guarda un cambio que recuerdes facilmente.'}
+                        ? authCopy.resetPassword.successDescription
+                        : authCopy.resetPassword.readyDescription}
                     </Text>
                   </View>
 
                   {screenState === 'ready' ? (
                     <>
                       <View style={styles.group}>
-                        <Text style={styles.label}>Nueva contrasena</Text>
+                        <Text style={styles.label}>{authCopy.resetPassword.newPasswordLabel}</Text>
                         <TextInput
                           autoCapitalize="none"
                           autoCorrect={false}
@@ -205,7 +209,7 @@ export function ResetPasswordScreen() {
                           onBlur={() => setFocusedField((current) => (current === 'password' ? null : current))}
                           onChangeText={setPassword}
                           onFocus={() => setFocusedField('password')}
-                          placeholder="Minimo 6 caracteres"
+                          placeholder={authCopy.resetPassword.newPasswordPlaceholder}
                           placeholderTextColor="#8A94A6"
                           returnKeyType="next"
                           secureTextEntry
@@ -215,7 +219,7 @@ export function ResetPasswordScreen() {
                       </View>
 
                       <View style={styles.group}>
-                        <Text style={styles.label}>Confirmar contrasena</Text>
+                        <Text style={styles.label}>{authCopy.resetPassword.confirmPasswordLabel}</Text>
                         <TextInput
                           autoCapitalize="none"
                           autoCorrect={false}
@@ -228,7 +232,7 @@ export function ResetPasswordScreen() {
                               void handleSubmit();
                             }
                           }}
-                          placeholder="Repite tu contrasena"
+                          placeholder={authCopy.resetPassword.confirmPasswordPlaceholder}
                           placeholderTextColor="#8A94A6"
                           returnKeyType="go"
                           secureTextEntry
@@ -257,7 +261,7 @@ export function ResetPasswordScreen() {
                       onPress={() => void handleReturnToLogin()}
                       style={[styles.submitPrimary, redirectingToLogin && styles.buttonDisabled]}>
                       <Text style={styles.submitPrimaryLabel}>
-                        {redirectingToLogin ? 'Volviendo...' : 'Ir al login'}
+                        {redirectingToLogin ? authCopy.resetPassword.returningToLogin : authCopy.resetPassword.returnToLogin}
                       </Text>
                     </Pressable>
                   ) : (
@@ -265,7 +269,7 @@ export function ResetPasswordScreen() {
                       disabled={!canSubmit || saving || screenState !== 'ready'}
                       onPress={() => void handleSubmit()}
                       style={[styles.submitPrimary, (!canSubmit || saving || screenState !== 'ready') && styles.buttonDisabled]}>
-                      <Text style={styles.submitPrimaryLabel}>{saving ? 'Guardando...' : 'Guardar nueva contrasena'}</Text>
+                      <Text style={styles.submitPrimaryLabel}>{saving ? commonCopy.actions.saving : authCopy.resetPassword.submit}</Text>
                     </Pressable>
                   )}
                 </>

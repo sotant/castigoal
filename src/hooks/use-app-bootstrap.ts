@@ -3,11 +3,13 @@ import { AppState } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 
 import { useAuth } from '@/src/hooks/use-auth';
+import { useCurrentLanguage } from '@/src/i18n';
 import { useAppStore } from '@/src/store/app-store';
 import { clearReminderScheduleUseCase, syncPersistedReminderSettingsUseCase } from '@/src/use-cases/settings-actions';
 
 export function useAppBootstrap() {
   const { session } = useAuth();
+  const currentLanguage = useCurrentLanguage();
   const userId = session?.user?.id;
   const { goals, hydrated, initializeApp, settings } = useAppStore(
     useShallow((state) => ({
@@ -40,7 +42,7 @@ export function useAppBootstrap() {
     }
 
     void syncPersistedReminderSettingsUseCase(settings, goals);
-  }, [goals, hydrated, settings]);
+  }, [currentLanguage, goals, hydrated, settings]);
 
   useEffect(() => {
     return () => {

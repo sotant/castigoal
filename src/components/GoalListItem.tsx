@@ -2,6 +2,8 @@ import { Alert } from 'react-native';
 import { router } from 'expo-router';
 
 import { GoalCard } from '@/src/components/GoalCard';
+import { commonCopy } from '@/src/i18n/common';
+import { getGoalDeadlineCopy, getGoalStartsInDaysCopy, goalsCopy } from '@/src/i18n/goals';
 import { HomeGoalSummary } from '@/src/models/types';
 import { appRoutes } from '@/src/navigation/app-routes';
 import { useAppStore } from '@/src/store/app-store';
@@ -12,14 +14,16 @@ type Props = {
 
 function getDeadlineLabel(summary: HomeGoalSummary) {
   if (summary.daysUntilStart > 0) {
-    return summary.daysUntilStart === 1 ? 'Empieza manana' : `Empieza en ${summary.daysUntilStart} dias`;
+    return summary.daysUntilStart === 1
+      ? goalsCopy.home.scheduleStatus.startsTomorrow
+      : getGoalStartsInDaysCopy(summary.daysUntilStart);
   }
 
   if (summary.remainingDays > 0) {
-    return summary.remainingDays === 1 ? 'Acaba en 1 dia' : `Acaba en ${summary.remainingDays} dias`;
+    return getGoalDeadlineCopy(summary.remainingDays);
   }
 
-  return 'Plazo finalizado';
+  return goalsCopy.home.scheduleStatus.deadlineFinished;
 }
 
 export function GoalListItem({ summary }: Props) {
@@ -37,21 +41,21 @@ export function GoalListItem({ summary }: Props) {
       todayLabel={
         summary.active
           ? summary.todayStatus === 'completed'
-            ? 'Hoy: hecho'
+            ? goalsCopy.home.todayStatus.completed
             : summary.todayStatus === 'missed'
-              ? 'Hoy: fallado'
-              : 'Hoy: pendiente'
-          : 'Objetivo finalizado'
+              ? goalsCopy.home.todayStatus.failed
+              : goalsCopy.home.todayStatus.pending
+          : goalsCopy.home.todayStatus.finished
       }
       deadlineLabel={getDeadlineLabel(summary)}
       deadlineWarning={deadlineWarning}
       todayStatus={summary.todayStatus ?? 'pending'}
       muted={!summary.active}
       onDelete={() => {
-        Alert.alert('Eliminar desafio', 'Se borraran tambien sus check-ins y castigos asignados. Esta accion no se puede deshacer.', [
-          { text: 'Cancelar', style: 'cancel' },
+        Alert.alert(goalsCopy.list.confirmation.delete.title, goalsCopy.list.confirmation.delete.description, [
+          { text: commonCopy.actions.cancel, style: 'cancel' },
           {
-            text: 'Eliminar',
+            text: commonCopy.actions.delete,
             style: 'destructive',
             onPress: () => {
               void deleteGoal(summary.goalId);

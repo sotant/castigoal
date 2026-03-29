@@ -1,49 +1,22 @@
+import { useTranslation } from 'react-i18next';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { ScreenContainer } from '@/src/components/ScreenContainer';
 import { palette, radius, spacing } from '@/src/constants/theme';
-
-const sections = [
-  {
-    title: 'Datos que usamos',
-    body:
-      'Castigoal usa tu email de acceso, tu perfil basico, tus objetivos, check-ins, castigos personalizados, castigos asignados y ajustes de recordatorios para prestar el servicio.',
-  },
-  {
-    title: 'Para que se usan',
-    body:
-      'Estos datos se usan para autenticar tu cuenta, sincronizar tu progreso entre sesiones, calcular estadisticas, asignar consecuencias y enviarte recordatorios locales en tu dispositivo.',
-  },
-  {
-    title: 'Donde se almacenan',
-    body:
-      'La autenticacion y la base de datos se alojan en Supabase. La sesion del usuario se guarda de forma segura en el dispositivo mediante Secure Store cuando esta disponible.',
-  },
-  {
-    title: 'Comparticion',
-    body:
-      'Castigoal no vende tus datos. Solo se comparten con los proveedores tecnicos necesarios para operar la app, como Supabase para autenticacion y base de datos.',
-  },
-  {
-    title: 'Tus controles',
-    body:
-      'Puedes actualizar tus datos desde la app, vaciar tus registros y borrar tu cuenta completa desde Ajustes. Al borrar la cuenta, se eliminan tu perfil y tus datos asociados.',
-  },
-];
+import { privacyCopy } from '@/src/i18n/privacy';
 
 export function PrivacyPolicyScreen() {
+  useTranslation();
   return (
     <ScreenContainer
-      title="Politica de privacidad"
-      subtitle="Version 1.0. Vigente desde el 11 de marzo de 2026.">
+      title={privacyCopy.screen.title}
+      subtitle={privacyCopy.screen.subtitle}>
       <View style={styles.hero}>
-        <Text style={styles.heroTitle}>Castigoal</Text>
-        <Text style={styles.heroText}>
-          Esta politica resume que datos trata la app, por que los necesita y como puede el usuario pedir su borrado.
-        </Text>
+        <Text style={styles.heroTitle}>{privacyCopy.hero.title}</Text>
+        <Text style={styles.heroText}>{privacyCopy.hero.text}</Text>
       </View>
 
-      {sections.map((section) => (
+      {privacyCopy.sections.map((section) => (
         <View key={section.title} style={styles.card}>
           <Text style={styles.cardTitle}>{section.title}</Text>
           <Text style={styles.cardBody}>{section.body}</Text>
@@ -51,10 +24,8 @@ export function PrivacyPolicyScreen() {
       ))}
 
       <View style={styles.notice}>
-        <Text style={styles.noticeTitle}>Contacto y borrado</Text>
-        <Text style={styles.noticeBody}>
-          Si publicas la app en Google Play, sustituye este texto por tu email real de soporte y publica esta misma politica en una URL accesible desde la ficha de Play Store.
-        </Text>
+        <Text style={styles.noticeTitle}>{privacyCopy.notice.title}</Text>
+        <Text style={styles.noticeBody}>{privacyCopy.notice.body}</Text>
       </View>
     </ScreenContainer>
   );

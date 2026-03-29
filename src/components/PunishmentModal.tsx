@@ -1,6 +1,9 @@
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { getPunishmentDisplay } from '@/src/constants/punishments';
 import { palette, radius, spacing } from '@/src/constants/theme';
+import { commonCopy } from '@/src/i18n/common';
+import { punishmentsCopy } from '@/src/i18n/punishments';
 import { Punishment } from '@/src/models/types';
 
 type Props = {
@@ -10,17 +13,19 @@ type Props = {
 };
 
 export function PunishmentModal({ visible, punishment, onClose }: Props) {
+  const displayedPunishment = punishment ? getPunishmentDisplay(punishment) : undefined;
+
   return (
     <Modal animationType="slide" transparent visible={visible}>
       <View style={styles.overlay}>
         <View style={styles.sheet}>
-          <Text style={styles.eyebrow}>Consecuencia generada</Text>
-          <Text style={styles.title}>{punishment?.title ?? 'Sin castigo disponible'}</Text>
+          <Text style={styles.eyebrow}>{punishmentsCopy.modal.eyebrow}</Text>
+          <Text style={styles.title}>{displayedPunishment?.title ?? punishmentsCopy.modal.emptyTitle}</Text>
           <Text style={styles.description}>
-            {punishment?.description ?? 'Configura un castigo para reforzar el sistema.'}
+            {displayedPunishment?.description ?? punishmentsCopy.modal.emptyDescription}
           </Text>
           <Pressable onPress={onClose} style={styles.button}>
-            <Text style={styles.buttonLabel}>Entendido</Text>
+            <Text style={styles.buttonLabel}>{commonCopy.actions.understood}</Text>
           </Pressable>
         </View>
       </View>

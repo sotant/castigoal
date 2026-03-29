@@ -3,6 +3,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { StatusBadge } from '@/src/components/StatusBadge';
 import { palette, shadows, spacing } from '@/src/constants/theme';
+import { commonCopy } from '@/src/i18n/common';
+import { getGoalOpenActionsLabel, getGoalProgressDaysCopy, getGoalViewDetailLabel, goalsCopy } from '@/src/i18n/goals';
 import { Goal, HomeGoalSummary } from '@/src/models/types';
 import { formatWeekdayShort } from '@/src/utils/date';
 
@@ -43,11 +45,11 @@ export function ObjectiveListItem({ goal, summary, showCompletionFlag = false, o
   const closingCopy =
     goal.lifecycleStatus === 'closed'
       ? summary.resolutionStatus === 'passed'
-        ? 'Cerrado y aprobado'
+        ? goalsCopy.list.cards.closedApproved
         : summary.resolutionStatus === 'failed'
-          ? 'Cerrado y fallido'
-          : 'Cerrado'
-      : `${summary.completedDays}/${summary.requiredDays} dias cumplidos`;
+          ? goalsCopy.list.cards.closedFailed
+          : commonCopy.states.closed
+      : getGoalProgressDaysCopy(summary.completedDays, summary.requiredDays);
 
   return (
     <View style={styles.card}>
@@ -79,7 +81,9 @@ export function ObjectiveListItem({ goal, summary, showCompletionFlag = false, o
       </View>
 
       <View style={styles.recentSection}>
-        <Text style={styles.recentLabel}>{goal.lifecycleStatus === 'closed' ? 'Ultimos dias del ciclo' : 'Ultimos 5 dias'}</Text>
+        <Text style={styles.recentLabel}>
+          {goal.lifecycleStatus === 'closed' ? goalsCopy.list.cards.lastCycleDays : goalsCopy.list.cards.lastFiveDays}
+        </Text>
         <View style={styles.recentCompact}>
           {summary.recentDays.map((day, index) => {
             const stateStyles = getRecentDayStyles(day.status);
@@ -133,8 +137,8 @@ export function ObjectiveListItem({ goal, summary, showCompletionFlag = false, o
 
         <View style={styles.actions}>
           <Pressable
-            accessibilityHint="Abre el detalle del objetivo"
-            accessibilityLabel={`Ver detalle de ${goal.title}`}
+            accessibilityHint={goalsCopy.list.cards.viewDetailHint}
+            accessibilityLabel={getGoalViewDetailLabel(goal.title)}
             accessibilityRole="button"
             onPress={onOpenDetail}
             style={({ pressed }) => [styles.iconButton, pressed && styles.actionPressed]}>
@@ -142,8 +146,8 @@ export function ObjectiveListItem({ goal, summary, showCompletionFlag = false, o
           </Pressable>
 
           <Pressable
-            accessibilityHint="Muestra mas acciones para este objetivo"
-            accessibilityLabel={`Abrir menu de ${goal.title}`}
+            accessibilityHint={goalsCopy.list.cards.openActionsHint}
+            accessibilityLabel={getGoalOpenActionsLabel(goal.title)}
             accessibilityRole="button"
             onPress={(event) => {
               event.stopPropagation();

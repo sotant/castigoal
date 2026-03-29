@@ -2,6 +2,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
+import { AppLanguage } from '@/src/i18n/config';
+import { notificationsCopy } from '@/src/i18n/notifications';
+import { getCurrentLanguage } from '@/src/i18n/runtime';
 import { Goal, UserSettings } from '@/src/models/types';
 import { getGoalDeadline } from '@/src/utils/goal-evaluation';
 import { addDays } from '@/src/utils/date';
@@ -12,11 +15,11 @@ type GoalNotificationRecord = {
   goalId: string;
   identifier: string;
   triggerDate: string;
+  language: AppLanguage;
 };
 
 const GENERAL_NOTIFICATION_IDS_KEY = 'castigoal.notifications.general';
 const GOAL_NOTIFICATION_IDS_KEY = 'castigoal.notifications.goal-resolution';
-const GOAL_RESOLUTION_NOTIFICATION_BODY = 'Un objetivo ha finalizado! Entra para ver el resultado';
 
 let notificationsModulePromise: Promise<NotificationsModule | null> | null = null;
 let appliedReminderKey: string | null = null;
@@ -26,7 +29,10 @@ function isExpoGo() {
 }
 
 function buildReminderKey(settings: UserSettings) {
-  return JSON.stringify(settings);
+  return JSON.stringify({
+    language: getCurrentLanguage(),
+    settings,
+  });
 }
 
 function hasAnyScheduledReminderEnabled(settings: UserSettings) {
@@ -187,8 +193,8 @@ export async function syncReminderSchedule(settings: UserSettings, permissionsGr
     ids.push(
       await Notifications.scheduleNotificationAsync({
         content: {
-          title: 'Castigoal',
-          body: 'Haz tu check-in diario antes de cerrar el dia.',
+          title: notificationsCopy.reminders.title,
+          body: notificationsCopy.reminders.body,
         },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DAILY,
@@ -203,8 +209,8 @@ export async function syncReminderSchedule(settings: UserSettings, permissionsGr
     ids.push(
       await Notifications.scheduleNotificationAsync({
         content: {
-          title: 'Castigo pendiente',
-          body: 'Tienes una consecuencia pendiente por completar.',
+          title: notificationsCopy.pendingPunishment.title,
+          body: notificationsCopy.pendingPunishment.body,
         },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DAILY,
@@ -250,13 +256,14 @@ export async function syncGoalResolutionSchedules(goals: Goal[], settings: UserS
   await cancelScheduledNotifications(staleRecords.map((record) => record.identifier));
 
   const nextRecords: GoalNotificationRecord[] = [];
+  const currentLanguage = getCurrentLanguage();
 
   for (const goal of desiredGoals) {
     const triggerDate = buildGoalNotificationTrigger(goal, settings);
     const triggerDateIso = triggerDate.toISOString();
     const currentRecord = existingByGoalId.get(goal.id);
 
-    if (currentRecord && currentRecord.triggerDate === triggerDateIso) {
+    if (currentRecord && currentRecord.triggerDate === triggerDateIso && currentRecord.language === currentLanguage) {
       nextRecords.push(currentRecord);
       continue;
     }
@@ -267,8 +274,8 @@ export async function syncGoalResolutionSchedules(goals: Goal[], settings: UserS
 
     const identifier = await Notifications.scheduleNotificationAsync({
       content: {
-        title: 'Castigoal',
-        body: GOAL_RESOLUTION_NOTIFICATION_BODY,
+        title: notificationsCopy.reminders.title,
+        body: notificationsCopy.goalResolutionBody,
       },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.DATE,
@@ -279,6 +286,7 @@ export async function syncGoalResolutionSchedules(goals: Goal[], settings: UserS
     nextRecords.push({
       goalId: goal.id,
       identifier,
+      language: currentLanguage,
       triggerDate: triggerDateIso,
     });
   }

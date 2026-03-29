@@ -2,6 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import { Pressable, StyleSheet } from 'react-native';
 
 import { palette, radius, shadows, spacing } from '@/src/constants/theme';
+import { commonCopy } from '@/src/i18n/common';
 
 type Props = {
   bottomOffset: number;
@@ -15,8 +16,8 @@ export function FloatingAddButton({
   bottomOffset,
   rightOffset = spacing.md,
   onPress,
-  accessibilityHint = 'Crea un nuevo elemento',
-  accessibilityLabel = 'Agregar elemento',
+  accessibilityHint = commonCopy.actions.create,
+  accessibilityLabel = commonCopy.actions.create,
 }: Props) {
   return (
     <Pressable

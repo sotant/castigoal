@@ -1,7 +1,9 @@
+import { useLocales } from 'expo-localization';
 import { ThemeProvider } from '@react-navigation/native';
 import { Stack, router, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import 'react-native-reanimated';
 import { Alert, Modal, Platform, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -10,6 +12,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppTutorialOverlay } from '@/src/components/AppTutorialOverlay';
 import { GoalResolutionAnnouncementModal } from '@/src/components/GoalResolutionAnnouncementModal';
 import { useAuth } from '@/src/hooks/use-auth';
+import { initializeAppLanguage, syncAppLanguage, useCurrentLanguage, useIsLanguageReady } from '@/src/i18n';
+import { authCopy } from '@/src/i18n/auth';
 import { getErrorMessage } from '@/src/lib/app-error';
 import { useAppBootstrap } from '@/src/hooks/use-app-bootstrap';
 import { appRoutes } from '@/src/navigation/app-routes';
@@ -17,9 +21,9 @@ import { AuthProvider } from '@/src/providers/auth-provider';
 import { requestNotificationPermissions } from '@/src/services/notifications';
 import { useAppStore } from '@/src/store/app-store';
 import {
-  APP_TUTORIAL_STEPS,
   AppTutorialState,
   completeAppTutorial,
+  getAppTutorialSteps,
   getAppTutorialState,
   setAppTutorialStep,
   skipAppTutorial,
@@ -95,22 +99,67 @@ function AuthRedirector() {
 }
 
 function RootNavigator() {
+  useTranslation();
   useAppBootstrap();
+  const locales = useLocales();
+  const languageReady = useIsLanguageReady();
+  const currentLanguage = useCurrentLanguage();
   const pathname = usePathname();
   const goalResolutionAnnouncements = useAppStore((state) => state.goalResolutionAnnouncements);
   const dismissGoalResolutionAnnouncement = useAppStore((state) => state.dismissGoalResolutionAnnouncement);
+  const punishmentsLoaded = useAppStore((state) => state.punishmentsLoaded);
+  const punishmentHistoryLoaded = useAppStore((state) => state.punishmentHistoryLoaded);
+  const refreshGoalResolutionAnnouncements = useAppStore((state) => state.refreshGoalResolutionAnnouncements);
+  const refreshPunishmentCatalog = useAppStore((state) => state.refreshPunishmentCatalog);
+  const refreshPunishmentHistory = useAppStore((state) => state.refreshPunishmentHistory);
   const updateSettings = useAppStore((state) => state.updateSettings);
   const [welcomeModalVisible, setWelcomeModalVisible] = useState(false);
   const [tutorialState, setTutorialState] = useState<AppTutorialState | null>(null);
 
+  const tutorialSteps = getAppTutorialSteps();
   const activeTutorialStep =
-    tutorialState && tutorialState.status === 'in_progress' ? APP_TUTORIAL_STEPS[tutorialState.currentStep] : null;
+    tutorialState && tutorialState.status === 'in_progress' ? tutorialSteps[tutorialState.currentStep] : null;
   const tutorialModalVisible = !welcomeModalVisible && Boolean(activeTutorialStep);
   const activeGoalResolutionAnnouncement = goalResolutionAnnouncements[0] ?? null;
   const goalResolutionModalVisible = !welcomeModalVisible && !tutorialModalVisible && Boolean(activeGoalResolutionAnnouncement);
 
-  const navigateToTutorialStep = (stepIndex: number) => {
-    const step = APP_TUTORIAL_STEPS[stepIndex];
+  useEffect(() => {
+    if (!languageReady) {
+      return;
+    }
+
+    void syncAppLanguage(locales[0]?.languageTag ?? locales[0]?.languageCode);
+  }, [languageReady, locales]);
+
+  useEffect(() => {
+    if (!languageReady) {
+      return;
+    }
+
+    if (punishmentsLoaded) {
+      void refreshPunishmentCatalog().catch(() => undefined);
+    }
+
+    if (punishmentHistoryLoaded) {
+      void refreshPunishmentHistory().catch(() => undefined);
+    }
+
+    if (goalResolutionAnnouncements.length > 0) {
+      void refreshGoalResolutionAnnouncements().catch(() => undefined);
+    }
+  }, [
+    currentLanguage,
+    goalResolutionAnnouncements.length,
+    languageReady,
+    punishmentHistoryLoaded,
+    punishmentsLoaded,
+    refreshGoalResolutionAnnouncements,
+    refreshPunishmentCatalog,
+    refreshPunishmentHistory,
+  ]);
+
+  const navigateToTutorialStep = useCallback((stepIndex: number) => {
+    const step = tutorialSteps[stepIndex];
 
     if (!step) {
       return;
@@ -120,7 +169,7 @@ function RootNavigator() {
       pathname: step.route.pathname,
       params: step.route.params,
     });
-  };
+  }, [tutorialSteps]);
 
   useEffect(() => {
     let cancelled = false;
@@ -177,7 +226,7 @@ function RootNavigator() {
     if (tutorialState.status === 'in_progress') {
       navigateToTutorialStep(tutorialState.currentStep);
     }
-  }, [tutorialState, welcomeModalVisible]);
+  }, [navigateToTutorialStep, tutorialState, welcomeModalVisible]);
 
   const handleAdvanceTutorial = async () => {
     if (!tutorialState || tutorialState.status !== 'in_progress') {
@@ -186,7 +235,7 @@ function RootNavigator() {
 
     const nextStepIndex = tutorialState.currentStep + 1;
 
-    if (nextStepIndex >= APP_TUTORIAL_STEPS.length) {
+    if (nextStepIndex >= tutorialSteps.length) {
       await completeAppTutorial();
       await syncTutorialReminderPreferences();
       router.navigate(appRoutes.home);
@@ -207,7 +256,7 @@ function RootNavigator() {
         pendingPunishmentReminderEnabled: granted,
       });
     } catch (error) {
-      Alert.alert('No se pudieron actualizar los recordatorios', getErrorMessage(error));
+      Alert.alert(authCopy.alerts.reminderUpdateFailed, getErrorMessage(error));
     }
   };
 
@@ -258,7 +307,7 @@ function RootNavigator() {
               void handleSkipTutorial();
             }}
             step={activeTutorialStep}
-            totalSteps={APP_TUTORIAL_STEPS.length}
+            totalSteps={tutorialSteps.length}
           />
         ) : null}
       </Modal>
@@ -281,6 +330,26 @@ function RootNavigator() {
 }
 
 export default function RootLayout() {
+  const [languageReady, setLanguageReady] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    void initializeAppLanguage().finally(() => {
+      if (active) {
+        setLanguageReady(true);
+      }
+    });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (!languageReady) {
+    return null;
+  }
+
   return (
     <AuthProvider>
       <GestureHandlerRootView style={{ flex: 1 }}>

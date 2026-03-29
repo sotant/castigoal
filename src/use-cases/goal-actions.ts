@@ -1,4 +1,5 @@
 import { GoalDetailSummary, GoalEvaluation, Goal, HomeSummary, StatsSummary } from '@/src/models/types';
+import { getGoalClosesInCopy, getGoalStartsWhenCopy } from '@/src/i18n/goals';
 import {
   clearGoalCheckinRecord,
   createGoalRecord,
@@ -39,14 +40,10 @@ function buildScheduleStatus(goal: Goal, referenceDate = startOfToday()) {
   const remainingDays = getGoalRemainingDays(goal, referenceDate);
 
   if (daysUntilStart > 0) {
-    return daysUntilStart === 1 ? 'Empieza manana.' : `Empieza en ${daysUntilStart} dias.`;
+    return getGoalStartsWhenCopy(daysUntilStart);
   }
 
-  if (remainingDays > 0) {
-    return remainingDays === 1 ? 'Queda 1 dia para cerrar el plazo.' : `Quedan ${remainingDays} dias para cerrar el plazo.`;
-  }
-
-  return 'El plazo configurado ya ha terminado.';
+  return getGoalClosesInCopy(remainingDays);
 }
 
 export async function createGoalUseCase(input: GoalInput) {

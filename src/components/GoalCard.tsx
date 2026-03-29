@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ProgressRing } from '@/src/components/ProgressRing';
 import { palette, radius, shadows, spacing } from '@/src/constants/theme';
+import { formatDayUnit } from '@/src/i18n/common';
 
 type Props = {
   title: string;
@@ -76,8 +77,8 @@ export function GoalCard({
       </View>
 
       <View style={styles.footer}>
-        <Text style={[styles.meta, muted && styles.copyDisabled]}>Racha {currentStreak} d</Text>
-        <Text style={[styles.meta, muted && styles.copyDisabled]}>Mejor {bestStreak} d</Text>
+        <Text style={[styles.meta, muted && styles.copyDisabled]}>{`Racha ${currentStreak} ${formatDayUnit(currentStreak)}`}</Text>
+        <Text style={[styles.meta, muted && styles.copyDisabled]}>{`Mejor ${bestStreak} ${formatDayUnit(bestStreak)}`}</Text>
         {!muted && onQuickCheck ? (
           <Pressable
             onPress={(event) => {

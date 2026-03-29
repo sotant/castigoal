@@ -1,3 +1,5 @@
+import { authCopy } from '@/src/i18n/auth';
+
 const EMAIL_LOCAL_PART_PATTERN = /^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+$/;
 const EMAIL_DOMAIN_LABEL_PATTERN = /^[A-Za-z0-9-]+$/;
 const EMAIL_TOP_LEVEL_DOMAIN_PATTERN = /^[A-Za-z]{2,63}$/;
@@ -67,8 +69,8 @@ export function getEmailValidationError(value: string, options: { required?: boo
   const normalized = normalizeEmail(value);
 
   if (!normalized) {
-    return options.required ? 'Introduce un email valido' : null;
+    return options.required ? authCopy.friendlyMessages.emailInvalid : null;
   }
 
-  return isValidEmail(normalized) ? null : 'Introduce un email valido';
+  return isValidEmail(normalized) ? null : authCopy.friendlyMessages.emailInvalid;
 }

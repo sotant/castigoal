@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Feather, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useFocusEffect } from '@react-navigation/native';
@@ -9,7 +10,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EmptyState } from '@/src/components/EmptyState';
 import { ScreenContainer } from '@/src/components/ScreenContainer';
 import { palette, radius, shadows, spacing } from '@/src/constants/theme';
-import { formatMonthLabel, getMonthDate, getMonthStart, WEEKDAY_LABELS } from '@/src/features/stats/calendar';
+import { formatMonthLabel, getMonthDate, getMonthStart, getWeekdayLabels } from '@/src/features/stats/calendar';
+import { commonCopy } from '@/src/i18n/common';
+import { statsCopy } from '@/src/i18n/stats';
 import { selectStatsCalendar, useAppStore } from '@/src/store/app-store';
 import { getGoalDeadline } from '@/src/utils/goal-evaluation';
 
@@ -23,6 +26,7 @@ type OverviewCard = {
 type GoalFilter = 'active' | 'completed';
 
 export function StatsScreen() {
+  useTranslation();
   const goals = useAppStore((state) => state.goals);
   const homeSummary = useAppStore((state) => state.homeSummary);
   const statsSummary = useAppStore((state) => state.statsSummary);
@@ -36,20 +40,7 @@ export function StatsScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const tabBarHeight = useBottomTabBarHeight();
   const insets = useSafeAreaInsets();
-
-  useFocusEffect(
-    useCallback(() => {
-      requestAnimationFrame(() => {
-        scrollRef.current?.scrollTo({ x: 0, y: 0, animated: false });
-      });
-
-      void refreshStatsSummary();
-
-      if (selectedGoal) {
-        void loadStatsCalendar(selectedGoal.id, monthStart);
-      }
-    }, [loadStatsCalendar, monthStart, refreshStatsSummary, selectedGoal]),
-  );
+  const weekdayLabels = getWeekdayLabels();
 
   useEffect(() => {
     if (!statsLoaded) {
@@ -97,42 +88,56 @@ export function StatsScreen() {
     () => [
       {
         icon: 'check-square',
-        label: 'Total check-ins',
+        label: statsCopy.overviewCards.totalCheckins,
         tone: palette.primaryDeep,
         value: statsSummary.totalCheckins,
       },
       {
         icon: 'target',
-        label: 'Total objetivos',
+        label: statsCopy.overviewCards.totalGoals,
         tone: '#7C4DFF',
         value: goals.length,
       },
       {
         icon: 'play-circle',
-        label: 'Objetivos activos',
+        label: statsCopy.overviewCards.activeGoals,
         tone: palette.accent,
         value: statsSummary.goalsActiveCount,
       },
       {
         icon: 'award',
-        label: 'Objetivos cumplidos',
+        label: statsCopy.overviewCards.completedGoals,
         tone: palette.success,
         value: completedGoalsCount,
       },
       {
         icon: 'x-octagon',
-        label: 'Objetivos fallados',
+        label: statsCopy.overviewCards.failedGoals,
         tone: palette.danger,
         value: failedGoalsCount,
       },
       {
         icon: 'shield',
-        label: 'Castigos cumplidos',
+        label: statsCopy.overviewCards.completedPunishments,
         tone: '#F59E0B',
         value: statsSummary.completedPunishments,
       },
     ],
     [completedGoalsCount, failedGoalsCount, goals.length, statsSummary],
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      requestAnimationFrame(() => {
+        scrollRef.current?.scrollTo({ x: 0, y: 0, animated: false });
+      });
+
+      void refreshStatsSummary();
+
+      if (selectedGoal) {
+        void loadStatsCalendar(selectedGoal.id, monthStart);
+      }
+    }, [loadStatsCalendar, monthStart, refreshStatsSummary, selectedGoal]),
   );
 
   useEffect(() => {
@@ -151,7 +156,7 @@ export function StatsScreen() {
     <ScreenContainer
       bodyStyle={styles.screenBody}
       scroll={false}
-      title="Stats">
+      title={statsCopy.screenTitle}>
       <View style={styles.contentSurface}>
         <ScrollView
           ref={scrollRef}
@@ -168,7 +173,7 @@ export function StatsScreen() {
               <View style={styles.heroHeader}>
                 <View style={styles.heroBadge}>
                   <Feather color={palette.primaryDeep} name="bar-chart-2" size={14} />
-                  <Text style={styles.heroBadgeText}>Resumen general</Text>
+                  <Text style={styles.heroBadgeText}>{statsCopy.overviewBadge}</Text>
                 </View>
               </View>
 
@@ -196,7 +201,7 @@ export function StatsScreen() {
               <View style={styles.goalModuleHeader}>
                 <View style={styles.goalModuleBadge}>
                   <Feather color={palette.primaryDeep} name="calendar" size={14} />
-                  <Text style={styles.goalModuleBadgeText}>Objetivo y calendario</Text>
+                  <Text style={styles.goalModuleBadgeText}>{statsCopy.calendarModuleBadge}</Text>
                 </View>
               </View>
 
@@ -204,14 +209,14 @@ export function StatsScreen() {
                 {!hasGoals ? (
                   <View style={styles.goalEmptyCard}>
                     <EmptyState
-                      title="Sin objetivos registrados"
-                      message="Todavia no tienes objetivos registrados. Crea uno para ver su progreso en estadisticas."
+                      title={statsCopy.empty.noGoalsTitle}
+                      message={statsCopy.empty.noGoalsMessage}
                     />
                   </View>
                 ) : (
                   <>
                     <View style={styles.goalFilterSection}>
-                      <Text style={styles.goalFilterTitle}>¿Qué objetivos quieres consultar?</Text>
+                      <Text style={styles.goalFilterTitle}>{statsCopy.filters.question}</Text>
                       <View style={styles.goalFilterButtons}>
                         <Pressable
                           onPress={() => {
@@ -224,7 +229,7 @@ export function StatsScreen() {
                               styles.goalFilterButtonText,
                               goalFilter === 'active' && styles.goalFilterButtonTextSelected,
                             ]}>
-                            Activos
+                            {statsCopy.filters.active}
                           </Text>
                         </Pressable>
                         <Pressable
@@ -238,7 +243,7 @@ export function StatsScreen() {
                               styles.goalFilterButtonText,
                               goalFilter === 'completed' && styles.goalFilterButtonTextSelected,
                             ]}>
-                            Finalizados
+                            {statsCopy.filters.completed}
                           </Text>
                         </Pressable>
                       </View>
@@ -247,11 +252,11 @@ export function StatsScreen() {
                     {!hasFilteredGoals ? (
                       <View style={styles.goalEmptyCard}>
                         <EmptyState
-                          title={goalFilter === 'active' ? 'Sin objetivos activos' : 'Sin objetivos finalizados'}
+                          title={goalFilter === 'active' ? statsCopy.filters.emptyActiveTitle : statsCopy.filters.emptyCompletedTitle}
                           message={
                             goalFilter === 'active'
-                              ? 'No hay objetivos activos para mostrar en el calendario.'
-                              : 'No hay objetivos finalizados para consultar en el calendario.'
+                              ? statsCopy.filters.emptyActiveMessage
+                              : statsCopy.filters.emptyCompletedMessage
                           }
                         />
                       </View>
@@ -357,7 +362,7 @@ export function StatsScreen() {
                       <FlingGestureHandler direction={Directions.RIGHT} onActivated={() => handleCalendarSwipe('right')}>
                         <View style={styles.calendarCard}>
                           <View style={styles.weekRow}>
-                            {WEEKDAY_LABELS.map((label) => (
+                            {weekdayLabels.map((label) => (
                               <Text key={label} style={styles.weekday}>
                                 {label}
                               </Text>
@@ -406,15 +411,15 @@ export function StatsScreen() {
                     <View style={styles.legend}>
                       <View style={styles.legendItem}>
                         <View style={[styles.legendDot, styles.dayCompleted]} />
-                        <Text style={styles.legendText}>Cumplido</Text>
+                        <Text style={styles.legendText}>{commonCopy.calendar.legend.completed}</Text>
                       </View>
                       <View style={styles.legendItem}>
                         <View style={[styles.legendDot, styles.dayMissed]} />
-                        <Text style={styles.legendText}>Fallado</Text>
+                        <Text style={styles.legendText}>{commonCopy.calendar.legend.missed}</Text>
                       </View>
                       <View style={styles.legendItem}>
                         <View style={[styles.legendDot, styles.dayEmpty]} />
-                        <Text style={styles.legendText}>Sin check-in</Text>
+                        <Text style={styles.legendText}>{commonCopy.calendar.legend.noCheckin}</Text>
                       </View>
                     </View>
                   </View>

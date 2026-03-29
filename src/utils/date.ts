@@ -1,5 +1,8 @@
+import { getCurrentLocale } from '@/src/i18n';
+
 const DAY = 24 * 60 * 60 * 1000;
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const WEEKDAY_REFERENCE_MONDAY = Date.UTC(2024, 0, 1);
 
 function pad(value: number) {
   return String(value).padStart(2, '0');
@@ -12,6 +15,14 @@ function formatParts(year: number, month: number, day: number) {
 function parseISODate(value: string) {
   const [year, month, day] = value.split('-').map(Number);
   return new Date(Date.UTC(year, month - 1, day));
+}
+
+function toDateInput(value: string | Date) {
+  if (typeof value === 'string' && ISO_DATE_PATTERN.test(value)) {
+    return parseISODate(value);
+  }
+
+  return typeof value === 'string' ? new Date(value) : value;
 }
 
 function getLocalDateParts(value: Date) {
@@ -66,44 +77,69 @@ export function enumerateDates(start: string, end: string): string[] {
   return Array.from({ length: days + 1 }, (_, index) => addDays(start, index));
 }
 
+export function formatDateByLocale(
+  date: string | Date,
+  options: Intl.DateTimeFormatOptions,
+  locale = getCurrentLocale(),
+) {
+  return new Intl.DateTimeFormat(locale, options).format(toDateInput(date));
+}
+
+export function formatDatePartsByLocale(
+  date: string | Date,
+  options: Intl.DateTimeFormatOptions,
+  locale = getCurrentLocale(),
+) {
+  return new Intl.DateTimeFormat(locale, options).formatToParts(toDateInput(date));
+}
+
+export function formatMonthYearLabel(date: Date, locale = getCurrentLocale()) {
+  return formatDateByLocale(date, { month: 'long', year: 'numeric' }, locale);
+}
+
+export function getLocalizedWeekdayLabels(
+  format: Intl.DateTimeFormatOptions['weekday'] = 'narrow',
+  locale = getCurrentLocale(),
+) {
+  return Array.from({ length: 7 }, (_, index) =>
+    formatDateByLocale(new Date(WEEKDAY_REFERENCE_MONDAY + index * DAY), { timeZone: 'UTC', weekday: format }, locale).replace(/\./g, ''),
+  );
+}
+
 export function formatShortDate(date: string): string {
-  return new Intl.DateTimeFormat('es-ES', {
+  return formatDateByLocale(date, {
     day: '2-digit',
     month: 'short',
-  }).format(parseISODate(date));
+  });
 }
 
 export function formatCompactDate(date: string): string {
-  return new Intl.DateTimeFormat('es-ES', {
+  return formatDateByLocale(date, {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
-  })
-    .format(parseISODate(date))
-    .replace('.', '');
+  }).replace('.', '');
 }
 
 export function formatWeekdayShort(date: string): string {
-  return new Intl.DateTimeFormat('es-ES', {
+  return formatDateByLocale(date, {
     weekday: 'short',
-  })
-    .format(parseISODate(date))
-    .replace('.', '');
+  }).replace('.', '');
 }
 
 export function formatLongDate(date: string): string {
-  return new Intl.DateTimeFormat('es-ES', {
+  return formatDateByLocale(date, {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
-  }).format(parseISODate(date));
+  });
 }
 
 export function formatLongDateWithWeekday(date: string): string {
-  return new Intl.DateTimeFormat('es-ES', {
+  return formatDateByLocale(date, {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
     year: 'numeric',
-  }).format(parseISODate(date));
+  });
 }

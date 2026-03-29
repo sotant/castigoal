@@ -6,6 +6,7 @@ import {
   Subscription,
 } from '@supabase/supabase-js';
 
+import { authCopy } from '@/src/i18n/auth';
 import { normalizeRepositoryError } from '@/src/lib/app-error';
 import { supabase } from '@/src/lib/supabase';
 
@@ -19,9 +20,9 @@ export async function getCurrentSession() {
 
   if (error) {
     throw normalizeRepositoryError(error, {
-      authMessage: 'No se pudo recuperar la sesion actual.',
+      authMessage: authCopy.repository.getSessionFailed,
       code: 'AUTH_GET_SESSION_FAILED',
-      fallback: 'No se pudo recuperar la sesion actual.',
+      fallback: authCopy.repository.getSessionFailed,
     });
   }
 
@@ -44,9 +45,9 @@ export async function signInWithEmail(email: string, password: string): Promise<
 
   if (response.error) {
     throw normalizeRepositoryError(response.error, {
-      authMessage: 'No se pudo iniciar sesion.',
+      authMessage: authCopy.repository.signInFailed,
       code: 'AUTH_SIGN_IN_FAILED',
-      fallback: 'No se pudo iniciar sesion.',
+      fallback: authCopy.repository.signInFailed,
     });
   }
 
@@ -66,9 +67,9 @@ export async function signUpWithEmail(email: string, password: string, displayNa
 
   if (response.error) {
     throw normalizeRepositoryError(response.error, {
-      authMessage: 'No se pudo crear la cuenta.',
+      authMessage: authCopy.repository.signUpFailed,
       code: 'AUTH_SIGN_UP_FAILED',
-      fallback: 'No se pudo crear la cuenta.',
+      fallback: authCopy.repository.signUpFailed,
     });
   }
 
@@ -82,9 +83,9 @@ export async function requestPasswordReset(email: string, redirectTo: string): P
 
   if (error) {
     throw normalizeRepositoryError(error, {
-      authMessage: 'No se pudo iniciar la recuperacion de contrasena.',
+      authMessage: authCopy.repository.passwordRecoveryRequestFailed,
       code: 'AUTH_PASSWORD_RESET_REQUEST_FAILED',
-      fallback: 'No se pudo iniciar la recuperacion de contrasena.',
+      fallback: authCopy.repository.passwordRecoveryRequestFailed,
     });
   }
 }
@@ -97,9 +98,9 @@ export async function setRecoverySession(accessToken: string, refreshToken: stri
 
   if (error) {
     throw normalizeRepositoryError(error, {
-      authMessage: 'El enlace de recuperacion no es valido o ha caducado.',
+      authMessage: authCopy.repository.passwordRecoveryInvalid,
       code: 'AUTH_RECOVERY_SESSION_FAILED',
-      fallback: 'No se pudo validar el enlace de recuperacion.',
+      fallback: authCopy.repository.setRecoverySessionFailed,
     });
   }
 }
@@ -109,9 +110,9 @@ export async function updatePassword(password: string): Promise<void> {
 
   if (error) {
     throw normalizeRepositoryError(error, {
-      authMessage: 'No se pudo actualizar la contrasena.',
+      authMessage: authCopy.repository.passwordUpdateFailed,
       code: 'AUTH_PASSWORD_UPDATE_FAILED',
-      fallback: 'No se pudo actualizar la contrasena.',
+      fallback: authCopy.repository.passwordUpdateFailed,
     });
   }
 }
@@ -121,9 +122,9 @@ export async function signOut(): Promise<void> {
 
   if (error) {
     throw normalizeRepositoryError(error, {
-      authMessage: 'No se pudo cerrar sesion.',
+      authMessage: authCopy.repository.signOutFailed,
       code: 'AUTH_SIGN_OUT_FAILED',
-      fallback: 'No se pudo cerrar sesion.',
+      fallback: authCopy.repository.signOutFailed,
     });
   }
 }
@@ -133,9 +134,9 @@ export async function signOutLocal(): Promise<void> {
 
   if (error) {
     throw normalizeRepositoryError(error, {
-      authMessage: 'No se pudo cerrar la sesion temporal.',
+      authMessage: authCopy.repository.signOutLocalFailed,
       code: 'AUTH_SIGN_OUT_LOCAL_FAILED',
-      fallback: 'No se pudo cerrar la sesion temporal.',
+      fallback: authCopy.repository.signOutLocalFailed,
     });
   }
 }
@@ -148,9 +149,9 @@ export async function deleteCurrentAccount(): Promise<void> {
 
   if (sessionError || !session?.access_token) {
     throw normalizeRepositoryError(sessionError ?? new Error('No active session'), {
-      authMessage: 'Necesitas iniciar sesion para borrar tu cuenta.',
+      authMessage: authCopy.repository.deleteAccountAuthRequired,
       code: 'AUTH_DELETE_ACCOUNT_FAILED',
-      fallback: 'No se pudo borrar tu cuenta.',
+      fallback: authCopy.repository.deleteAccountFailed,
     });
   }
 
@@ -175,17 +176,17 @@ export async function deleteCurrentAccount(): Promise<void> {
           status: error.context.status,
         },
         {
-          authMessage: 'Necesitas iniciar sesion para borrar tu cuenta.',
+          authMessage: authCopy.repository.deleteAccountAuthRequired,
           code: 'AUTH_DELETE_ACCOUNT_FAILED',
-          fallback: 'No se pudo borrar tu cuenta.',
+          fallback: authCopy.repository.deleteAccountFailed,
         },
       );
     }
 
     throw normalizeRepositoryError(error, {
-      authMessage: 'Necesitas iniciar sesion para borrar tu cuenta.',
+      authMessage: authCopy.repository.deleteAccountAuthRequired,
       code: 'AUTH_DELETE_ACCOUNT_FAILED',
-      fallback: 'No se pudo borrar tu cuenta.',
+      fallback: authCopy.repository.deleteAccountFailed,
     });
   }
 
@@ -193,9 +194,9 @@ export async function deleteCurrentAccount(): Promise<void> {
 
   if (signOutError) {
     throw normalizeRepositoryError(signOutError, {
-      authMessage: 'Tu cuenta se borro, pero no se pudo limpiar la sesion local.',
+      authMessage: authCopy.repository.deleteAccountSignOutFailed,
       code: 'AUTH_DELETE_ACCOUNT_SIGN_OUT_FAILED',
-      fallback: 'Tu cuenta se borro, pero no se pudo limpiar la sesion local.',
+      fallback: authCopy.repository.deleteAccountSignOutFailed,
     });
   }
 }

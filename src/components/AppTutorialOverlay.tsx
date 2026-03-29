@@ -2,6 +2,8 @@ import { Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { palette, radius, shadows, spacing } from '@/src/constants/theme';
+import { formatStepCounter } from '@/src/i18n/common';
+import { appTutorialCopy } from '@/src/i18n/tutorial';
 import { AppTutorialStep } from '@/src/services/app-tutorial';
 
 type Props = {
@@ -41,14 +43,14 @@ export function AppTutorialOverlay({ currentStepNumber, totalSteps, step, onNext
             ]}>
             <View style={styles.card}>
               <Text style={styles.stepEyebrow}>
-                PASO {currentStepNumber} DE {totalSteps}
+                {formatStepCounter(currentStepNumber, totalSteps).toUpperCase()}
               </Text>
               <Text style={styles.title}>{step.title}</Text>
               <Text style={styles.description}>{step.description}</Text>
 
               <View style={styles.actions}>
                 <Pressable onPress={onSkip} style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}>
-                  <Text style={styles.secondaryLabel}>Omitir</Text>
+                  <Text style={styles.secondaryLabel}>{appTutorialCopy.overlay.skip}</Text>
                 </Pressable>
 
                 <Pressable onPress={onNext} style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}>

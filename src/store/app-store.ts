@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 
 import { createAppError } from '@/src/lib/app-error';
+import { errorCopy } from '@/src/i18n/errors';
 import {
   AssignedPunishmentDetail,
   CompletedPunishmentHistoryEntry,
@@ -503,7 +504,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
     const current = get().punishments.find((item) => item.id === punishmentId);
 
     if (!current || current.scope !== 'personal') {
-      throw createAppError('Solo se pueden editar castigos personalizados.', 'PUNISHMENT_EDIT_NOT_ALLOWED');
+      throw createAppError(errorCopy.progressService.onlyCustomPunishmentsEditable, 'PUNISHMENT_EDIT_NOT_ALLOWED');
     }
 
     const punishments = await updateCustomPunishmentUseCase(punishmentId, input);
@@ -514,7 +515,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
     const current = get().punishments.find((item) => item.id === punishmentId);
 
     if (!current || current.scope !== 'personal') {
-      throw createAppError('Solo se pueden borrar castigos personalizados.', 'PUNISHMENT_DELETE_NOT_ALLOWED');
+      throw createAppError(errorCopy.progressService.onlyCustomPunishmentsEditable, 'PUNISHMENT_DELETE_NOT_ALLOWED');
     }
 
     const punishments = await deleteCustomPunishmentUseCase(punishmentId);

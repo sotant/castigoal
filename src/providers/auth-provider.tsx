@@ -2,6 +2,7 @@ import * as Linking from 'expo-linking';
 import { createContext, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Session } from '@supabase/supabase-js';
 
+import { authCopy } from '@/src/i18n/auth';
 import { getErrorMessage } from '@/src/lib/app-error';
 import { parsePasswordRecoveryLink } from '@/src/lib/auth-deep-links';
 import { useAppStore } from '@/src/store/app-store';
@@ -196,7 +197,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         setPasswordRecovery({
-          error: getErrorMessage(error, 'No se pudo validar el enlace de recuperacion.'),
+          error: getErrorMessage(error, authCopy.repository.setRecoverySessionFailed),
           hasCheckedInitialUrl: true,
           status: 'error',
         });

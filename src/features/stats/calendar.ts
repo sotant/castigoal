@@ -1,4 +1,9 @@
-export const WEEKDAY_LABELS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+import { capitalizeCopy } from '@/src/i18n/common';
+import { formatMonthYearLabel, getLocalizedWeekdayLabels } from '@/src/utils/date';
+
+export function getWeekdayLabels() {
+  return getLocalizedWeekdayLabels('narrow');
+}
 
 export function getMonthDate(offset: number) {
   const now = new Date();
@@ -12,12 +17,5 @@ export function getMonthStart(date: Date) {
 }
 
 export function formatMonthLabel(date: Date) {
-  const month = new Intl.DateTimeFormat('es-ES', {
-    month: 'long',
-  }).format(date);
-  const year = new Intl.DateTimeFormat('es-ES', {
-    year: 'numeric',
-  }).format(date);
-
-  return `${month} ${year}`;
+  return capitalizeCopy(formatMonthYearLabel(date));
 }

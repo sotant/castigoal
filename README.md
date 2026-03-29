@@ -117,6 +117,7 @@ Atajos:
 Guia operativa:
 
 - `docs/google-play-release.md`
+- `docs/i18n-maintenance.md`
 
 ## Siguientes pasos recomendados
 

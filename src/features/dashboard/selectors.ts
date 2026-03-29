@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 
+import { getPunishmentDisplay } from '@/src/constants/punishments';
+import { useCurrentLanguage } from '@/src/i18n';
 import { Goal } from '@/src/models/types';
 import { useAppStore } from '@/src/store/app-store';
 
@@ -32,17 +34,25 @@ export function useHomeSummary() {
       homeSummary: state.homeSummary,
     })),
   );
+  const currentLanguage = useCurrentLanguage();
 
   return useMemo(() => {
+    void currentLanguage;
     const activeGoals = goals.filter((goal) => goal.lifecycleStatus === 'active');
     const inactiveGoals = goals.filter((goal) => goal.lifecycleStatus !== 'active');
+    const latestPending = homeSummary.latestPending
+      ? {
+          ...homeSummary.latestPending,
+          punishment: getPunishmentDisplay(homeSummary.latestPending.punishment),
+        }
+      : undefined;
 
     return {
       activeGoalsCount: homeSummary.activeGoalsCount,
-      latestPending: homeSummary.latestPending,
-      latestPunishment: homeSummary.latestPending?.punishment,
+      latestPending,
+      latestPunishment: latestPending?.punishment,
       orderedGoals: [...activeGoals, ...inactiveGoals],
       pendingPunishmentsCount: homeSummary.pendingPunishmentsCount,
     };
-  }, [goals, homeSummary]);
+  }, [currentLanguage, goals, homeSummary]);
 }

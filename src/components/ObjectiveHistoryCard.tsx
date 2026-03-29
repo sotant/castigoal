@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 
 import { palette, radius, shadows, spacing } from '@/src/constants/theme';
+import { getGoalHistoryOutcomeCopy, getGoalHistoryRelativeDateCopy } from '@/src/i18n/goals';
 import { HomeGoalSummary } from '@/src/models/types';
 import { appRoutes } from '@/src/navigation/app-routes';
 
@@ -15,8 +16,8 @@ type Props = {
 };
 
 export function ObjectiveHistoryCard({ item }: Props) {
-  const description = item.passed ? 'Objetivo finalizado con exito' : 'Objetivo finalizado sin cumplir el minimo';
-  const relativeLabel = item.daysSinceEnd <= 0 ? 'Hoy' : item.daysSinceEnd === 1 ? 'Hace 1 d' : `Hace ${item.daysSinceEnd} d`;
+  const description = getGoalHistoryOutcomeCopy(item.passed);
+  const relativeLabel = getGoalHistoryRelativeDateCopy(item.daysSinceEnd);
   const iconColor = item.passed ? '#22C55E' : '#EF4444';
   const iconBackgroundColor = item.passed ? '#DCFCE7' : '#FEE2E2';
 

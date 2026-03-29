@@ -1,4 +1,5 @@
 import { Tables } from '@/src/lib/database.types';
+import { errorCopy } from '@/src/i18n/errors';
 import { createAppError, normalizeRepositoryError } from '@/src/lib/app-error';
 import { supabase } from '@/src/lib/supabase';
 import {
@@ -516,14 +517,14 @@ export async function getRequiredUserId() {
 
   if (error) {
     throw normalizeRepositoryError(error, {
-      authMessage: 'Necesitas iniciar sesion para continuar.',
+      authMessage: errorCopy.appRepository.authRequired,
       code: 'APP_GET_SESSION_FAILED',
       fallback: 'No se pudo comprobar la sesion activa.',
     });
   }
 
   if (!session?.user?.id) {
-    throw createAppError('Necesitas iniciar sesion para continuar.', 'AUTH_REQUIRED', 'auth');
+    throw createAppError(errorCopy.appRepository.authRequired, 'AUTH_REQUIRED', 'auth');
   }
 
   return session.user.id;
@@ -568,9 +569,9 @@ export async function loadGoalEvaluations(referenceDate?: string) {
 
   if (error) {
     throw normalizeRepositoryError(error, {
-      authMessage: 'No se pudieron calcular las evaluaciones de objetivos.',
+      authMessage: errorCopy.appRepository.evaluationsLoadFailed,
       code: 'GOAL_EVALUATIONS_LOAD_FAILED',
-      fallback: 'No se pudieron calcular las evaluaciones de objetivos.',
+      fallback: errorCopy.appRepository.evaluationsLoadFailed,
     });
   }
 
@@ -585,17 +586,17 @@ export async function loadHomeSummary() {
 
   if (summaryResult.error) {
     throw normalizeRepositoryError(summaryResult.error, {
-      authMessage: 'No se pudo cargar el resumen de inicio.',
+      authMessage: errorCopy.appRepository.homeSummaryLoadFailed,
       code: 'HOME_SUMMARY_LOAD_FAILED',
-      fallback: 'No se pudo cargar el resumen de inicio.',
+      fallback: errorCopy.appRepository.homeSummaryLoadFailed,
     });
   }
 
   if (goalsResult.error) {
     throw normalizeRepositoryError(goalsResult.error, {
-      authMessage: 'No se pudieron cargar los objetivos del inicio.',
+      authMessage: errorCopy.appRepository.homeGoalsLoadFailed,
       code: 'HOME_GOALS_LOAD_FAILED',
-      fallback: 'No se pudieron cargar los objetivos del inicio.',
+      fallback: errorCopy.appRepository.homeGoalsLoadFailed,
     });
   }
 
@@ -611,9 +612,9 @@ export async function loadStatsSummary(referenceDate?: string) {
 
   if (error) {
     throw normalizeRepositoryError(error, {
-      authMessage: 'No se pudo cargar el resumen de estadisticas.',
+      authMessage: errorCopy.appRepository.statsSummaryLoadFailed,
       code: 'STATS_SUMMARY_LOAD_FAILED',
-      fallback: 'No se pudo cargar el resumen de estadisticas.',
+      fallback: errorCopy.appRepository.statsSummaryLoadFailed,
     });
   }
 
@@ -628,9 +629,9 @@ export async function loadGoalCalendarMonth(goalId: string, monthStart: string) 
 
   if (error) {
     throw normalizeRepositoryError(error, {
-      authMessage: 'No se pudo cargar el calendario del objetivo.',
+      authMessage: errorCopy.appRepository.goalCalendarLoadFailed,
       code: 'GOAL_CALENDAR_LOAD_FAILED',
-      fallback: 'No se pudo cargar el calendario del objetivo.',
+      fallback: errorCopy.appRepository.goalCalendarLoadFailed,
     });
   }
 
@@ -642,9 +643,9 @@ export async function loadPunishmentCatalog() {
 
   if (error) {
     throw normalizeRepositoryError(error, {
-      authMessage: 'No se pudo cargar el catalogo de castigos.',
+      authMessage: errorCopy.appRepository.punishmentCatalogLoadFailed,
       code: 'PUNISHMENT_CATALOG_LOAD_FAILED',
-      fallback: 'No se pudo cargar el catalogo de castigos.',
+      fallback: errorCopy.appRepository.punishmentCatalogLoadFailed,
     });
   }
 
@@ -656,9 +657,9 @@ export async function loadPendingPunishments() {
 
   if (error) {
     throw normalizeRepositoryError(error, {
-      authMessage: 'No se pudieron cargar los castigos pendientes.',
+      authMessage: errorCopy.appRepository.pendingPunishmentsLoadFailed,
       code: 'PENDING_PUNISHMENTS_LOAD_FAILED',
-      fallback: 'No se pudieron cargar los castigos pendientes.',
+      fallback: errorCopy.appRepository.pendingPunishmentsLoadFailed,
     });
   }
 
@@ -672,9 +673,9 @@ export async function loadCompletedPunishmentHistory(limit = 50) {
 
   if (error) {
     throw normalizeRepositoryError(error, {
-      authMessage: 'No se pudo cargar el historico de castigos cumplidos.',
+      authMessage: errorCopy.appRepository.punishmentHistoryLoadFailed,
       code: 'PUNISHMENT_HISTORY_LOAD_FAILED',
-      fallback: 'No se pudo cargar el historico de castigos cumplidos.',
+      fallback: errorCopy.appRepository.punishmentHistoryLoadFailed,
     });
   }
 
@@ -692,9 +693,9 @@ export async function loadBootstrapData(userId: string): Promise<AppBootstrapDat
 
   if (goalsResult.error) {
     throw normalizeRepositoryError(goalsResult.error, {
-      authMessage: 'No se pudieron cargar los objetivos.',
+      authMessage: errorCopy.appRepository.goalsLoadFailed,
       code: 'GOALS_LOAD_FAILED',
-      fallback: 'No se pudieron cargar los objetivos.',
+      fallback: errorCopy.appRepository.goalsLoadFailed,
     });
   }
 
@@ -715,9 +716,9 @@ export async function loadGoalCheckinHistory(goalId: string) {
 
   if (error) {
     throw normalizeRepositoryError(error, {
-      authMessage: 'No se pudo cargar el historial del objetivo.',
+      authMessage: errorCopy.appRepository.goalHistoryLoadFailed,
       code: 'GOAL_CHECKIN_HISTORY_LOAD_FAILED',
-      fallback: 'No se pudo cargar el historial del objetivo.',
+      fallback: errorCopy.appRepository.goalHistoryLoadFailed,
     });
   }
 
@@ -729,9 +730,9 @@ export async function loadAssignedPunishmentById(assignedId: string) {
 
   if (error) {
     throw normalizeRepositoryError(error, {
-      authMessage: 'No se pudo cargar el castigo asignado.',
+      authMessage: errorCopy.appRepository.assignedPunishmentLoadFailed,
       code: 'ASSIGNED_PUNISHMENT_LOAD_FAILED',
-      fallback: 'No se pudo cargar el castigo asignado.',
+      fallback: errorCopy.appRepository.assignedPunishmentLoadFailed,
     });
   }
 
@@ -747,9 +748,9 @@ export async function loadPunishmentById(punishmentId: string) {
 
   if (error) {
     throw normalizeRepositoryError(error, {
-      authMessage: 'No se pudo cargar el castigo.',
+      authMessage: errorCopy.appRepository.punishmentLoadFailed,
       code: 'PUNISHMENT_LOAD_FAILED',
-      fallback: 'No se pudo cargar el castigo.',
+      fallback: errorCopy.appRepository.punishmentLoadFailed,
     });
   }
 
@@ -791,9 +792,9 @@ export async function createGoalRecord(input: GoalInput) {
 
   if (error) {
     throw normalizeRepositoryError(error, {
-      authMessage: 'No se pudo crear el objetivo.',
+      authMessage: errorCopy.appRepository.goalCreateFailed,
       code: 'GOAL_CREATE_FAILED',
-      fallback: 'No se pudo crear el objetivo.',
+      fallback: errorCopy.appRepository.goalCreateFailed,
     });
   }
 
@@ -822,9 +823,9 @@ export async function updateGoalRecord(goalId: string, input: GoalInput) {
 
   if (error) {
     throw normalizeRepositoryError(error, {
-      authMessage: 'No se pudo actualizar el objetivo.',
+      authMessage: errorCopy.appRepository.goalUpdateFailed,
       code: 'GOAL_UPDATE_FAILED',
-      fallback: 'No se pudo actualizar el objetivo.',
+      fallback: errorCopy.appRepository.goalUpdateFailed,
     });
   }
 
@@ -836,9 +837,9 @@ export async function deleteGoalRecord(goalId: string) {
 
   if (error) {
     throw normalizeRepositoryError(error, {
-      authMessage: 'No se pudo borrar el objetivo.',
+      authMessage: errorCopy.appRepository.goalDeleteFailed,
       code: 'GOAL_DELETE_FAILED',
-      fallback: 'No se pudo borrar el objetivo.',
+      fallback: errorCopy.appRepository.goalDeleteFailed,
     });
   }
 }
@@ -870,9 +871,9 @@ export async function completeAssignedPunishmentRecord(assignedId: string) {
 
   if (error) {
     throw normalizeRepositoryError(error, {
-      authMessage: 'No se pudo completar el castigo.',
+      authMessage: errorCopy.appRepository.punishmentCompleteFailed,
       code: 'ASSIGNED_PUNISHMENT_COMPLETE_FAILED',
-      fallback: 'No se pudo completar el castigo.',
+      fallback: errorCopy.appRepository.punishmentCompleteFailed,
     });
   }
 
@@ -897,9 +898,9 @@ export async function addCustomPunishmentRecord(input: PunishmentMutationInput) 
 
   if (error) {
     throw normalizeRepositoryError(error, {
-      authMessage: 'No se pudo guardar el castigo personalizado.',
+      authMessage: errorCopy.appRepository.customPunishmentCreateFailed,
       code: 'PUNISHMENT_CREATE_FAILED',
-      fallback: 'No se pudo guardar el castigo personalizado.',
+      fallback: errorCopy.appRepository.customPunishmentCreateFailed,
     });
   }
 
@@ -923,9 +924,9 @@ export async function updateCustomPunishmentRecord(punishmentId: string, input: 
 
   if (error) {
     throw normalizeRepositoryError(error, {
-      authMessage: 'No se pudo actualizar el castigo personalizado.',
+      authMessage: errorCopy.appRepository.customPunishmentUpdateFailed,
       code: 'PUNISHMENT_UPDATE_FAILED',
-      fallback: 'No se pudo actualizar el castigo personalizado.',
+      fallback: errorCopy.appRepository.customPunishmentUpdateFailed,
     });
   }
 
@@ -939,9 +940,9 @@ export async function deleteCustomPunishmentRecord(punishmentId: string) {
 
   if (error) {
     throw normalizeRepositoryError(error, {
-      authMessage: 'No se pudo borrar el castigo personalizado.',
+      authMessage: errorCopy.appRepository.customPunishmentDeleteFailed,
       code: 'PUNISHMENT_DELETE_FAILED',
-      fallback: 'No se pudo borrar el castigo personalizado.',
+      fallback: errorCopy.appRepository.customPunishmentDeleteFailed,
     });
   }
 }
@@ -994,17 +995,17 @@ export async function resetUserData() {
 
   if (historyResult.error) {
     throw normalizeRepositoryError(historyResult.error, {
-      authMessage: 'No se pudo borrar el historico de castigos.',
+      authMessage: errorCopy.appRepository.punishmentHistoryClearFailed,
       code: 'RESET_PUNISHMENT_HISTORY_FAILED',
-      fallback: 'No se pudo borrar el historico de castigos.',
+      fallback: errorCopy.appRepository.punishmentHistoryClearFailed,
     });
   }
 
   if (assignedResult.error) {
     throw normalizeRepositoryError(assignedResult.error, {
-      authMessage: 'No se pudieron borrar los castigos asignados.',
+      authMessage: errorCopy.appRepository.assignedPunishmentsClearFailed,
       code: 'RESET_ASSIGNED_PUNISHMENTS_FAILED',
-      fallback: 'No se pudieron borrar los castigos asignados.',
+      fallback: errorCopy.appRepository.assignedPunishmentsClearFailed,
     });
   }
 
@@ -1018,17 +1019,17 @@ export async function resetUserData() {
 
   if (goalsResult.error) {
     throw normalizeRepositoryError(goalsResult.error, {
-      authMessage: 'No se pudieron borrar los objetivos.',
+      authMessage: errorCopy.appRepository.goalsClearFailed,
       code: 'RESET_GOALS_FAILED',
-      fallback: 'No se pudieron borrar los objetivos.',
+      fallback: errorCopy.appRepository.goalsClearFailed,
     });
   }
 
   if (customPunishmentsResult.error) {
     throw normalizeRepositoryError(customPunishmentsResult.error, {
-      authMessage: 'No se pudieron borrar los castigos personalizados.',
+      authMessage: errorCopy.appRepository.customPunishmentsClearFailed,
       code: 'RESET_PUNISHMENTS_FAILED',
-      fallback: 'No se pudieron borrar los castigos personalizados.',
+      fallback: errorCopy.appRepository.customPunishmentsClearFailed,
     });
   }
 }

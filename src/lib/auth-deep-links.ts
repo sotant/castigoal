@@ -2,6 +2,7 @@ import Constants from 'expo-constants';
 import * as Linking from 'expo-linking';
 import { Platform } from 'react-native';
 
+import { authCopy } from '@/src/i18n/auth';
 import { appRoutes } from '@/src/navigation/app-routes';
 
 const FALLBACK_APP_SCHEME = 'castigoal';
@@ -34,18 +35,18 @@ function getRecoveryErrorMessage(params: URLSearchParams) {
   const rawError = `${errorCode ?? ''} ${errorDescription ?? params.get('error') ?? ''}`.trim().toLowerCase();
 
   if (!rawError) {
-    return 'El enlace de recuperacion no es valido o ha caducado. Solicita uno nuevo.';
+    return `${authCopy.repository.passwordRecoveryInvalid}. Solicita uno nuevo.`;
   }
 
   if (rawError.includes('expired') || rawError.includes('otp_expired')) {
-    return 'El enlace de recuperacion ha caducado. Solicita un correo nuevo para continuar.';
+    return authCopy.repository.passwordRecoveryExpired;
   }
 
   if (rawError.includes('access denied') || rawError.includes('access_denied')) {
-    return 'No se pudo validar el enlace de recuperacion. Solicita uno nuevo.';
+    return authCopy.repository.passwordRecoveryAccessDenied;
   }
 
-  return 'El enlace de recuperacion no es valido o ha caducado. Solicita uno nuevo.';
+  return `${authCopy.repository.passwordRecoveryInvalid}. Solicita uno nuevo.`;
 }
 
 export function buildPasswordRecoveryRedirectUrl() {

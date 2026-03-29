@@ -7,6 +7,8 @@ import {
   GoalPunishmentConfig,
   Punishment,
 } from '@/src/models/types';
+import { getPunishmentSystemKey } from '@/src/constants/punishments';
+import { getCurrentLanguage } from '@/src/i18n';
 import { addDays, diffInDays, enumerateDates, startOfToday, toISODate } from '@/src/utils/date';
 
 export const DEFAULT_GOAL_PUNISHMENT_CONFIG: GoalPunishmentConfig = {
@@ -17,10 +19,6 @@ export const DEFAULT_GOAL_PUNISHMENT_CONFIG: GoalPunishmentConfig = {
 
 function clampPositiveInt(value: number) {
   return Math.max(1, Math.round(value));
-}
-
-function normalizeText(value: string) {
-  return value.trim().toLocaleLowerCase('es');
 }
 
 function hashSeed(seed: string) {
@@ -201,7 +199,7 @@ function getPunishmentStableKey(punishment: Punishment) {
     return `personal:${punishment.id}`;
   }
 
-  return `base:${normalizeText(punishment.title)}:${punishment.categoryName}:${punishment.difficulty}`;
+  return `base:${getPunishmentSystemKey(punishment)}`;
 }
 
 export function getEligiblePunishments(goal: Goal, punishments: Punishment[]) {
@@ -224,7 +222,7 @@ export function getEligiblePunishments(goal: Goal, punishments: Punishment[]) {
 
       return true;
     })
-    .sort((left, right) => getPunishmentStableKey(left).localeCompare(getPunishmentStableKey(right), 'es'));
+    .sort((left, right) => getPunishmentStableKey(left).localeCompare(getPunishmentStableKey(right), getCurrentLanguage()));
 }
 
 export function selectDeterministicPunishment(punishments: Punishment[], seed: string) {

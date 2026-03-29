@@ -1,10 +1,13 @@
 import { useCallback, useMemo, useState } from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { radius, shadows, spacing } from '@/src/constants/theme';
+import { formatStepCounter } from '@/src/i18n/common';
+import { onboardingCopy, getOnboardingSteps } from '@/src/i18n/tutorial';
 import { appRoutes } from '@/src/navigation/app-routes';
 import { completeWelcomeOnboarding } from '@/src/services/welcome-onboarding';
 
@@ -18,31 +21,15 @@ type OnboardingScreenProps = {
   onComplete?: () => void | Promise<void>;
 };
 
-const steps: OnboardingStep[] = [
-  {
-    icon: 'target',
-    title: 'Cumple tus objetivos... o paga el precio',
-    description: 'Convierte tu disciplina en un reto con consecuencias reales.',
-  },
-  {
-    icon: 'calendar-check-outline',
-    title: 'Cada dia cuenta',
-    description: 'Haz check-in diario y manten visible si vas cumpliendo tu meta.',
-  },
-  {
-    icon: 'gavel',
-    title: 'Si fallas, ejecuta tu castigo',
-    description: 'Si no llegas al objetivo, asume las consecuencias. Tu decides el final.',
-  },
-];
-
 export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
+  useTranslation();
+  const steps = getOnboardingSteps() as readonly OnboardingStep[];
   const [stepIndex, setStepIndex] = useState(0);
   const step = steps[stepIndex];
   const isFirstStep = stepIndex === 0;
   const isLastStep = stepIndex === steps.length - 1;
 
-  const stepLabel = useMemo(() => `PASO ${stepIndex + 1} DE ${steps.length}`, [stepIndex]);
+  const stepLabel = useMemo(() => formatStepCounter(stepIndex + 1, steps.length).toUpperCase(), [stepIndex, steps.length]);
 
   const finishOnboarding = useCallback(async () => {
     await completeWelcomeOnboarding();
@@ -99,7 +86,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
     <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
       <View style={styles.screen}>
         <View style={styles.header}>
-          <Text style={styles.welcomeTitle}>Bienvenido</Text>
+          <Text style={styles.welcomeTitle}>{onboardingCopy.welcomeTitle}</Text>
         </View>
 
         <View {...panResponder.panHandlers} style={styles.card}>
@@ -136,7 +123,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
 
         <View style={styles.actions}>
           <Pressable onPress={goToNextStep} style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}>
-            <Text style={styles.primaryButtonLabel}>{isLastStep ? 'Empezar' : 'Siguiente'}</Text>
+            <Text style={styles.primaryButtonLabel}>{isLastStep ? onboardingCopy.buttons.finish : onboardingCopy.buttons.next}</Text>
           </Pressable>
 
           <Pressable
@@ -144,7 +131,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
               void finishOnboarding();
             }}
             style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}>
-            <Text style={styles.secondaryButtonLabel}>Saltar</Text>
+            <Text style={styles.secondaryButtonLabel}>{onboardingCopy.buttons.skip}</Text>
           </Pressable>
         </View>
       </View>

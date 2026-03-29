@@ -1,6 +1,7 @@
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { palette, radius, spacing } from '@/src/constants/theme';
+import { commonCopy } from '@/src/i18n/common';
 
 type Props = {
   visible: boolean;
@@ -33,14 +34,14 @@ export function GoalActionConfirmationModal({
       transparent
       visible={visible}>
       <View style={styles.overlay}>
-        <Pressable accessibilityLabel="Cerrar confirmacion" onPress={onCancel} style={styles.backdrop} />
+        <Pressable accessibilityLabel={commonCopy.actions.close} onPress={onCancel} style={styles.backdrop} />
         <View style={styles.card}>
           {eyebrow ? <Text style={[styles.eyebrow, isDanger ? styles.eyebrowDanger : null]}>{eyebrow}</Text> : null}
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.description}>{description}</Text>
           <View style={styles.actions}>
             <Pressable accessibilityRole="button" onPress={onCancel} style={styles.secondaryButton}>
-              <Text style={styles.secondaryLabel}>Cancelar</Text>
+              <Text style={styles.secondaryLabel}>{commonCopy.actions.cancel}</Text>
             </Pressable>
             <Pressable
               accessibilityRole="button"

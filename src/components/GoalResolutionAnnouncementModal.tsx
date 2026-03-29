@@ -1,6 +1,8 @@
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { palette, radius, shadows, spacing } from '@/src/constants/theme';
+import { commonCopy } from '@/src/i18n/common';
+import { goalsCopy } from '@/src/i18n/goals';
 import { GoalResolutionAnnouncement } from '@/src/models/types';
 type Props = {
   announcement: GoalResolutionAnnouncement | null;
@@ -12,12 +14,12 @@ type Props = {
 
 function getCopy(announcement: GoalResolutionAnnouncement) {
   if (announcement.passed) {
-      return {
-        accent: palette.success,
-        accentCard: '#ECFDF3',
-        accentBorder: '#C6F6D5',
-      summary: 'Objetivo finalizado - aprobado',
-      description: 'Has cumplido el minimo exigido para cerrar este ciclo.',
+    return {
+      accent: palette.success,
+      accentCard: '#ECFDF3',
+      accentBorder: '#C6F6D5',
+      summary: goalsCopy.detail.announcement.summaryPassed,
+      description: goalsCopy.detail.announcement.successDescription,
     };
   }
 
@@ -25,10 +27,10 @@ function getCopy(announcement: GoalResolutionAnnouncement) {
     accent: palette.danger,
     accentCard: '#FFF4F4',
     accentBorder: '#FFD5D5',
-    summary: 'Objetivo finalizado - fallido',
+    summary: goalsCopy.detail.announcement.summaryFailed,
     description: announcement.assignedPunishmentTitle
-      ? 'No has cumplido el objetivo y ahora debes cumplir con:'
-      : 'No has cumplido el objetivo. Esta vez no habia castigos elegibles para asignar.',
+      ? goalsCopy.detail.announcement.failedDescriptionWithPunishment
+      : goalsCopy.detail.announcement.failedDescriptionWithoutPunishment,
   };
 }
 
@@ -53,7 +55,7 @@ export function GoalResolutionAnnouncementModal({
       transparent
       visible={visible}>
       <View style={styles.overlay}>
-        <Pressable accessibilityLabel="Cerrar resolucion" onPress={onClose} style={styles.backdrop} />
+        <Pressable accessibilityLabel={goalsCopy.detail.announcement.closeAccessibility} onPress={onClose} style={styles.backdrop} />
 
         <View style={styles.card}>
           <View style={styles.header}>
@@ -73,13 +75,13 @@ export function GoalResolutionAnnouncementModal({
 
           <View style={styles.metricsRow}>
             <View style={styles.metricCard}>
-              <Text style={styles.metricLabel}>Resultado</Text>
+              <Text style={styles.metricLabel}>{goalsCopy.detail.announcement.metricResult}</Text>
               <Text style={[styles.metricValue, { color: copy.accent }]}>
                 {announcement.completedDays}/{announcement.requiredDays}
               </Text>
             </View>
             <View style={styles.metricCard}>
-              <Text style={styles.metricLabel}>Tasa</Text>
+              <Text style={styles.metricLabel}>{goalsCopy.detail.announcement.metricRate}</Text>
               <Text style={styles.metricValue}>{announcement.completionRate}%</Text>
             </View>
           </View>
@@ -89,7 +91,7 @@ export function GoalResolutionAnnouncementModal({
           {!announcement.passed ? (
             announcement.assignedPunishmentTitle ? (
               <View style={[styles.consequenceCard, { backgroundColor: copy.accentCard, borderColor: copy.accentBorder }]}>
-                <Text style={[styles.consequenceEyebrow, { color: copy.accent }]}>Consecuencia</Text>
+                <Text style={[styles.consequenceEyebrow, { color: copy.accent }]}>{goalsCopy.detail.announcement.consequence}</Text>
                 <Text style={styles.consequenceTitle}>{announcement.assignedPunishmentTitle}</Text>
                 {announcement.assignedPunishmentDescription ? (
                   <Text style={styles.consequenceDescription}>{announcement.assignedPunishmentDescription}</Text>
@@ -97,9 +99,9 @@ export function GoalResolutionAnnouncementModal({
               </View>
             ) : (
               <View style={[styles.consequenceCard, styles.consequenceCardMuted, { backgroundColor: copy.accentCard, borderColor: copy.accentBorder }]}>
-                <Text style={[styles.consequenceEyebrow, { color: copy.accent }]}>Consecuencia</Text>
+                <Text style={[styles.consequenceEyebrow, { color: copy.accent }]}>{goalsCopy.detail.announcement.consequence}</Text>
                 <Text style={styles.consequenceDescription}>
-                  El objetivo ha fallado, pero no se encontro un castigo elegible en el pool guardado.
+                  {goalsCopy.detail.announcement.noEligiblePunishment}
                 </Text>
               </View>
             )
@@ -107,7 +109,7 @@ export function GoalResolutionAnnouncementModal({
 
           <View style={styles.actions}>
             <Pressable accessibilityRole="button" onPress={onClose} style={styles.primaryButton}>
-              <Text style={styles.primaryButtonLabel}>Cerrar</Text>
+              <Text style={styles.primaryButtonLabel}>{commonCopy.actions.close}</Text>
             </Pressable>
           </View>
         </View>

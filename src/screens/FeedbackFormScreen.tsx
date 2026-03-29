@@ -2,17 +2,20 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { ScreenContainer } from '@/src/components/ScreenContainer';
 import { palette, radius, shadows, spacing } from '@/src/constants/theme';
+import { copy } from '@/src/i18n';
+import { commonCopy } from '@/src/i18n/common';
 import {
   canSubmitFeedback,
   createInitialFeedbackValues,
-  feedbackCategories,
-  feedbackCopy,
   FeedbackFormValues,
   FeedbackType,
+  getFeedbackCategories,
+  getFeedbackFormCopy,
   getFeedbackMetadata,
   validateFeedbackForm,
 } from '@/src/features/feedback/form';
@@ -39,7 +42,7 @@ function FieldLabel({
       <Text style={styles.label}>{label}</Text>
       <View style={[styles.labelBadge, tone === 'required' ? styles.requiredBadge : styles.optionalBadge]}>
         <Text style={[styles.labelBadgeText, tone === 'required' ? styles.requiredBadgeText : styles.optionalBadgeText]}>
-          {tone === 'required' ? 'Obligatorio' : 'Opcional'}
+          {tone === 'required' ? commonCopy.badges.required : commonCopy.badges.optional}
         </Text>
       </View>
     </View>
@@ -47,7 +50,9 @@ function FieldLabel({
 }
 
 export function FeedbackFormScreen({ type }: Props) {
-  const copy = feedbackCopy[type];
+  useTranslation();
+  const formCopy = getFeedbackFormCopy(type);
+  const feedbackCategories = getFeedbackCategories();
   const [values, setValues] = useState<FeedbackFormValues>(() => createInitialFeedbackValues());
   const [touched, setTouched] = useState<TouchedState>({});
   const [hasTriedSubmit, setHasTriedSubmit] = useState(false);
@@ -150,7 +155,7 @@ export function FeedbackFormScreen({ type }: Props) {
       setHasTriedSubmit(false);
       setIsSuccess(true);
     } catch (error) {
-      setSubmitError(getErrorMessage(error, 'No hemos podido enviar tu mensaje. Intentalo de nuevo.'));
+      setSubmitError(getErrorMessage(error, copy.feedback.common.submitError));
     } finally {
       setIsSubmitting(false);
     }
@@ -158,7 +163,7 @@ export function FeedbackFormScreen({ type }: Props) {
 
   if (isSuccess) {
     return (
-      <ScreenContainer fixedHeader resetScrollOnFocus subtitle={copy.screenDescription} title={copy.screenTitle}>
+      <ScreenContainer fixedHeader resetScrollOnFocus subtitle={formCopy.screenDescription} title={formCopy.screenTitle}>
         <View style={styles.successCard}>
           <View style={styles.successIconWrap}>
             <MaterialCommunityIcons
@@ -167,10 +172,10 @@ export function FeedbackFormScreen({ type }: Props) {
               size={34}
             />
           </View>
-          <Text style={styles.successTitle}>{copy.successTitle}</Text>
-          <Text style={styles.successText}>{copy.successMessage}</Text>
+          <Text style={styles.successTitle}>{formCopy.successTitle}</Text>
+          <Text style={styles.successText}>{formCopy.successMessage}</Text>
           <Pressable onPress={() => router.replace(appRoutes.settings)} style={styles.submitButton}>
-            <Text style={styles.submitButtonLabel}>Volver a ajustes</Text>
+            <Text style={styles.submitButtonLabel}>{copy.feedback.common.backToSettings}</Text>
           </Pressable>
         </View>
       </ScreenContainer>
@@ -178,17 +183,17 @@ export function FeedbackFormScreen({ type }: Props) {
   }
 
   return (
-    <ScreenContainer fixedHeader resetScrollOnFocus subtitle={copy.screenDescription} title={copy.screenTitle}>
+    <ScreenContainer fixedHeader resetScrollOnFocus subtitle={formCopy.screenDescription} title={formCopy.screenTitle}>
       <View style={styles.panel}>
         <View style={styles.field}>
-          <FieldLabel label={copy.subjectLabel} tone="required" />
+          <FieldLabel label={formCopy.subjectLabel} tone="required" />
           <TextInput
-            accessibilityLabel={copy.subjectLabel}
+            accessibilityLabel={formCopy.subjectLabel}
             autoCapitalize="sentences"
             editable={!isSubmitting}
             onBlur={() => markTouched('subject')}
             onChangeText={(value) => updateField('subject', value)}
-            placeholder={copy.subjectPlaceholder}
+            placeholder={formCopy.subjectPlaceholder}
             placeholderTextColor="#93A1B5"
             style={[styles.input, visibleErrors.subject ? styles.inputError : null]}
             value={values.subject}
@@ -197,15 +202,15 @@ export function FeedbackFormScreen({ type }: Props) {
         </View>
 
         <View style={styles.field}>
-          <FieldLabel label={copy.messageLabel} tone="required" />
+          <FieldLabel label={formCopy.messageLabel} tone="required" />
           <TextInput
-            accessibilityLabel={copy.messageLabel}
+            accessibilityLabel={formCopy.messageLabel}
             autoCapitalize="sentences"
             editable={!isSubmitting}
             multiline
             onBlur={() => markTouched('message')}
             onChangeText={(value) => updateField('message', value)}
-            placeholder={copy.messagePlaceholder}
+            placeholder={formCopy.messagePlaceholder}
             placeholderTextColor="#93A1B5"
             style={[styles.input, styles.textarea, visibleErrors.message ? styles.inputError : null]}
             textAlignVertical="top"
@@ -216,18 +221,18 @@ export function FeedbackFormScreen({ type }: Props) {
 
         {type === 'suggestion' ? (
           <View style={styles.field}>
-            <FieldLabel label="Categoria" tone="optional" />
+            <FieldLabel label={copy.feedback.common.categoryLabel} tone="optional" />
             <View style={styles.chips}>
               {feedbackCategories.map((category) => {
-                const isSelected = values.category === category;
+                const isSelected = values.category === category.id;
 
                 return (
                   <Pressable
-                    key={category}
+                    key={category.id}
                     disabled={isSubmitting}
-                    onPress={() => updateField('category', isSelected ? '' : category)}
+                    onPress={() => updateField('category', isSelected ? '' : category.id)}
                     style={[styles.chip, isSelected ? styles.chipSelected : null]}>
-                    <Text style={[styles.chipLabel, isSelected ? styles.chipLabelSelected : null]}>{category}</Text>
+                    <Text style={[styles.chipLabel, isSelected ? styles.chipLabelSelected : null]}>{category.label}</Text>
                   </Pressable>
                 );
               })}
@@ -238,14 +243,14 @@ export function FeedbackFormScreen({ type }: Props) {
         {type === 'bug_report' ? (
           <>
             <View style={styles.field}>
-              <FieldLabel label="Pantalla o seccion afectada" tone="optional" />
+              <FieldLabel label={copy.feedback.common.optionalAffectedSectionLabel} tone="optional" />
               <TextInput
-                accessibilityLabel={copy.affectedSectionLabel}
+                accessibilityLabel={formCopy.affectedSectionLabel}
                 autoCapitalize="sentences"
                 editable={!isSubmitting}
                 onBlur={() => markTouched('affectedSection')}
                 onChangeText={(value) => updateField('affectedSection', value)}
-                placeholder={copy.affectedSectionPlaceholder}
+                placeholder={formCopy.affectedSectionPlaceholder}
                 placeholderTextColor="#93A1B5"
                 style={styles.input}
                 value={values.affectedSection}
@@ -253,15 +258,15 @@ export function FeedbackFormScreen({ type }: Props) {
             </View>
 
             <View style={styles.field}>
-              <FieldLabel label="Pasos para reproducirlo" tone="optional" />
+              <FieldLabel label={copy.feedback.common.optionalReproductionStepsLabel} tone="optional" />
               <TextInput
-                accessibilityLabel="Pasos para reproducirlo"
+                accessibilityLabel={copy.feedback.common.optionalReproductionStepsLabel}
                 autoCapitalize="sentences"
                 editable={!isSubmitting}
                 multiline
                 onBlur={() => markTouched('reproductionSteps')}
                 onChangeText={(value) => updateField('reproductionSteps', value)}
-                placeholder={'1. Entro en...\n2. Pulso en...\n3. Ocurre...'}
+                placeholder={copy.feedback.common.reproductionStepsPlaceholder}
                 placeholderTextColor="#93A1B5"
                 style={[styles.input, styles.textarea, styles.reproductionTextarea]}
                 textAlignVertical="top"
@@ -272,9 +277,9 @@ export function FeedbackFormScreen({ type }: Props) {
         ) : null}
 
         <View style={styles.field}>
-          <FieldLabel label={copy.contactEmailLabel} tone="optional" />
+          <FieldLabel label={formCopy.contactEmailLabel} tone="optional" />
           <TextInput
-            accessibilityLabel={copy.contactEmailLabel}
+            accessibilityLabel={formCopy.contactEmailLabel}
             autoComplete="email"
             autoCapitalize="none"
             autoCorrect={false}
@@ -282,12 +287,12 @@ export function FeedbackFormScreen({ type }: Props) {
             keyboardType="email-address"
             onBlur={handleContactEmailBlur}
             onChangeText={(value) => updateField('contactEmail', value)}
-            placeholder={copy.contactEmailPlaceholder}
+            placeholder={formCopy.contactEmailPlaceholder}
             placeholderTextColor="#93A1B5"
             style={[styles.input, visibleErrors.contactEmail ? styles.inputError : null]}
             value={values.contactEmail}
           />
-          <Text style={styles.helperText}>{copy.contactEmailHelper}</Text>
+          <Text style={styles.helperText}>{formCopy.contactEmailHelper}</Text>
           {visibleErrors.contactEmail ? <Text style={styles.errorText}>{visibleErrors.contactEmail}</Text> : null}
         </View>
 
@@ -300,7 +305,7 @@ export function FeedbackFormScreen({ type }: Props) {
             void handleSubmit();
           }}
           style={[styles.submitButton, !isFormReady || isSubmitting ? styles.submitButtonDisabled : null]}>
-          <Text style={styles.submitButtonLabel}>{isSubmitting ? 'Enviando...' : copy.submitLabel}</Text>
+          <Text style={styles.submitButtonLabel}>{isSubmitting ? copy.feedback.common.submitting : formCopy.submitLabel}</Text>
         </Pressable>
       </View>
     </ScreenContainer>

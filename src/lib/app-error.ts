@@ -1,3 +1,5 @@
+import { errorCopy } from '@/src/i18n/errors';
+
 export type AppErrorKind = 'auth' | 'validation' | 'repository' | 'conflict' | 'unknown';
 
 export class AppError extends Error {
@@ -42,19 +44,19 @@ function normalizeAuthMessage(message: string) {
   const normalized = message.toLowerCase();
 
   if (normalized.includes('invalid login credentials')) {
-    return 'El email o la contrasena no son correctos.';
+    return errorCopy.auth.invalidCredentials;
   }
 
   if (normalized.includes('user already registered')) {
-    return 'Ya existe una cuenta con ese correo. Prueba a iniciar sesion.';
+    return errorCopy.auth.userAlreadyRegistered;
   }
 
   if (normalized.includes('email rate limit exceeded')) {
-    return 'Has hecho demasiados intentos seguidos. Espera un poco antes de volver a intentarlo.';
+    return errorCopy.auth.rateLimit;
   }
 
   if (normalized.includes('password should be at least')) {
-    return 'La contrasena es demasiado corta. Usa al menos 6 caracteres.';
+    return errorCopy.auth.passwordTooShort;
   }
 
   return message;
@@ -79,7 +81,7 @@ export function normalizeRepositoryError(error: unknown, options: RepositoryErro
 
     if (rawCode === '23505') {
       return new AppError({
-        message: 'Ya existe un registro con esos datos.',
+        message: errorCopy.repository.duplicateRecord,
         code: options.code,
         kind: 'conflict',
         cause: error,
@@ -88,7 +90,7 @@ export function normalizeRepositoryError(error: unknown, options: RepositoryErro
 
     if (rawCode === '23503') {
       return new AppError({
-        message: 'La relacion entre los datos no es valida.',
+        message: errorCopy.auth.relationInvalid,
         code: options.code,
         kind: 'validation',
         cause: error,
@@ -97,7 +99,7 @@ export function normalizeRepositoryError(error: unknown, options: RepositoryErro
 
     if (rawMessage?.toLowerCase().includes('authenticated user is required') || rawMessage?.toLowerCase().includes('no hay una sesion activa')) {
       return new AppError({
-        message: options.authMessage ?? 'Necesitas iniciar sesion para continuar.',
+        message: options.authMessage ?? errorCopy.auth.needSession,
         code: options.code,
         kind: 'auth',
         cause: error,
@@ -121,7 +123,7 @@ export function normalizeRepositoryError(error: unknown, options: RepositoryErro
   });
 }
 
-export function getErrorMessage(error: unknown, fallback = 'Ha ocurrido un error inesperado.') {
+export function getErrorMessage(error: unknown, fallback: string = errorCopy.fallback.unexpected): string {
   if (error instanceof AppError || error instanceof Error) {
     return error.message;
   }

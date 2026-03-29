@@ -1,0 +1,136 @@
+import { createNamespaceProxy, translate } from '@/src/i18n/runtime';
+
+export const settingsResources = {
+  es: {
+    account: {
+      active: 'Cuenta activa',
+      create: 'Crear cuenta',
+      helper: 'Crea una cuenta para guardar tu progreso y recuperarlo cuando quieras.',
+      linked: 'Progreso vinculado a {{email}}',
+      linkedEmailFallback: 'tu correo electronico',
+      login: 'Iniciar sesion',
+      logout: 'Cerrar sesion',
+      logoutBusy: 'Cerrando sesion...',
+      logoutError: 'No se pudo cerrar sesion',
+      retrySync: 'Reintentar sincronizacion',
+      saveProgress: 'Guardar tu progreso',
+      syncError: 'No pudimos completar la sincronizacion. Tus datos siguen en este dispositivo y volveremos a intentarlo.',
+      syncing: 'Estamos guardando tu progreso en tu cuenta...',
+      unknownError: 'Error desconocido',
+    },
+    deleteAccount: {
+      body: 'Se eliminara tu cuenta, tu perfil y tus datos sincronizados en la base de datos. Esta accion no se puede deshacer.',
+      button: 'Borrar cuenta',
+      buttonBusy: 'Borrando...',
+      confirmSection: 'Privacidad y cuenta',
+      title: 'Eliminar cuenta',
+    },
+    developer: {
+      helper: 'Utilidades para repetir la bienvenida y el tutorial durante pruebas y validaciones.',
+      onboardingResetAlertDescription: 'Se borrara la bienvenida guardada en este dispositivo y se abrira de nuevo.',
+      onboardingResetAlertTitle: 'Reiniciar bienvenida',
+      onboardingResetButton: 'Reiniciar bienvenida',
+      sectionTitle: 'Desarrollo',
+      tutorialResetAlertDescription: 'Se borrara el tutorial guiado guardado en este dispositivo y volvera a mostrarse despues de la bienvenida.',
+      tutorialResetAlertTitle: 'Reiniciar tutorial',
+      tutorialResetButton: 'Reiniciar tutorial',
+    },
+    feedback: {
+      bugReport: 'Reportar error',
+      helper: 'Comparte errores, sugerencias o ideas para mejorar la app.',
+      sectionTitle: 'Comentarios y ayuda',
+      suggestion: 'Enviar sugerencia',
+    },
+    language: {
+      changeError: 'No se pudo cambiar el idioma.',
+      english: 'English',
+      helper: 'Elige el idioma de la app. Se aplicara al momento y se recordara en proximos inicios.',
+      sectionTitle: 'Idioma',
+      spanish: 'Español',
+      syncing: 'Aplicando idioma...',
+    },
+    privacy: {
+      action: 'Ver politica de privacidad',
+      helperAuthenticated: 'Revisa la politica de privacidad o elimina tu cuenta.',
+      helperGuest: 'Revisa la politica de privacidad.',
+      sectionTitle: 'Privacidad y cuenta',
+    },
+    reminders: {
+      checkin: 'Recordatorio de check-in',
+      goalResolution: 'Recordatorio de objetivo finalizado',
+      pendingPunishment: 'Recordatorio de castigo pendiente',
+      sectionTitle: 'Recordatorios',
+      selectLabel: 'Selecciona',
+    },
+    screenTitle: 'Ajustes',
+  },
+  en: {
+    account: {
+      active: 'Active account',
+      create: 'Create account',
+      helper: 'Create an account to save your progress and recover it whenever you want.',
+      linked: 'Progress linked to {{email}}',
+      linkedEmailFallback: 'your email',
+      login: 'Sign in',
+      logout: 'Sign out',
+      logoutBusy: 'Signing out...',
+      logoutError: 'Could not sign out',
+      retrySync: 'Retry sync',
+      saveProgress: 'Save your progress',
+      syncError: 'We could not finish syncing. Your data is still on this device and we will try again.',
+      syncing: 'We are saving your progress to your account...',
+      unknownError: 'Unknown error',
+    },
+    deleteAccount: {
+      body: 'Your account, profile, and synced database data will be deleted. This action cannot be undone.',
+      button: 'Delete account',
+      buttonBusy: 'Deleting...',
+      confirmSection: 'Privacy and account',
+      title: 'Delete account',
+    },
+    developer: {
+      helper: 'Utilities to replay the welcome flow and tutorial during testing and validation.',
+      onboardingResetAlertDescription: 'The welcome flow saved on this device will be cleared and shown again.',
+      onboardingResetAlertTitle: 'Reset welcome flow',
+      onboardingResetButton: 'Reset welcome flow',
+      sectionTitle: 'Development',
+      tutorialResetAlertDescription: 'The guided tutorial saved on this device will be cleared and shown again after the welcome flow.',
+      tutorialResetAlertTitle: 'Reset tutorial',
+      tutorialResetButton: 'Reset tutorial',
+    },
+    feedback: {
+      bugReport: 'Report a bug',
+      helper: 'Share bugs, suggestions, or ideas to improve the app.',
+      sectionTitle: 'Feedback and help',
+      suggestion: 'Send suggestion',
+    },
+    language: {
+      changeError: 'Could not change the language.',
+      english: 'English',
+      helper: 'Choose the app language. It applies immediately and will be remembered on the next launch.',
+      sectionTitle: 'Language',
+      spanish: 'Español',
+      syncing: 'Applying language...',
+    },
+    privacy: {
+      action: 'View privacy policy',
+      helperAuthenticated: 'Review the privacy policy or delete your account.',
+      helperGuest: 'Review the privacy policy.',
+      sectionTitle: 'Privacy and account',
+    },
+    reminders: {
+      checkin: 'Check-in reminder',
+      goalResolution: 'Finished goal reminder',
+      pendingPunishment: 'Pending punishment reminder',
+      sectionTitle: 'Reminders',
+      selectLabel: 'Select',
+    },
+    screenTitle: 'Settings',
+  },
+} as const;
+
+export const settingsCopy = createNamespaceProxy('settings', settingsResources.es);
+
+export function getLinkedAccountCopy(email: string) {
+  return translate('settings:account.linked', { email });
+}

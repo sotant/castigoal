@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 
+import { getGoalClosesInCopy, getGoalStartsWhenCopy, getGoalTodayStatusCopy } from '@/src/i18n/goals';
 import { GoalEvaluation } from '@/src/models/types';
 import { getGoalRequiredDays, isGoalClosed } from '@/src/utils/goal-evaluation';
 import { useAppStore } from '@/src/store/app-store';
@@ -40,14 +41,8 @@ export function useGoalListItemData(goalId: string) {
 
     const deadlineLabel =
       summary.daysUntilStart > 0
-        ? summary.daysUntilStart === 1
-          ? 'Empieza manana'
-          : `Empieza en ${summary.daysUntilStart} dias`
-        : summary.remainingDays > 0
-          ? summary.remainingDays === 1
-            ? 'Acaba en 1 dia'
-            : `Acaba en ${summary.remainingDays} dias`
-          : 'Plazo finalizado';
+        ? getGoalStartsWhenCopy(summary.daysUntilStart)
+        : getGoalClosesInCopy(summary.remainingDays);
 
     return {
       bestStreak: summary.bestStreak,
@@ -57,17 +52,11 @@ export function useGoalListItemData(goalId: string) {
       deleteGoal,
       evaluation: evaluation ?? buildFallbackEvaluation(goal.id, getGoalRequiredDays(goal)),
       goal,
-      todayLabel: !isGoalClosed(goal)
-        ? summary.todayStatus === 'completed'
-          ? 'Hoy: hecho'
-          : summary.todayStatus === 'missed'
-            ? 'Hoy: fallado'
-            : 'Hoy: pendiente'
-        : summary.resolutionStatus === 'passed'
-          ? 'Objetivo aprobado'
-          : summary.resolutionStatus === 'failed'
-            ? 'Objetivo fallido'
-            : 'Objetivo cerrado',
+      todayLabel: getGoalTodayStatusCopy({
+        lifecycleStatus: isGoalClosed(goal) ? 'closed' : 'active',
+        resolutionStatus: summary.resolutionStatus,
+        todayStatus: summary.todayStatus,
+      }),
       todayStatus: summary.todayStatus,
     };
   }, [deleteGoal, evaluation, goal, summary]);
