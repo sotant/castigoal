@@ -106,6 +106,7 @@ const CATEGORY_METADATA = {
 
 const DEFAULT_PUNISHMENT_CREATED_AT = '2026-01-01T00:00:00.000Z';
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const COMBINING_MARKS_REGEX = /[\u0300-\u036f]/g;
 
 export const PUNISHMENT_CATEGORY_OPTIONS: PunishmentCategoryOption[] = (
   Object.entries(CATEGORY_METADATA) as [PunishmentCategoryName, (typeof CATEGORY_METADATA)[PunishmentCategoryName]][]
@@ -485,3 +486,35 @@ export const defaultPunishments: Punishment[] = [
     createdAt: DEFAULT_PUNISHMENT_CREATED_AT,
   },
 ];
+
+export function normalizePunishmentTextForComparison(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(COMBINING_MARKS_REGEX, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLocaleLowerCase('es');
+}
+
+export function getBasePunishmentCanonicalKey(
+  title: string,
+  categoryName: PunishmentCategoryName,
+  difficulty: Punishment['difficulty'],
+) {
+  return `${normalizePunishmentTextForComparison(title)}:${categoryName}:${difficulty}`;
+}
+
+const canonicalBasePunishmentsByKey = new Map(
+  defaultPunishments.map((punishment) => [
+    getBasePunishmentCanonicalKey(punishment.title, punishment.categoryName, punishment.difficulty),
+    punishment,
+  ]),
+);
+
+export function findCanonicalBasePunishment(
+  title: string,
+  categoryName: PunishmentCategoryName,
+  difficulty: Punishment['difficulty'],
+) {
+  return canonicalBasePunishmentsByKey.get(getBasePunishmentCanonicalKey(title, categoryName, difficulty));
+}

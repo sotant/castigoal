@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Politica de privacidad | Castigoal</title>
+    <style>
+      :root {
+        --bg: #f5f0e7;
+        --surface: #fffaf4;
+        --ink: #1f2933;
+        --muted: #5d6b75;
+        --accent: #0f766e;
+        --line: #ddd3c6;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: Georgia, "Times New Roman", serif;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at top right, #e8dcc9 0, transparent 30%),
+          linear-gradient(180deg, #fbf6ef 0%, var(--bg) 100%);
+      }
+
+      main {
+        max-width: 860px;
+        margin: 0 auto;
+        padding: 42px 20px 72px;
+      }
+
+      .sheet {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 28px;
+        padding: 28px;
+        box-shadow: 0 18px 48px rgba(31, 41, 51, 0.08);
+      }
+
+      .eyebrow {
+        color: var(--accent);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 8px 0 12px;
+        font-size: clamp(30px, 6vw, 52px);
+        line-height: 1.05;
+      }
+
+      h2 {
+        margin: 28px 0 10px;
+        font-size: 24px;
+      }
+
+      p,
+      li {
+        color: var(--muted);
+        font-size: 18px;
+        line-height: 1.72;
+      }
+
+      ul {
+        padding-left: 22px;
+      }
+
+      a {
+        color: var(--accent);
+      }
+
+      .top-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        margin-bottom: 18px;
+      }
+
+      .top-links a {
+        text-decoration: none;
+        font-weight: 700;
+      }
+
+      .meta {
+        margin: 0 0 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="sheet">
+        <div class="top-links">
+          <a href="/">Inicio</a>
+          <a href="/delete-account/">Borrado de cuenta</a>
+        </div>
+
+        <div class="eyebrow">Castigoal</div>
+        <h1>Politica de privacidad</h1>
+        <p class="meta">Vigente desde el 29 de marzo de 2026.</p>
+
+        <h2>Responsable</h2>
+        <p>Daniel Soto Oc&oacute;n es el responsable del tratamiento descrito en esta politica para la app Castigoal.</p>
+        <p>
+          Para cualquier consulta relacionada con privacidad o soporte, puedes escribir a
+          <a href="mailto:sotodani11.dev@gmail.com">sotodani11.dev@gmail.com</a>.
+        </p>
+
+        <h2>Alcance</h2>
+        <p>Esta politica explica como Castigoal trata los datos cuando usas la app en modo invitado o con una cuenta registrada.</p>
+
+        <h2>Datos que tratamos</h2>
+        <p>Segun como uses la app, Castigoal puede tratar:</p>
+        <ul>
+          <li>Datos de cuenta: correo electronico de acceso y nombre visible del perfil.</li>
+          <li>
+            Datos de uso creados por ti: objetivos, descripciones, check-ins, resultados de periodos, castigos
+            personalizados, castigos asignados e historial relacionado.
+          </li>
+          <li>Ajustes de la app: preferencias de recordatorios y otras configuraciones vinculadas a tu experiencia.</li>
+          <li>
+            Datos almacenados en el dispositivo: sesion de acceso cuando inicias sesion, identificadores tecnicos locales
+            para distinguir este dispositivo y el modo invitado, estado del onboarding, estado del tutorial y registros
+            locales necesarios para que la app funcione sin perder progreso.
+          </li>
+          <li>
+            Datos de soporte voluntarios: si envias una sugerencia o un reporte, podemos guardar el correo electronico de
+            contacto que introduzcas, el asunto, el mensaje, la categoria, la seccion afectada, los pasos de reproduccion y
+            metadatos tecnicos basicos como plataforma, idioma configurado y version de la app.
+          </li>
+          <li>Datos de recordatorios locales: identificadores internos de notificaciones programadas y la hora elegida para mostrarlas en tu dispositivo.</li>
+        </ul>
+        <p>Castigoal no solicita datos como ubicacion, contactos, microfono o camara para su funcionamiento actual.</p>
+
+        <h2>Para que usamos los datos</h2>
+        <ul>
+          <li>Crear y autenticar tu cuenta.</li>
+          <li>Guardar tu progreso y sincronizarlo entre dispositivo y backend cuando utilizas una cuenta.</li>
+          <li>Permitir el uso de la app en modo invitado y migrar ese progreso a una cuenta si despues te registras.</li>
+          <li>Calcular estadisticas, evaluaciones y castigos asociados a tus objetivos.</li>
+          <li>Guardar tus preferencias de recordatorios y programar avisos locales en el dispositivo.</li>
+          <li>Atender sugerencias, incidencias o peticiones de ayuda que envies desde la app.</li>
+          <li>Borrar, resetear o desvincular datos cuando lo solicites desde las opciones disponibles.</li>
+        </ul>
+
+        <h2>Donde se almacenan</h2>
+        <p>La autenticacion y la base de datos remota se gestionan con Supabase.</p>
+        <p>Ademas, Castigoal guarda cierta informacion en el propio dispositivo para funcionar correctamente:</p>
+        <ul>
+          <li>La sesion autenticada se almacena con Secure Store cuando el sistema lo permite.</li>
+          <li>Parte del estado local y del modo invitado se almacena con AsyncStorage.</li>
+          <li>Las notificaciones que configuras se programan localmente en el dispositivo.</li>
+        </ul>
+
+        <h2>Comparticion de datos</h2>
+        <p>Castigoal no vende datos personales ni los comparte con redes publicitarias.</p>
+        <p>
+          Los datos solo se comparten con proveedores tecnicos necesarios para prestar el servicio, como Supabase para
+          autenticacion, base de datos y funciones asociadas a la cuenta.
+        </p>
+
+        <h2>Conservacion</h2>
+        <p>Los datos asociados a una cuenta se conservan mientras la cuenta permanezca activa o hasta que solicites su eliminacion.</p>
+        <p>
+          Los datos guardados solo en el dispositivo pueden permanecer hasta que cierres sesion, elimines datos locales,
+          desinstales la app o migres tu progreso a una cuenta.
+        </p>
+        <p>Los mensajes de soporte o feedback pueden conservarse durante el tiempo necesario para revisar la incidencia, responderte o mejorar la app.</p>
+        <p>
+          Si en algun caso hubiera una obligacion legal de conservar determinada informacion durante mas tiempo, esa
+          conservacion se limitara a lo estrictamente necesario.
+        </p>
+
+        <h2>Tus controles</h2>
+        <ul>
+          <li>Revisar y actualizar tus datos de uso.</li>
+          <li>Gestionar tus recordatorios.</li>
+          <li>Cerrar sesion.</li>
+          <li>Borrar tu cuenta completa desde Ajustes.</li>
+        </ul>
+        <p>Cuando eliminas tu cuenta desde la app, se solicita el borrado de tu usuario en Supabase y de los datos asociados a esa cuenta.</p>
+
+        <h2>Seguridad</h2>
+        <p>
+          Castigoal aplica medidas tecnicas razonables para reducir accesos no autorizados, incluyendo almacenamiento seguro
+          de sesion cuando el dispositivo lo permite y uso de proveedores tecnicos para la autenticacion y la base de datos.
+        </p>
+
+        <h2>Contacto</h2>
+        <p>
+          Si necesitas ayuda o quieres realizar una consulta sobre privacidad, puedes escribir a
+          <a href="mailto:sotodani11.dev@gmail.com">sotodani11.dev@gmail.com</a>.
+        </p>
+      </div>
+    </main>
+  </body>
+</html>

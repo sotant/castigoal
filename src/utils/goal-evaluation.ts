@@ -7,6 +7,7 @@ import {
   GoalPunishmentConfig,
   Punishment,
 } from '@/src/models/types';
+import { normalizePunishmentTextForComparison } from '@/src/constants/punishments';
 import { addDays, diffInDays, enumerateDates, startOfToday, toISODate } from '@/src/utils/date';
 
 export const DEFAULT_GOAL_PUNISHMENT_CONFIG: GoalPunishmentConfig = {
@@ -20,7 +21,7 @@ function clampPositiveInt(value: number) {
 }
 
 function normalizeText(value: string) {
-  return value.trim().toLocaleLowerCase('es');
+  return normalizePunishmentTextForComparison(value);
 }
 
 function hashSeed(seed: string) {
@@ -204,12 +205,40 @@ function getPunishmentStableKey(punishment: Punishment) {
   return `base:${normalizeText(punishment.title)}:${punishment.categoryName}:${punishment.difficulty}`;
 }
 
+function shouldPreferPunishment(candidate: Punishment, current: Punishment) {
+  if (candidate.scope === 'base' && current.scope === 'base') {
+    const candidateIsRemote = !candidate.id.startsWith('punish-');
+    const currentIsRemote = !current.id.startsWith('punish-');
+
+    if (candidateIsRemote !== currentIsRemote) {
+      return candidateIsRemote;
+    }
+  }
+
+  return candidate.createdAt.localeCompare(current.createdAt) > 0;
+}
+
+export function dedupePunishments(punishments: Punishment[]) {
+  const byKey = new Map<string, Punishment>();
+
+  for (const punishment of punishments) {
+    const key = getPunishmentStableKey(punishment);
+    const current = byKey.get(key);
+
+    if (!current || shouldPreferPunishment(punishment, current)) {
+      byKey.set(key, punishment);
+    }
+  }
+
+  return Array.from(byKey.values());
+}
+
 export function getEligiblePunishments(goal: Goal, punishments: Punishment[]) {
   const config = normalizeGoalPunishmentConfig(goal.punishmentConfig);
   const allowedCategories = new Set(config.categoryNames);
 
-  return punishments
-    .filter((punishment) => {
+  return dedupePunishments(
+    punishments.filter((punishment) => {
       if (config.scope === 'base' && punishment.scope !== 'base') {
         return false;
       }
@@ -223,7 +252,8 @@ export function getEligiblePunishments(goal: Goal, punishments: Punishment[]) {
       }
 
       return true;
-    })
+    }),
+  )
     .sort((left, right) => getPunishmentStableKey(left).localeCompare(getPunishmentStableKey(right), 'es'));
 }
 

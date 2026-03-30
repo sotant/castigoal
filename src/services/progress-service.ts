@@ -2,6 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import {
   defaultPunishments,
+  findCanonicalBasePunishment,
+  getBasePunishmentCanonicalKey,
   getPunishmentCategoryName,
   isPunishmentCategoryName,
   normalizePunishmentCategoryId,
@@ -447,6 +449,10 @@ async function loadContainer(mode: SessionMode, actorId: string) {
     }
   }
 
+  if (reconcileBasePunishmentCatalog(mutableContainer)) {
+    changed = true;
+  }
+
   if (reconcileBrokenPunishmentReferences(mutableContainer)) {
     changed = true;
   }
@@ -472,6 +478,13 @@ function createSyncRecord<T>(data: T, state: EntitySyncState, sourceGuestId?: st
       sourceGuestId,
       state,
     },
+  };
+}
+
+function preserveRecord<T>(record: SyncRecord<T>, nextData: T): SyncRecord<T> {
+  return {
+    data: nextData,
+    meta: record.meta,
   };
 }
 
@@ -515,9 +528,10 @@ function reconcileBrokenPunishmentReferences(container: LocalContainer) {
   }
 
   for (const [historyId, record] of Object.entries(container.records.punishmentHistory)) {
-    const shouldClearAssignedId =
-      Boolean(record.data.assignedPunishmentId) && !remainingAssignedIds.has(record.data.assignedPunishmentId);
-    const shouldClearPunishmentId = Boolean(record.data.punishmentId) && !punishmentIds.has(record.data.punishmentId);
+    const assignedPunishmentId = record.data.assignedPunishmentId;
+    const punishmentId = record.data.punishmentId;
+    const shouldClearAssignedId = assignedPunishmentId ? !remainingAssignedIds.has(assignedPunishmentId) : false;
+    const shouldClearPunishmentId = punishmentId ? !punishmentIds.has(punishmentId) : false;
 
     if (!shouldClearAssignedId && !shouldClearPunishmentId) {
       continue;
@@ -525,9 +539,130 @@ function reconcileBrokenPunishmentReferences(container: LocalContainer) {
 
     container.records.punishmentHistory[historyId] = touchRecord(record, {
       ...record.data,
-      assignedPunishmentId: shouldClearAssignedId ? undefined : record.data.assignedPunishmentId,
-      punishmentId: shouldClearPunishmentId ? undefined : record.data.punishmentId,
+      assignedPunishmentId: shouldClearAssignedId ? undefined : assignedPunishmentId,
+      punishmentId: shouldClearPunishmentId ? undefined : punishmentId,
     });
+    changed = true;
+  }
+
+  return changed;
+}
+
+function rewriteBasePunishmentReferences(container: LocalContainer, previousPunishmentId: string, nextPunishment: Punishment) {
+  let changed = false;
+  const guestSourceId = container.actorType === 'guest' ? container.guestId : undefined;
+
+  for (const [assignedId, record] of Object.entries(container.records.assignedPunishments)) {
+    if (record.data.punishmentId !== previousPunishmentId) {
+      continue;
+    }
+
+    container.records.assignedPunishments[assignedId] = touchRecord(
+      record,
+      {
+        ...record.data,
+        punishmentId: nextPunishment.id,
+      },
+      guestSourceId,
+    );
+    changed = true;
+  }
+
+  for (const [historyId, record] of Object.entries(container.records.punishmentHistory)) {
+    if (record.data.punishmentId !== previousPunishmentId) {
+      continue;
+    }
+
+    container.records.punishmentHistory[historyId] = touchRecord(
+      record,
+      {
+        ...record.data,
+        punishmentDescription: nextPunishment.description,
+        punishmentId: nextPunishment.id,
+        punishmentTitle: nextPunishment.title,
+      },
+      guestSourceId,
+    );
+    changed = true;
+  }
+
+  return changed;
+}
+
+function reconcileBasePunishmentCatalog(container: LocalContainer) {
+  let changed = false;
+  const remoteBasePunishmentsByKey = new Map<string, Punishment>();
+
+  for (const [punishmentId, record] of Object.entries(container.records.punishments)) {
+    const punishment = record.data;
+
+    if (punishment.scope !== 'base') {
+      continue;
+    }
+
+    const canonicalPunishment = findCanonicalBasePunishment(
+      punishment.title,
+      punishment.categoryName,
+      punishment.difficulty,
+    );
+
+    if (canonicalPunishment) {
+      const nextPunishment: Punishment = {
+        ...punishment,
+        categoryId: canonicalPunishment.categoryId,
+        categoryName: canonicalPunishment.categoryName,
+        description: canonicalPunishment.description,
+        difficulty: canonicalPunishment.difficulty,
+        title: canonicalPunishment.title,
+      };
+
+      if (
+        punishment.title !== nextPunishment.title ||
+        punishment.description !== nextPunishment.description ||
+        punishment.categoryId !== nextPunishment.categoryId ||
+        punishment.categoryName !== nextPunishment.categoryName
+      ) {
+        container.records.punishments[punishmentId] = preserveRecord(record, nextPunishment);
+        changed = true;
+      }
+    }
+
+    const currentPunishment = container.records.punishments[punishmentId]?.data;
+
+    if (!currentPunishment || punishmentId.startsWith('punish-')) {
+      continue;
+    }
+
+    remoteBasePunishmentsByKey.set(
+      getBasePunishmentCanonicalKey(
+        currentPunishment.title,
+        currentPunishment.categoryName,
+        currentPunishment.difficulty,
+      ),
+      currentPunishment,
+    );
+  }
+
+  for (const [punishmentId, record] of Object.entries(container.records.punishments)) {
+    const punishment = record.data;
+
+    if (punishment.scope !== 'base' || !punishmentId.startsWith('punish-')) {
+      continue;
+    }
+
+    const remoteBasePunishment = remoteBasePunishmentsByKey.get(
+      getBasePunishmentCanonicalKey(punishment.title, punishment.categoryName, punishment.difficulty),
+    );
+
+    if (!remoteBasePunishment || remoteBasePunishment.id === punishmentId) {
+      continue;
+    }
+
+    if (rewriteBasePunishmentReferences(container, punishmentId, remoteBasePunishment)) {
+      changed = true;
+    }
+
+    delete container.records.punishments[punishmentId];
     changed = true;
   }
 
@@ -1434,11 +1569,20 @@ async function resolveAssignedPunishmentWritePunishmentId(container: LocalContai
     return linkedPunishment.id;
   }
 
+  const canonicalBasePunishment = findCanonicalBasePunishment(
+    linkedPunishment.title,
+    linkedPunishment.categoryName,
+    linkedPunishment.difficulty,
+  );
+  const remoteTitle = canonicalBasePunishment?.title ?? linkedPunishment.title;
+  const remoteDifficulty = canonicalBasePunishment?.difficulty ?? linkedPunishment.difficulty;
+
   const { data, error } = await supabase
     .from('punishments')
     .select('id')
     .is('owner_id', null)
-    .eq('title', linkedPunishment.title)
+    .eq('title', remoteTitle)
+    .eq('difficulty', remoteDifficulty)
     .maybeSingle();
 
   if (error) {
@@ -1901,6 +2045,7 @@ async function syncAuthenticatedContainer(container: LocalContainer) {
     await pushPendingRecords(container);
     const remote = await fetchRemoteSnapshot(container.actorId);
     mergeRemoteSnapshot(container, remote);
+    reconcileBasePunishmentCatalog(container);
     container.sync.errorMessage = undefined;
     container.sync.lastSuccessAt = nowIso();
     container.sync.migrationPending = false;

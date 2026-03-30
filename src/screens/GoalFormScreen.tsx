@@ -19,7 +19,7 @@ import { usePunishmentCatalog } from '@/src/features/punishments/selectors';
 import { Goal, GoalPunishmentCategoryMode, GoalPunishmentConfig, GoalPunishmentScope, PunishmentCategoryName } from '@/src/models/types';
 import { appRoutes } from '@/src/navigation/app-routes';
 import { useAppStore } from '@/src/store/app-store';
-import { addDays, diffInDays, formatCompactDate, formatShortDate, startOfToday } from '@/src/utils/date';
+import { addDays, diffInDays, formatCompactDate, formatShortDate, formatShortDateWithPreposition, startOfToday } from '@/src/utils/date';
 
 type Props = {
   mode: 'create' | 'edit';
@@ -241,7 +241,10 @@ export function GoalFormScreen({ mode, goal }: Props) {
   const canEditStartDate = mode === 'create' || !hasGoalStarted;
 
   const progressWidth = `${(step / 4) * 100}%` as DimensionValue;
-  const durationSummary = useMemo(() => `Del ${formatShortDate(draft.startDate)} al ${formatShortDate(draft.endDate)}`, [draft.endDate, draft.startDate]);
+  const durationSummary = useMemo(
+    () => `Del ${formatShortDateWithPreposition(draft.startDate)} al ${formatShortDate(draft.endDate)}`,
+    [draft.endDate, draft.startDate],
+  );
   const minimumSummary = useMemo(
     () => `Debes cumplir ${requiredDays} de ${durationDays} ${durationDays === 1 ? 'día' : 'días'}`,
     [durationDays, requiredDays],
