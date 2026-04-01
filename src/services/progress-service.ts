@@ -1358,6 +1358,48 @@ type RemoteSnapshot = {
   settings: SyncRecord<UserSettings> | null;
 };
 
+function pruneRecordsMissingFromRemote<T>(
+  localRecords: Record<string, SyncRecord<T>>,
+  remoteRecords: Record<string, SyncRecord<T>>,
+  shouldRemove?: (record: SyncRecord<T>) => boolean,
+) {
+  const remoteIds = new Set(Object.keys(remoteRecords));
+  let changed = false;
+
+  for (const [id, record] of Object.entries(localRecords)) {
+    if (record.meta.state === 'pending_upsert' || remoteIds.has(id)) {
+      continue;
+    }
+
+    if (shouldRemove && !shouldRemove(record)) {
+      continue;
+    }
+
+    delete localRecords[id];
+    changed = true;
+  }
+
+  return changed;
+}
+
+function pruneMissingRemoteSnapshotRecords(container: LocalContainer, remote: RemoteSnapshot) {
+  let changed = false;
+
+  changed = pruneRecordsMissingFromRemote(container.records.goals, remote.goals) || changed;
+  changed = pruneRecordsMissingFromRemote(container.records.checkins, remote.checkins) || changed;
+  changed = pruneRecordsMissingFromRemote(container.records.assignedPunishments, remote.assignedPunishments) || changed;
+  changed = pruneRecordsMissingFromRemote(container.records.goalOutcomes, remote.goalOutcomes) || changed;
+  changed = pruneRecordsMissingFromRemote(container.records.punishmentHistory, remote.punishmentHistory) || changed;
+  changed =
+    pruneRecordsMissingFromRemote(
+      container.records.punishments,
+      remote.punishments,
+      (record) => record.data.scope === 'personal',
+    ) || changed;
+
+  return changed;
+}
+
 function mapGoalRow(
   row: Tables<'goals'>,
   categoryNameById: Record<string, Punishment['categoryName']>,
@@ -2044,8 +2086,10 @@ async function syncAuthenticatedContainer(container: LocalContainer) {
     await deleteRemoteRecords(container);
     await pushPendingRecords(container);
     const remote = await fetchRemoteSnapshot(container.actorId);
+    pruneMissingRemoteSnapshotRecords(container, remote);
     mergeRemoteSnapshot(container, remote);
     reconcileBasePunishmentCatalog(container);
+    reconcileBrokenPunishmentReferences(container);
     container.sync.errorMessage = undefined;
     container.sync.lastSuccessAt = nowIso();
     container.sync.migrationPending = false;

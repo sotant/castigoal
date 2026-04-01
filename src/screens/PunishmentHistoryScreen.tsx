@@ -145,6 +145,7 @@ function CompletedHistoryCard({
 export function PunishmentHistoryScreen() {
   const pathname = usePathname();
   const params = useLocalSearchParams<{ tab?: PrimaryTabKey }>();
+  const initializeApp = useAppStore((state) => state.initializeApp);
   const { personalPunishments, basePunishments, deleteCustomPunishment, punishmentsLoaded, refreshPunishmentCatalog } =
     usePunishmentCatalog();
   const completedPunishmentHistory = useAppStore((state) => state.completedPunishmentHistory);
@@ -152,6 +153,7 @@ export function PunishmentHistoryScreen() {
   const pendingPunishments = useAppStore((state) => state.pendingPunishments);
   const punishmentHistoryLoaded = useAppStore((state) => state.punishmentHistoryLoaded);
   const refreshPunishmentHistory = useAppStore((state) => state.refreshPunishmentHistory);
+  const sessionMode = useAppStore((state) => state.sessionState.mode);
   const tabBarHeight = useBottomTabBarHeight();
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
@@ -293,10 +295,14 @@ export function PunishmentHistoryScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      if (sessionMode === 'authenticated') {
+        void initializeApp().catch(() => undefined);
+      }
+
       requestAnimationFrame(() => {
         scrollRef.current?.scrollTo({ x: 0, y: 0, animated: false });
       });
-    }, []),
+    }, [initializeApp, sessionMode]),
   );
 
   useEffect(() => {
