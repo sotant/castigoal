@@ -37,20 +37,6 @@ export function StatsScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const insets = useSafeAreaInsets();
 
-  useFocusEffect(
-    useCallback(() => {
-      requestAnimationFrame(() => {
-        scrollRef.current?.scrollTo({ x: 0, y: 0, animated: false });
-      });
-
-      void refreshStatsSummary();
-
-      if (selectedGoal) {
-        void loadStatsCalendar(selectedGoal.id, monthStart);
-      }
-    }, [loadStatsCalendar, monthStart, refreshStatsSummary, selectedGoal]),
-  );
-
   useEffect(() => {
     if (!statsLoaded) {
       void refreshStatsSummary();
@@ -133,6 +119,20 @@ export function StatsScreen() {
       },
     ],
     [completedGoalsCount, failedGoalsCount, goals.length, statsSummary],
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      requestAnimationFrame(() => {
+        scrollRef.current?.scrollTo({ x: 0, y: 0, animated: false });
+      });
+
+      void refreshStatsSummary();
+
+      if (selectedGoal) {
+        void loadStatsCalendar(selectedGoal.id, monthStart);
+      }
+    }, [loadStatsCalendar, monthStart, refreshStatsSummary, selectedGoal]),
   );
 
   useEffect(() => {
