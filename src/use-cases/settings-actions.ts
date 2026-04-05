@@ -28,12 +28,11 @@ export async function updateSettingsUseCase(current: UserSettings, input: Partia
 export async function syncPersistedReminderSettingsUseCase(settings: UserSettings, goals: Goal[]) {
   const permissionsGranted = await getNotificationPermissionsGranted();
 
-  await Promise.all([
-    syncReminderSchedule(settings, permissionsGranted),
-    syncGoalResolutionSchedules(goals, settings, permissionsGranted),
-  ]);
+  await syncReminderSchedule(settings, permissionsGranted);
+  await syncGoalResolutionSchedules(goals, settings, permissionsGranted);
 }
 
 export async function clearReminderScheduleUseCase() {
-  await Promise.all([clearReminderSchedule(), clearGoalResolutionSchedules()]);
+  await clearReminderSchedule();
+  await clearGoalResolutionSchedules();
 }

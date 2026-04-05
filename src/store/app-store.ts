@@ -185,27 +185,42 @@ function mergeGoalResolutionAnnouncements(
   return Array.from(byOutcomeId.values()).sort((left, right) => right.evaluatedAt.localeCompare(left.evaluatedAt));
 }
 
-export const useAppStore = create<AppState>()((set, get) => ({
-  ...initialState,
-  setHydrated: (hydrated) => set({ hydrated }),
-  clearRemoteState: () =>
-    set({
-      ...initialState,
-      hydrated: true,
-    }),
-  initializeApp: async () => {
-    set({ hydrated: false });
+export const useAppStore = create<AppState>()((set, get) => {
+  let initializeAppPromise: Promise<void> | null = null;
 
-    const snapshot = await bootstrapAppSession();
-    const goalResolutionAnnouncements = await loadGoalResolutionAnnouncements();
+  return {
+    ...initialState,
+    setHydrated: (hydrated) => set({ hydrated }),
+    clearRemoteState: () =>
+      set({
+        ...initialState,
+        hydrated: true,
+      }),
+    initializeApp: async () => {
+      if (initializeAppPromise) {
+        return initializeAppPromise;
+      }
 
-    set({
-      ...initialState,
-      ...snapshot,
-      goalResolutionAnnouncements,
-      hydrated: true,
-    });
-  },
+      initializeAppPromise = (async () => {
+        set({ hydrated: false });
+
+        const snapshot = await bootstrapAppSession();
+        const goalResolutionAnnouncements = await loadGoalResolutionAnnouncements();
+
+        set({
+          ...initialState,
+          ...snapshot,
+          goalResolutionAnnouncements,
+          hydrated: true,
+        });
+      })();
+
+      try {
+        await initializeAppPromise;
+      } finally {
+        initializeAppPromise = null;
+      }
+    },
   retrySync: async () => {
     const sessionState = await retryPendingSync();
     set({ sessionState });
@@ -536,7 +551,8 @@ export const useAppStore = create<AppState>()((set, get) => ({
     await resetUserData();
     await get().initializeApp();
   },
-}));
+  };
+});
 
 export function selectGoal(goalId: string) {
   return (state: AppState) => state.goals.find((goal) => goal.id === goalId);

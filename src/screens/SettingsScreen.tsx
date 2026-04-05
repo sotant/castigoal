@@ -109,8 +109,8 @@ export function SettingsScreen() {
           return;
         }
 
-        const granted = await requestNotificationPermissions();
-        await updateSettings({ [key]: granted } as Partial<UserSettings>);
+        await requestNotificationPermissions();
+        await updateSettings({ [key]: true } as Partial<UserSettings>);
       } catch (error) {
         Alert.alert('No se pudieron actualizar los recordatorios', getErrorMessage(error));
       } finally {
