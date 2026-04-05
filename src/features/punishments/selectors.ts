@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 
 import { useAppStore } from '@/src/store/app-store';
+import { dedupePunishments } from '@/src/utils/goal-evaluation';
 
 export function usePunishmentCatalog() {
   const {
@@ -23,21 +24,25 @@ export function usePunishmentCatalog() {
   );
 
   return useMemo(
-    () => ({
-      addCustomPunishment,
-      basePunishments: punishments.filter((item) => item.scope === 'base'),
-      deleteCustomPunishment,
-      personalPunishments: punishments
-        .filter((item) => item.scope === 'personal')
-        .sort((left, right) => {
-          const leftCreatedAt = left.createdAt ?? '';
-          const rightCreatedAt = right.createdAt ?? '';
-          return rightCreatedAt.localeCompare(leftCreatedAt) || left.title.localeCompare(right.title, 'es');
-        }),
-      punishmentsLoaded,
-      refreshPunishmentCatalog,
-      updateCustomPunishment,
-    }),
+    () => {
+      const uniquePunishments = dedupePunishments(punishments);
+
+      return {
+        addCustomPunishment,
+        basePunishments: uniquePunishments.filter((item) => item.scope === 'base'),
+        deleteCustomPunishment,
+        personalPunishments: uniquePunishments
+          .filter((item) => item.scope === 'personal')
+          .sort((left, right) => {
+            const leftCreatedAt = left.createdAt ?? '';
+            const rightCreatedAt = right.createdAt ?? '';
+            return rightCreatedAt.localeCompare(leftCreatedAt) || left.title.localeCompare(right.title, 'es');
+          }),
+        punishmentsLoaded,
+        refreshPunishmentCatalog,
+        updateCustomPunishment,
+      };
+    },
     [
       addCustomPunishment,
       deleteCustomPunishment,

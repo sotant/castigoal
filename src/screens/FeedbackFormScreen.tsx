@@ -150,7 +150,7 @@ export function FeedbackFormScreen({ type }: Props) {
       setHasTriedSubmit(false);
       setIsSuccess(true);
     } catch (error) {
-      setSubmitError(getErrorMessage(error, 'No hemos podido enviar tu mensaje. Intentalo de nuevo.'));
+      setSubmitError(getErrorMessage(error, 'No hemos podido enviar tu mensaje. Inténtalo de nuevo.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -216,7 +216,7 @@ export function FeedbackFormScreen({ type }: Props) {
 
         {type === 'suggestion' ? (
           <View style={styles.field}>
-            <FieldLabel label="Categoria" tone="optional" />
+            <FieldLabel label="Categoría" tone="optional" />
             <View style={styles.chips}>
               {feedbackCategories.map((category) => {
                 const isSelected = values.category === category;
@@ -238,7 +238,7 @@ export function FeedbackFormScreen({ type }: Props) {
         {type === 'bug_report' ? (
           <>
             <View style={styles.field}>
-              <FieldLabel label="Pantalla o seccion afectada" tone="optional" />
+              <FieldLabel label="Pantalla o sección afectada" tone="optional" />
               <TextInput
                 accessibilityLabel={copy.affectedSectionLabel}
                 autoCapitalize="sentences"

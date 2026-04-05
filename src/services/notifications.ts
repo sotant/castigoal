@@ -14,12 +14,22 @@ type GoalNotificationRecord = {
   triggerDate: string;
 };
 
+type ScheduledNotification = Awaited<ReturnType<NotificationsModule['getAllScheduledNotificationsAsync']>>[number];
+
 const GENERAL_NOTIFICATION_IDS_KEY = 'castigoal.notifications.general';
 const GOAL_NOTIFICATION_IDS_KEY = 'castigoal.notifications.goal-resolution';
+const MANAGED_NOTIFICATION_NAMESPACE = 'castigoal';
+const GENERAL_CHECKIN_NOTIFICATION_KIND = 'general-checkin';
+const PENDING_PUNISHMENT_NOTIFICATION_KIND = 'pending-punishment';
+const GOAL_RESOLUTION_NOTIFICATION_KIND = 'goal-resolution';
+const CHECKIN_REMINDER_BODY = 'Haz tu check-in diario antes de cerrar el d\u00eda.';
+const PENDING_PUNISHMENT_REMINDER_BODY = 'Tienes un castigo pendiente por completar.';
 const GOAL_RESOLUTION_NOTIFICATION_BODY = 'Un objetivo ha finalizado! Entra para ver el resultado';
 
 let notificationsModulePromise: Promise<NotificationsModule | null> | null = null;
+let notificationSyncQueue: Promise<void> = Promise.resolve();
 let appliedReminderKey: string | null = null;
+let appliedGoalResolutionKey: string | null = null;
 
 function isExpoGo() {
   return Constants.executionEnvironment === 'storeClient';
@@ -29,8 +39,75 @@ function buildReminderKey(settings: UserSettings) {
   return JSON.stringify(settings);
 }
 
+function buildGoalResolutionKey(goals: Goal[], settings: UserSettings) {
+  const desiredGoalTriggers = goals
+    .filter((goal) => shouldScheduleGoalNotification(goal, settings))
+    .map((goal) => `${goal.id}:${buildGoalNotificationTrigger(goal, settings).toISOString()}`)
+    .sort();
+
+  return JSON.stringify({
+    desiredGoalTriggers,
+    goalResolutionReminderEnabled: settings.goalResolutionReminderEnabled,
+    reminderHour: settings.reminderHour,
+    reminderMinute: settings.reminderMinute,
+  });
+}
+
 function hasAnyScheduledReminderEnabled(settings: UserSettings) {
   return settings.remindersEnabled || settings.pendingPunishmentReminderEnabled;
+}
+
+function buildNotificationData(kind: string) {
+  return {
+    kind,
+    namespace: MANAGED_NOTIFICATION_NAMESPACE,
+  };
+}
+
+function hasManagedNotificationKind(notification: ScheduledNotification, kind: string) {
+  const data = notification.content.data;
+
+  if (!data || typeof data !== 'object') {
+    return false;
+  }
+
+  const parsed = data as Record<string, unknown>;
+  return parsed.namespace === MANAGED_NOTIFICATION_NAMESPACE && parsed.kind === kind;
+}
+
+function isCheckinReminderNotification(notification: ScheduledNotification) {
+  return (
+    hasManagedNotificationKind(notification, GENERAL_CHECKIN_NOTIFICATION_KIND) ||
+    (notification.content.title === 'Castigoal' && notification.content.body === CHECKIN_REMINDER_BODY)
+  );
+}
+
+function isPendingPunishmentReminderNotification(notification: ScheduledNotification) {
+  return (
+    hasManagedNotificationKind(notification, PENDING_PUNISHMENT_NOTIFICATION_KIND) ||
+    (notification.content.title === 'Castigo pendiente' &&
+      notification.content.body === PENDING_PUNISHMENT_REMINDER_BODY)
+  );
+}
+
+function isGoalResolutionNotification(notification: ScheduledNotification) {
+  return (
+    hasManagedNotificationKind(notification, GOAL_RESOLUTION_NOTIFICATION_KIND) ||
+    (notification.content.title === 'Castigoal' && notification.content.body === GOAL_RESOLUTION_NOTIFICATION_BODY)
+  );
+}
+
+function uniqueIdentifiers(...identifierGroups: string[][]) {
+  return Array.from(new Set(identifierGroups.flat().filter(Boolean)));
+}
+
+function runExclusiveNotificationMutation<T>(mutation: () => Promise<T>) {
+  const task = notificationSyncQueue.then(mutation, mutation);
+  notificationSyncQueue = task.then(
+    () => undefined,
+    () => undefined,
+  );
+  return task;
 }
 
 async function readJson<T>(key: string, fallback: T): Promise<T> {
@@ -63,6 +140,19 @@ async function getNotificationsModule() {
   }
 
   return notificationsModulePromise;
+}
+
+async function getManagedScheduledNotificationIds(
+  predicate: (notification: ScheduledNotification) => boolean,
+) {
+  const Notifications = await getNotificationsModule();
+
+  if (!Notifications) {
+    return [];
+  }
+
+  const scheduledNotifications = await Notifications.getAllScheduledNotificationsAsync();
+  return scheduledNotifications.filter(predicate).map((notification) => notification.identifier);
 }
 
 async function cancelScheduledNotifications(identifiers: string[]) {
@@ -138,150 +228,176 @@ export async function getNotificationPermissionsGranted() {
 }
 
 export async function clearReminderSchedule() {
-  appliedReminderKey = null;
+  await runExclusiveNotificationMutation(async () => {
+    appliedReminderKey = null;
 
-  const existingIds = await readGeneralNotificationIds();
-  await cancelScheduledNotifications(existingIds);
-  await writeGeneralNotificationIds([]);
+    const existingIds = await readGeneralNotificationIds();
+    const managedIds = await getManagedScheduledNotificationIds(
+      (notification) =>
+        isCheckinReminderNotification(notification) || isPendingPunishmentReminderNotification(notification),
+    );
+
+    await cancelScheduledNotifications(uniqueIdentifiers(existingIds, managedIds));
+    await writeGeneralNotificationIds([]);
+  });
 }
 
 export async function clearGoalResolutionSchedules() {
-  const existing = await readGoalNotificationRecords();
-  await cancelScheduledNotifications(existing.map((record) => record.identifier));
-  await writeGoalNotificationRecords([]);
+  await runExclusiveNotificationMutation(async () => {
+    appliedGoalResolutionKey = null;
+
+    const existing = await readGoalNotificationRecords();
+    const managedIds = await getManagedScheduledNotificationIds(isGoalResolutionNotification);
+
+    await cancelScheduledNotifications(
+      uniqueIdentifiers(
+        existing.map((record) => record.identifier),
+        managedIds,
+      ),
+    );
+    await writeGoalNotificationRecords([]);
+  });
 }
 
 export async function syncReminderSchedule(settings: UserSettings, permissionsGranted?: boolean) {
-  const reminderKey = buildReminderKey(settings);
+  await runExclusiveNotificationMutation(async () => {
+    const reminderKey = buildReminderKey(settings);
 
-  if (appliedReminderKey === reminderKey) {
-    return;
-  }
+    if (appliedReminderKey === reminderKey) {
+      return;
+    }
 
-  const Notifications = await getNotificationsModule();
-  const existingIds = await readGeneralNotificationIds();
-
-  if (!Notifications) {
-    appliedReminderKey = reminderKey;
-    return;
-  }
-
-  await cancelScheduledNotifications(existingIds);
-  await writeGeneralNotificationIds([]);
-
-  if (!hasAnyScheduledReminderEnabled(settings)) {
-    appliedReminderKey = reminderKey;
-    return;
-  }
-
-  const granted = permissionsGranted ?? (await getNotificationPermissionsGranted());
-
-  if (!granted) {
-    appliedReminderKey = reminderKey;
-    return;
-  }
-
-  const ids: string[] = [];
-
-  if (settings.remindersEnabled) {
-    ids.push(
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: 'Castigoal',
-          body: 'Haz tu check-in diario antes de cerrar el dia.',
-        },
-        trigger: {
-          type: Notifications.SchedulableTriggerInputTypes.DAILY,
-          hour: settings.reminderHour,
-          minute: settings.reminderMinute,
-        },
-      }),
+    const Notifications = await getNotificationsModule();
+    const existingIds = await readGeneralNotificationIds();
+    const managedIds = await getManagedScheduledNotificationIds(
+      (notification) =>
+        isCheckinReminderNotification(notification) || isPendingPunishmentReminderNotification(notification),
     );
-  }
 
-  if (settings.pendingPunishmentReminderEnabled) {
-    ids.push(
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: 'Castigo pendiente',
-          body: 'Tienes una consecuencia pendiente por completar.',
-        },
-        trigger: {
-          type: Notifications.SchedulableTriggerInputTypes.DAILY,
-          hour: Math.min(settings.reminderHour + 2, 22),
-          minute: settings.reminderMinute,
-        },
-      }),
-    );
-  }
+    if (!Notifications) {
+      appliedReminderKey = reminderKey;
+      return;
+    }
 
-  await writeGeneralNotificationIds(ids);
-  appliedReminderKey = reminderKey;
+    await cancelScheduledNotifications(uniqueIdentifiers(existingIds, managedIds));
+    await writeGeneralNotificationIds([]);
+
+    if (!hasAnyScheduledReminderEnabled(settings)) {
+      appliedReminderKey = reminderKey;
+      return;
+    }
+
+    const granted = permissionsGranted ?? (await getNotificationPermissionsGranted());
+
+    if (!granted) {
+      appliedReminderKey = reminderKey;
+      return;
+    }
+
+    const ids: string[] = [];
+
+    if (settings.remindersEnabled) {
+      ids.push(
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: 'Castigoal',
+            body: CHECKIN_REMINDER_BODY,
+            data: buildNotificationData(GENERAL_CHECKIN_NOTIFICATION_KIND),
+          },
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.DAILY,
+            hour: settings.reminderHour,
+            minute: settings.reminderMinute,
+          },
+        }),
+      );
+    }
+
+    if (settings.pendingPunishmentReminderEnabled) {
+      ids.push(
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: 'Castigo pendiente',
+            body: PENDING_PUNISHMENT_REMINDER_BODY,
+            data: buildNotificationData(PENDING_PUNISHMENT_NOTIFICATION_KIND),
+          },
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.DAILY,
+            hour: Math.min(settings.reminderHour + 2, 22),
+            minute: settings.reminderMinute,
+          },
+        }),
+      );
+    }
+
+    await writeGeneralNotificationIds(ids);
+    appliedReminderKey = reminderKey;
+  });
 }
 
 export async function syncGoalResolutionSchedules(goals: Goal[], settings: UserSettings, permissionsGranted?: boolean) {
-  const Notifications = await getNotificationsModule();
-  const existingRecords = await readGoalNotificationRecords();
+  await runExclusiveNotificationMutation(async () => {
+    const goalResolutionKey = buildGoalResolutionKey(goals, settings);
 
-  if (!Notifications) {
-    return;
-  }
-
-  const desiredGoals = goals.filter((goal) => shouldScheduleGoalNotification(goal, settings));
-
-  if (desiredGoals.length === 0) {
-    await cancelScheduledNotifications(existingRecords.map((record) => record.identifier));
-    await writeGoalNotificationRecords([]);
-    return;
-  }
-
-  const granted = permissionsGranted ?? (await getNotificationPermissionsGranted());
-
-  if (!granted) {
-    await cancelScheduledNotifications(existingRecords.map((record) => record.identifier));
-    await writeGoalNotificationRecords([]);
-    return;
-  }
-
-  const existingByGoalId = new Map(existingRecords.map((record) => [record.goalId, record]));
-  const desiredGoalIds = new Set(desiredGoals.map((goal) => goal.id));
-  const staleRecords = existingRecords.filter((record) => !desiredGoalIds.has(record.goalId));
-
-  await cancelScheduledNotifications(staleRecords.map((record) => record.identifier));
-
-  const nextRecords: GoalNotificationRecord[] = [];
-
-  for (const goal of desiredGoals) {
-    const triggerDate = buildGoalNotificationTrigger(goal, settings);
-    const triggerDateIso = triggerDate.toISOString();
-    const currentRecord = existingByGoalId.get(goal.id);
-
-    if (currentRecord && currentRecord.triggerDate === triggerDateIso) {
-      nextRecords.push(currentRecord);
-      continue;
+    if (appliedGoalResolutionKey === goalResolutionKey) {
+      return;
     }
 
-    if (currentRecord) {
-      await cancelScheduledNotifications([currentRecord.identifier]);
+    const Notifications = await getNotificationsModule();
+    const existingRecords = await readGoalNotificationRecords();
+    const managedIds = await getManagedScheduledNotificationIds(isGoalResolutionNotification);
+
+    if (!Notifications) {
+      appliedGoalResolutionKey = goalResolutionKey;
+      return;
     }
 
-    const identifier = await Notifications.scheduleNotificationAsync({
-      content: {
-        title: 'Castigoal',
-        body: GOAL_RESOLUTION_NOTIFICATION_BODY,
-      },
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.DATE,
-        date: triggerDate,
-      },
-    });
+    await cancelScheduledNotifications(
+      uniqueIdentifiers(
+        existingRecords.map((record) => record.identifier),
+        managedIds,
+      ),
+    );
+    await writeGoalNotificationRecords([]);
 
-    nextRecords.push({
-      goalId: goal.id,
-      identifier,
-      triggerDate: triggerDateIso,
-    });
-  }
+    const desiredGoals = goals.filter((goal) => shouldScheduleGoalNotification(goal, settings));
 
-  await writeGoalNotificationRecords(nextRecords);
+    if (desiredGoals.length === 0) {
+      appliedGoalResolutionKey = goalResolutionKey;
+      return;
+    }
+
+    const granted = permissionsGranted ?? (await getNotificationPermissionsGranted());
+
+    if (!granted) {
+      appliedGoalResolutionKey = goalResolutionKey;
+      return;
+    }
+
+    const nextRecords: GoalNotificationRecord[] = [];
+
+    for (const goal of desiredGoals) {
+      const triggerDate = buildGoalNotificationTrigger(goal, settings);
+      const identifier = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'Castigoal',
+          body: GOAL_RESOLUTION_NOTIFICATION_BODY,
+          data: buildNotificationData(GOAL_RESOLUTION_NOTIFICATION_KIND),
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date: triggerDate,
+        },
+      });
+
+      nextRecords.push({
+        goalId: goal.id,
+        identifier,
+        triggerDate: triggerDate.toISOString(),
+      });
+    }
+
+    await writeGoalNotificationRecords(nextRecords);
+    appliedGoalResolutionKey = goalResolutionKey;
+  });
 }

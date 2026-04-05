@@ -264,7 +264,7 @@ export function GoalsScreen() {
         items.push({
           type: 'empty',
           key: 'empty-closed',
-          message: 'Todavia no hay objetivos finalizados.',
+          message: 'Todavía no hay objetivos finalizados.',
         });
       } else {
         items.push(
@@ -351,7 +351,7 @@ export function GoalsScreen() {
       return {
         eyebrow: 'Eliminar objetivo',
         title: 'Borrar objetivo',
-        description: 'Se borraran tambien sus check-ins, outcomes y castigos asignados. Esta accion no se puede deshacer.',
+        description: 'Se borrarán también sus check-ins, resoluciones y castigos asignados. Esta acción no se puede deshacer.',
         confirmLabel: 'Borrar',
         tone: 'danger' as const,
       };
@@ -360,7 +360,7 @@ export function GoalsScreen() {
     return {
       eyebrow: '',
       title: 'Finalizar objetivo',
-      description: 'Se resolvera el objetivo antes de llegar su fecha de finalizacion. Esta accion no podra deshacerse.',
+      description: 'Se resolverá el objetivo antes de llegar a su fecha de finalización. Esta acción no podrá deshacerse.',
       confirmLabel: 'Finalizar',
       tone: 'default' as const,
     };
@@ -475,7 +475,7 @@ export function GoalsScreen() {
         <View style={styles.contentSurface}>
           <View style={[styles.emptyStateWrapper, { paddingBottom: tabBarHeight + insets.bottom + 96 }]}>
             <EmptyState
-              title="No hay objetivos todavia"
+              title="No hay objetivos todavía"
               message="Crea tu primer objetivo para empezar a registrar avances, cerrar ciclos y mantener el foco."
               actionLabel="Crear objetivo"
               onAction={() => router.push(appRoutes.createGoal)}

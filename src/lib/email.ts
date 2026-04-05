@@ -67,8 +67,8 @@ export function getEmailValidationError(value: string, options: { required?: boo
   const normalized = normalizeEmail(value);
 
   if (!normalized) {
-    return options.required ? 'Introduce un email valido' : null;
+    return options.required ? 'Introduce un email válido' : null;
   }
 
-  return isValidEmail(normalized) ? null : 'Introduce un email valido';
+  return isValidEmail(normalized) ? null : 'Introduce un email válido';
 }

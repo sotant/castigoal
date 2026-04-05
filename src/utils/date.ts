@@ -68,9 +68,22 @@ export function enumerateDates(start: string, end: string): string[] {
 
 export function formatShortDate(date: string): string {
   return new Intl.DateTimeFormat('es-ES', {
-    day: '2-digit',
+    day: 'numeric',
     month: 'short',
-  }).format(parseISODate(date));
+  })
+    .format(parseISODate(date))
+    .replace('.', '');
+}
+
+export function formatShortDateWithPreposition(date: string): string {
+  const formatted = formatShortDate(date);
+  const separatorIndex = formatted.indexOf(' ');
+
+  if (separatorIndex === -1) {
+    return formatted;
+  }
+
+  return `${formatted.slice(0, separatorIndex)} de ${formatted.slice(separatorIndex + 1)}`;
 }
 
 export function formatCompactDate(date: string): string {

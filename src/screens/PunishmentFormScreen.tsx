@@ -234,7 +234,7 @@ export function PunishmentFormScreen() {
                 onSubmitEditing={() => {
                   void handleSubmit();
                 }}
-                placeholder="Ordenar la habitacion"
+                placeholder="Ordenar la habitación"
                 returnKeyType="done"
                 style={[styles.input, styles.compactInput, showTitleError ? styles.inputError : null]}
                 value={title}
@@ -244,7 +244,7 @@ export function PunishmentFormScreen() {
 
             <View style={styles.field}>
               <View style={styles.inlineHeader}>
-                <Text style={styles.label}>Descripcion</Text>
+                <Text style={styles.label}>Descripción</Text>
                 <Text style={styles.optionalTag}>Opcional</Text>
               </View>
               <TextInput
@@ -253,7 +253,7 @@ export function PunishmentFormScreen() {
                 multiline
                 numberOfLines={4}
                 onChangeText={setDescription}
-                placeholder="Recoger y ordenar toda la habitacion"
+                placeholder="Recoger y ordenar toda la habitación"
                 style={[styles.input, styles.multiline]}
                 textAlignVertical="top"
                 value={description}
@@ -324,7 +324,7 @@ export function PunishmentFormScreen() {
         <View style={styles.formSectionCard}>
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Elige una categoria</Text>
+              <Text style={styles.sectionTitle}>Elige una categoría</Text>
             </View>
 
             <View style={styles.categoryList}>
@@ -365,7 +365,7 @@ export function PunishmentFormScreen() {
                         </View>
                       </Pressable>
                       <Pressable
-                        accessibilityLabel={`Ver informacion sobre categoria ${option.label}`}
+                        accessibilityLabel={`Ver información sobre la categoría ${option.label}`}
                         accessibilityRole="button"
                         disabled={saving}
                         hitSlop={8}
@@ -404,7 +404,7 @@ export function PunishmentFormScreen() {
           </View>
 
           <Text style={styles.previewDescriptionText}>
-            {description.trim() || 'Sin descripcion. Puedes dejarlo asi o dar mas detalle para hacerlo mas claro al cumplirlo.'}
+            {description.trim() || 'Sin descripción. Puedes dejarlo así o dar más detalle para hacerlo más claro al cumplirlo.'}
           </Text>
         </View>
 

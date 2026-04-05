@@ -39,11 +39,11 @@ function buildScheduleStatus(goal: Goal, referenceDate = startOfToday()) {
   const remainingDays = getGoalRemainingDays(goal, referenceDate);
 
   if (daysUntilStart > 0) {
-    return daysUntilStart === 1 ? 'Empieza manana.' : `Empieza en ${daysUntilStart} dias.`;
+    return daysUntilStart === 1 ? 'Empieza mañana.' : `Empieza en ${daysUntilStart} días.`;
   }
 
   if (remainingDays > 0) {
-    return remainingDays === 1 ? 'Queda 1 dia para cerrar el plazo.' : `Quedan ${remainingDays} dias para cerrar el plazo.`;
+    return remainingDays === 1 ? 'Queda 1 día para cerrar el plazo.' : `Quedan ${remainingDays} días para cerrar el plazo.`;
   }
 
   return 'El plazo configurado ya ha terminado.';

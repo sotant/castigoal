@@ -196,7 +196,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         setPasswordRecovery({
-          error: getErrorMessage(error, 'No se pudo validar el enlace de recuperacion.'),
+          error: getErrorMessage(error, 'No se pudo validar el enlace de recuperación.'),
           hasCheckedInitialUrl: true,
           status: 'error',
         });

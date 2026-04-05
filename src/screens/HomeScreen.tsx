@@ -36,7 +36,7 @@ function getDeadlineCopy(remainingDays: number) {
     return 'Acaba hoy';
   }
 
-  return remainingDays === 1 ? 'Acaba en 1 dia' : `Acaba en ${remainingDays} dias`;
+  return remainingDays === 1 ? 'Acaba en 1 día' : `Acaba en ${remainingDays} días`;
 }
 
 function getDateHeading(selectedDate: string) {
@@ -174,7 +174,7 @@ function ActiveGoalCardView({
 
           <View style={styles.progressMetaRow}>
             <Text style={styles.progressLabel}>
-              {clampedCompletedDays}/{safeRequiredDays} dias cumplidos
+              {clampedCompletedDays}/{safeRequiredDays} días cumplidos
             </Text>
             {isTodaySelected ? <Text style={styles.progressDeadline}>{getDeadlineCopy(summary.remainingDays)}</Text> : null}
           </View>
@@ -235,7 +235,7 @@ function LoadingGoalsModal({ visible }: { visible: boolean }) {
         <View style={styles.loadingModal}>
           <ActivityIndicator color={palette.primary} size="small" />
           <Text style={styles.loadingModalTitle}>Actualizando objetivos</Text>
-          <Text style={styles.loadingModalCopy}>Cargando el estado del dia seleccionado...</Text>
+          <Text style={styles.loadingModalCopy}>Cargando el estado del día seleccionado...</Text>
         </View>
       </View>
     </Modal>
@@ -539,14 +539,14 @@ export function HomeScreen() {
               </ScrollView>
             ) : selectedSummary.goalSummaries.length === 0 ? (
               <EmptyState
-                title="No hay objetivos todavia"
-                message="Cuando tengas objetivos creados, aqui veras tus tareas del dia para resolverlas rapido."
+                title="No hay objetivos todavía"
+                message="Cuando tengas objetivos creados, aquí verás tus tareas del día para resolverlas rápido."
                 actionLabel="Crear objetivo"
                 onAction={() => router.push(appRoutes.createGoal)}
               />
             ) : activeGoals.length === 0 ? (
               <EmptyState
-                title="No habia objetivos vigentes ese dia"
+                title="No había objetivos vigentes ese día"
                 message="Cambia la fecha para revisar otro momento o crea un nuevo objetivo para empezar a registrar actividad."
                 actionLabel="Crear objetivo"
                 onAction={() => router.push(appRoutes.createGoal)}

@@ -37,20 +37,6 @@ export function StatsScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const insets = useSafeAreaInsets();
 
-  useFocusEffect(
-    useCallback(() => {
-      requestAnimationFrame(() => {
-        scrollRef.current?.scrollTo({ x: 0, y: 0, animated: false });
-      });
-
-      void refreshStatsSummary();
-
-      if (selectedGoal) {
-        void loadStatsCalendar(selectedGoal.id, monthStart);
-      }
-    }, [loadStatsCalendar, monthStart, refreshStatsSummary, selectedGoal]),
-  );
-
   useEffect(() => {
     if (!statsLoaded) {
       void refreshStatsSummary();
@@ -97,7 +83,7 @@ export function StatsScreen() {
     () => [
       {
         icon: 'check-square',
-        label: 'Total check-ins',
+        label: 'Check-ins totales',
         tone: palette.primaryDeep,
         value: statsSummary.totalCheckins,
       },
@@ -135,6 +121,20 @@ export function StatsScreen() {
     [completedGoalsCount, failedGoalsCount, goals.length, statsSummary],
   );
 
+  useFocusEffect(
+    useCallback(() => {
+      requestAnimationFrame(() => {
+        scrollRef.current?.scrollTo({ x: 0, y: 0, animated: false });
+      });
+
+      void refreshStatsSummary();
+
+      if (selectedGoal) {
+        void loadStatsCalendar(selectedGoal.id, monthStart);
+      }
+    }, [loadStatsCalendar, monthStart, refreshStatsSummary, selectedGoal]),
+  );
+
   useEffect(() => {
     if (!selectedGoal) {
       return;
@@ -151,7 +151,7 @@ export function StatsScreen() {
     <ScreenContainer
       bodyStyle={styles.screenBody}
       scroll={false}
-      title="Stats">
+      title="Estadísticas">
       <View style={styles.contentSurface}>
         <ScrollView
           ref={scrollRef}
@@ -205,7 +205,7 @@ export function StatsScreen() {
                   <View style={styles.goalEmptyCard}>
                     <EmptyState
                       title="Sin objetivos registrados"
-                      message="Todavia no tienes objetivos registrados. Crea uno para ver su progreso en estadisticas."
+                      message="Todavía no tienes objetivos registrados. Crea uno para ver su progreso en estadísticas."
                     />
                   </View>
                 ) : (

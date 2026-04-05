@@ -19,7 +19,7 @@ import { usePunishmentCatalog } from '@/src/features/punishments/selectors';
 import { Goal, GoalPunishmentCategoryMode, GoalPunishmentConfig, GoalPunishmentScope, PunishmentCategoryName } from '@/src/models/types';
 import { appRoutes } from '@/src/navigation/app-routes';
 import { useAppStore } from '@/src/store/app-store';
-import { addDays, diffInDays, formatCompactDate, formatShortDate, startOfToday } from '@/src/utils/date';
+import { addDays, diffInDays, formatCompactDate, formatShortDate, formatShortDateWithPreposition, startOfToday } from '@/src/utils/date';
 
 type Props = {
   mode: 'create' | 'edit';
@@ -49,9 +49,9 @@ type CalendarSelectorProps = {
 };
 
 const SCOPE_OPTIONS: { description: string; label: string; value: GoalPunishmentScope }[] = [
-  { label: 'Estandar', value: 'base', description: 'Solo se podran asignar castigos base de la app.' },
-  { label: 'Personales', value: 'personal', description: 'Solo se podran asignar castigos creados por el usuario.' },
-  { label: 'Ambos', value: 'both', description: 'Podran entrar castigos base y personales.' },
+  { label: 'Estándar', value: 'base', description: 'Solo se podrán asignar castigos base de la app.' },
+  { label: 'Personales', value: 'personal', description: 'Solo se podrán asignar castigos creados por el usuario.' },
+  { label: 'Ambos', value: 'both', description: 'Podrán entrar castigos base y personales.' },
 ];
 
 function buildInitialDraft(goal?: Goal): GoalDraft {
@@ -137,10 +137,10 @@ function CalendarSelector({ disabled, minDate, month, selectedDate, onMonthChang
 }
 
 function getPunishmentSummary(config: GoalPunishmentConfig) {
-  const scopeLabel = SCOPE_OPTIONS.find((option) => option.value === config.scope)?.label ?? 'Castigos estandar';
+  const scopeLabel = SCOPE_OPTIONS.find((option) => option.value === config.scope)?.label ?? 'Castigos estándar';
 
   if (config.categoryMode === 'all') {
-    return `${scopeLabel} + todas las categorias`;
+    return `${scopeLabel} + todas las categorías`;
   }
 
   const labels = PUNISHMENT_CATEGORY_OPTIONS.filter((option) => config.categoryNames.includes(option.name)).map((option) => option.label);
@@ -222,15 +222,15 @@ export function GoalFormScreen({ mode, goal }: Props) {
   const titleError = draft.title.trim().length >= 3 ? '' : 'Escribe un nombre de al menos 3 caracteres.';
   const showTitleError = hasTouchedTitle && Boolean(titleError);
   const startDateError = draft.startDate >= minimumStartDate ? '' : 'La fecha de inicio no puede estar en el pasado.';
-  const durationError = draft.endDate < draft.startDate ? 'La fecha de finalizacion no puede ser anterior al inicio.' : '';
-  const minimumError = requiredDays >= 1 && requiredDays <= durationDays ? '' : 'Debes elegir entre 1 y la duracion total.';
+  const durationError = draft.endDate < draft.startDate ? 'La fecha de finalización no puede ser anterior al inicio.' : '';
+  const minimumError = requiredDays >= 1 && requiredDays <= durationDays ? '' : 'Debes elegir entre 1 y la duración total.';
   const punishmentCategoryError =
     draft.punishmentCategoryMode === 'selected' && draft.selectedCategories.length === 0
-      ? 'Selecciona al menos una categoria o usa todas.'
+      ? 'Selecciona al menos una categoría o usa todas.'
       : '';
   const punishmentPoolError =
     punishmentsLoaded && eligiblePunishments.length === 0
-      ? 'No hay castigos elegibles con esta configuracion. Ajusta el origen o las categorias.'
+      ? 'No hay castigos elegibles con esta configuración. Ajusta el origen o las categorías.'
       : '';
 
   const canContinueStep1 = !titleError;
@@ -241,9 +241,12 @@ export function GoalFormScreen({ mode, goal }: Props) {
   const canEditStartDate = mode === 'create' || !hasGoalStarted;
 
   const progressWidth = `${(step / 4) * 100}%` as DimensionValue;
-  const durationSummary = useMemo(() => `Del ${formatShortDate(draft.startDate)} al ${formatShortDate(draft.endDate)}`, [draft.endDate, draft.startDate]);
+  const durationSummary = useMemo(
+    () => `Del ${formatShortDateWithPreposition(draft.startDate)} al ${formatShortDate(draft.endDate)}`,
+    [draft.endDate, draft.startDate],
+  );
   const minimumSummary = useMemo(
-    () => `Debes cumplir ${requiredDays} de ${durationDays} ${durationDays === 1 ? 'dia' : 'dias'}`,
+    () => `Debes cumplir ${requiredDays} de ${durationDays} ${durationDays === 1 ? 'día' : 'días'}`,
     [durationDays, requiredDays],
   );
   const punishmentSummary = useMemo(() => getPunishmentSummary(punishmentConfig), [punishmentConfig]);
@@ -332,7 +335,7 @@ export function GoalFormScreen({ mode, goal }: Props) {
       <ScreenContainer title="Editar objetivo" scroll={false}>
         <View style={styles.lockedState}>
           <Text style={styles.lockedTitle}>Objetivo cerrado</Text>
-          <Text style={styles.lockedDescription}>Los objetivos cerrados ya no se pueden editar para mantener su resultado historico.</Text>
+          <Text style={styles.lockedDescription}>Los objetivos cerrados ya no se pueden editar para mantener su resultado histórico.</Text>
           <Pressable onPress={() => router.replace(appRoutes.goals)} style={styles.submit}>
             <Text style={styles.submitLabel}>Volver a objetivos</Text>
           </Pressable>
@@ -352,7 +355,7 @@ export function GoalFormScreen({ mode, goal }: Props) {
           <View style={styles.progressHeader}>
             <Text style={styles.progressStep}>Paso {step} de 4</Text>
             <Text style={styles.progressCaption}>
-              {step === 1 ? 'Objetivo' : step === 2 ? 'Duracion' : step === 3 ? 'Cumplimiento' : 'Castigos'}
+              {step === 1 ? 'Objetivo' : step === 2 ? 'Duración' : step === 3 ? 'Cumplimiento' : 'Castigos'}
             </Text>
           </View>
           <View style={styles.progressTrack}>
@@ -386,7 +389,7 @@ export function GoalFormScreen({ mode, goal }: Props) {
 
             <View style={styles.field}>
               <View style={styles.inlineHeader}>
-                <Text style={styles.label}>Descripcion</Text>
+                <Text style={styles.label}>Descripción</Text>
                 <Text style={styles.optionalTag}>Opcional</Text>
               </View>
               <TextInput
@@ -403,7 +406,7 @@ export function GoalFormScreen({ mode, goal }: Props) {
 
         {step === 2 ? (
           <View style={styles.panel}>
-            <Text style={styles.panelTitle}>Duracion</Text>
+            <Text style={styles.panelTitle}>Duración</Text>
 
             {canEditStartDate ? (
               <View style={styles.field}>
@@ -453,7 +456,7 @@ export function GoalFormScreen({ mode, goal }: Props) {
             ) : null}
 
             <View style={styles.field}>
-              <Text style={styles.label}>Fecha de finalizacion</Text>
+              <Text style={styles.label}>Fecha de finalización</Text>
               <Pressable
                 disabled={saving}
                 onPress={() => setShowEndCalendar((current) => !current)}
@@ -485,19 +488,19 @@ export function GoalFormScreen({ mode, goal }: Props) {
             <View style={styles.summaryCard}>
               <Text style={styles.summaryEyebrow}>Resumen</Text>
               <Text style={styles.summaryTitle}>{durationSummary}</Text>
-              <Text style={styles.summaryText}>{`Duracion total: ${durationDays} ${durationDays === 1 ? 'dia' : 'dias'}`}</Text>
+              <Text style={styles.summaryText}>{`Duración total: ${durationDays} ${durationDays === 1 ? 'día' : 'días'}`}</Text>
             </View>
           </View>
         ) : null}
 
         {step === 3 ? (
           <View style={styles.panel}>
-            <Text style={styles.panelTitle}>Dias que debes cumplir</Text>
-            <Text style={styles.helper}>Elige el minimo de dias que tienes que cumplir con el objetivo para aprobarlo</Text>
+            <Text style={styles.panelTitle}>Días que debes cumplir</Text>
+            <Text style={styles.helper}>Elige el mínimo de días que tienes que cumplir con el objetivo para aprobarlo</Text>
 
             <View style={styles.stepperCard}>
               <View style={styles.stepperHeader}>
-                <Text style={styles.stepperLabel}>Minimo</Text>
+                <Text style={styles.stepperLabel}>Mínimo</Text>
                 <Text style={styles.stepperMeta}>({minimumPercentage}%)</Text>
               </View>
               <View style={styles.stepperControls}>
@@ -529,7 +532,7 @@ export function GoalFormScreen({ mode, goal }: Props) {
                 </Pressable>
               </View>
               <Text style={styles.stepperUnit}>
-                de {durationDays} {durationDays === 1 ? 'dia' : 'dias'}
+                de {durationDays} {durationDays === 1 ? 'día' : 'días'}
               </Text>
             </View>
 
@@ -540,10 +543,10 @@ export function GoalFormScreen({ mode, goal }: Props) {
               <Text style={styles.summaryTitle}>{minimumSummary}</Text>
               <Text style={styles.summaryText}>
                 {durationDays - requiredDays <= 0
-                  ? 'No podras fallar ningun dia.'
+                  ? 'No podrás fallar ningún día.'
                   : durationDays - requiredDays === 1
-                    ? 'Podras fallar 1 dia.'
-                    : `Podras fallar hasta ${durationDays - requiredDays} dias.`}
+                    ? 'Podrás fallar 1 día.'
+                    : `Podrás fallar hasta ${durationDays - requiredDays} días.`}
               </Text>
             </View>
           </View>
@@ -551,8 +554,8 @@ export function GoalFormScreen({ mode, goal }: Props) {
 
         {step === 4 ? (
           <View style={styles.panel}>
-            <Text style={styles.panelTitle}>Seleccion de castigos</Text>
-            <Text style={styles.helper}>Si fallas el objetivo, se te asignara un castigo alatorio entre los que selecciones</Text>
+            <Text style={styles.panelTitle}>Selección de castigos</Text>
+            <Text style={styles.helper}>Si fallas el objetivo, se te asignará un castigo aleatorio entre los que selecciones.</Text>
 
             <View style={styles.field}>
               <Text style={styles.label}>Tipo</Text>
@@ -575,7 +578,7 @@ export function GoalFormScreen({ mode, goal }: Props) {
 
             <View style={styles.field}>
               <View style={styles.inlineHeader}>
-                <Text style={styles.label}>Categorias</Text>
+                <Text style={styles.label}>Categorías</Text>
                 <Text style={styles.requiredTag}>Obligatorio</Text>
               </View>
               <View style={styles.filterChipWrap}>
@@ -660,7 +663,7 @@ export function GoalFormScreen({ mode, goal }: Props) {
                 <Text style={[styles.summaryText, !punishmentsLoaded ? styles.submitDisabled : null]}>
                   {punishmentsLoaded
                     ? `${eligiblePunishments.length} ${eligiblePunishments.length === 1 ? 'castigo disponible' : 'castigos disponibles'}`
-                    : 'Cargando catalogo de castigos...'}
+                    : 'Cargando catálogo de castigos...'}
                 </Text>
                 {punishmentsLoaded ? (
                   <Feather color={palette.primaryDeep} name={showEligiblePunishments ? 'chevron-up' : 'chevron-down'} size={16} />
@@ -740,7 +743,7 @@ export function GoalFormScreen({ mode, goal }: Props) {
                 setStep((current) => (current === 4 ? 3 : current === 3 ? 2 : 1));
               }}
               style={styles.secondaryButton}>
-              <Text style={styles.secondaryButtonLabel}>Atras</Text>
+              <Text style={styles.secondaryButtonLabel}>Atrás</Text>
             </Pressable>
           ) : null}
 

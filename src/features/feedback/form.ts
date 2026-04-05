@@ -6,10 +6,10 @@ import { getEmailValidationError, normalizeEmail } from '@/src/lib/email';
 export type FeedbackType = 'suggestion' | 'bug_report';
 
 export type FeedbackCategory =
-  | 'Nueva funcion'
-  | 'Mejora de diseno'
+  | 'Nueva función'
+  | 'Mejora de diseño'
   | 'Rendimiento'
-  | 'Navegacion'
+  | 'Navegación'
   | 'Notificaciones'
   | 'Otro';
 
@@ -45,10 +45,10 @@ type FeedbackCopy = {
 };
 
 export const feedbackCategories: readonly FeedbackCategory[] = [
-  'Nueva funcion',
-  'Mejora de diseno',
+  'Nueva función',
+  'Mejora de diseño',
   'Rendimiento',
-  'Navegacion',
+  'Navegación',
   'Notificaciones',
   'Otro',
 ] as const;
@@ -64,30 +64,30 @@ export const feedbackCopy: Record<FeedbackType, FeedbackCopy> = {
     messageError: 'Describe tu sugerencia',
     messageLabel: 'Sugerencia',
     messagePlaceholder: 'Describe tu idea o mejora',
-    screenDescription: 'Cuentanos que te gustaria mejorar o que idea te gustaria ver en la app.',
+    screenDescription: 'Cuéntanos qué te gustaría mejorar o qué idea te gustaría ver en la app.',
     screenTitle: 'Enviar sugerencia',
     submitLabel: 'Enviar sugerencia',
     subjectError: 'Introduce un asunto',
     subjectLabel: 'Asunto',
-    subjectPlaceholder: 'Ej. Poder guardar favoritos mas rapido',
+    subjectPlaceholder: 'Ej. Poder guardar favoritos más rápido',
     successMessage: 'Hemos recibido tu mensaje y lo tendremos en cuenta para seguir mejorando la app.',
     successTitle: 'Gracias por tu sugerencia',
   },
   bug_report: {
-    affectedSectionLabel: 'Pantalla o seccion afectada (opcional)',
+    affectedSectionLabel: 'Pantalla o sección afectada (opcional)',
     affectedSectionPlaceholder: 'Ej. Ajustes o Favoritos',
     contactEmailHelper: 'Si quieres que podamos responderte, deja tu email.',
     contactEmailLabel: 'Email de contacto',
     contactEmailPlaceholder: 'tuemail@ejemplo.com',
     introDescription: 'Puedes enviarnos tu mensaje aunque no tengas cuenta.',
     messageError: 'Describe el problema',
-    messageLabel: 'Descripcion',
-    messagePlaceholder: 'Explica que ocurrio y que estabas intentando hacer',
-    screenDescription: 'Cuentanos que ha fallado para que podamos revisarlo.',
+    messageLabel: 'Descripción',
+    messagePlaceholder: 'Explica qué ocurrió y qué estabas intentando hacer',
+    screenDescription: 'Cuéntanos qué ha fallado para que podamos revisarlo.',
     screenTitle: 'Reportar error',
     submitLabel: 'Enviar reporte',
     subjectError: 'Introduce un titulo',
-    subjectLabel: 'Titulo del problema',
+    subjectLabel: 'Título del problema',
     subjectPlaceholder: 'Ej. La app se cierra al abrir favoritos',
     successMessage: 'Hemos recibido tu reporte y lo revisaremos lo antes posible.',
     successTitle: 'Gracias por avisarnos',

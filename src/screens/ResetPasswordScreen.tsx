@@ -40,7 +40,7 @@ export function ResetPasswordScreen() {
     }
 
     if (password.trim().length > 0 && password.trim().length < 6) {
-      return 'La contrasena debe tener al menos 6 caracteres.';
+      return 'La contraseña debe tener al menos 6 caracteres.';
     }
 
     if (confirmPassword.trim().length > 0 && confirmPassword.trim().length < 6) {
@@ -48,7 +48,7 @@ export function ResetPasswordScreen() {
     }
 
     if (confirmPassword.trim().length > 0 && password !== confirmPassword) {
-      return 'Las contrasenas no coinciden.';
+      return 'Las contraseñas no coinciden.';
     }
 
     return null;
@@ -86,7 +86,7 @@ export function ResetPasswordScreen() {
     if (password !== confirmPassword) {
       setFeedback({
         kind: 'error',
-        message: 'Las contrasenas no coinciden.',
+        message: 'Las contraseñas no coinciden.',
       });
       return;
     }
@@ -102,12 +102,12 @@ export function ResetPasswordScreen() {
       setCompletedRecoveryEmail(session?.user.email ?? null);
       setFeedback({
         kind: 'success',
-        message: 'Tu contrasena se ha actualizado. Vuelve al login para entrar con tu nueva contrasena.',
+        message: 'Tu contraseña se ha actualizado. Vuelve a iniciar sesión para entrar con tu nueva contraseña.',
       });
     } catch (error) {
       setFeedback({
         kind: 'error',
-        message: getErrorMessage(error, 'No se pudo actualizar la contrasena.'),
+        message: getErrorMessage(error, 'No se pudo actualizar la contraseña.'),
       });
     } finally {
       setSaving(false);
@@ -130,7 +130,7 @@ export function ResetPasswordScreen() {
     } catch (error) {
       setFeedback({
         kind: 'error',
-        message: getErrorMessage(error, 'La contrasena se actualizo, pero no se pudo cerrar la sesion temporal. Intentalo de nuevo.'),
+        message: getErrorMessage(error, 'La contraseña se actualizó, pero no se pudo cerrar la sesión temporal. Inténtalo de nuevo.'),
       });
     } finally {
       setRedirectingToLogin(false);
@@ -139,8 +139,8 @@ export function ResetPasswordScreen() {
 
   return (
     <ScreenContainer
-      title="Nueva contrasena"
-      subtitle="Define una nueva contrasena para volver a entrar en tu cuenta."
+      title="Nueva contraseña"
+      subtitle="Define una nueva contraseña para volver a entrar en tu cuenta."
       scroll={false}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -157,7 +157,7 @@ export function ResetPasswordScreen() {
               {screenState === 'loading' ? (
                 <View style={styles.stateBlock}>
                   <Text style={styles.cardTitle}>Validando enlace...</Text>
-                  <Text style={styles.cardSubtitle}>Estamos preparando un acceso seguro para que puedas cambiar tu contrasena.</Text>
+                  <Text style={styles.cardSubtitle}>Estamos preparando un acceso seguro para que puedas cambiar tu contraseña.</Text>
                 </View>
               ) : null}
 
@@ -165,7 +165,7 @@ export function ResetPasswordScreen() {
                 <View style={styles.stateBlock}>
                   <Text style={styles.cardTitle}>No se pudo abrir el enlace</Text>
                   <Text style={styles.cardSubtitle}>
-                    {passwordRecovery.error ?? 'Solicita un nuevo email de recuperacion desde la pantalla de acceso.'}
+                    {passwordRecovery.error ?? 'Solicita un nuevo email de recuperación desde la pantalla de acceso.'}
                   </Text>
                   <Pressable
                     onPress={() =>
@@ -183,21 +183,21 @@ export function ResetPasswordScreen() {
               {(screenState === 'ready' || screenState === 'success') ? (
                 <>
                   <View style={styles.formHeader}>
-                    <Text style={styles.eyebrow}>Recuperacion</Text>
+                    <Text style={styles.eyebrow}>Recuperación</Text>
                     <Text style={styles.cardTitle}>
-                      {screenState === 'success' ? 'Contrasena actualizada.' : 'Crea una contrasena nueva.'}
+                      {screenState === 'success' ? 'Contraseña actualizada.' : 'Crea una contraseña nueva.'}
                     </Text>
                     <Text style={styles.cardSubtitle}>
                       {screenState === 'success'
-                        ? 'Tu cuenta ya esta lista para volver a iniciar sesion.'
-                        : 'Usa al menos 6 caracteres y guarda un cambio que recuerdes facilmente.'}
+                        ? 'Tu cuenta ya está lista para volver a iniciar sesión.'
+                        : 'Usa al menos 6 caracteres y guarda un cambio que recuerdes fácilmente.'}
                     </Text>
                   </View>
 
                   {screenState === 'ready' ? (
                     <>
                       <View style={styles.group}>
-                        <Text style={styles.label}>Nueva contrasena</Text>
+                        <Text style={styles.label}>Nueva contraseña</Text>
                         <TextInput
                           autoCapitalize="none"
                           autoCorrect={false}
@@ -205,7 +205,7 @@ export function ResetPasswordScreen() {
                           onBlur={() => setFocusedField((current) => (current === 'password' ? null : current))}
                           onChangeText={setPassword}
                           onFocus={() => setFocusedField('password')}
-                          placeholder="Minimo 6 caracteres"
+                          placeholder="Mínimo 6 caracteres"
                           placeholderTextColor="#8A94A6"
                           returnKeyType="next"
                           secureTextEntry
@@ -215,7 +215,7 @@ export function ResetPasswordScreen() {
                       </View>
 
                       <View style={styles.group}>
-                        <Text style={styles.label}>Confirmar contrasena</Text>
+                        <Text style={styles.label}>Confirmar contraseña</Text>
                         <TextInput
                           autoCapitalize="none"
                           autoCorrect={false}
@@ -228,7 +228,7 @@ export function ResetPasswordScreen() {
                               void handleSubmit();
                             }
                           }}
-                          placeholder="Repite tu contrasena"
+                          placeholder="Repite tu contraseña"
                           placeholderTextColor="#8A94A6"
                           returnKeyType="go"
                           secureTextEntry
@@ -257,7 +257,7 @@ export function ResetPasswordScreen() {
                       onPress={() => void handleReturnToLogin()}
                       style={[styles.submitPrimary, redirectingToLogin && styles.buttonDisabled]}>
                       <Text style={styles.submitPrimaryLabel}>
-                        {redirectingToLogin ? 'Volviendo...' : 'Ir al login'}
+                        {redirectingToLogin ? 'Volviendo...' : 'Ir a iniciar sesión'}
                       </Text>
                     </Pressable>
                   ) : (
@@ -265,7 +265,7 @@ export function ResetPasswordScreen() {
                       disabled={!canSubmit || saving || screenState !== 'ready'}
                       onPress={() => void handleSubmit()}
                       style={[styles.submitPrimary, (!canSubmit || saving || screenState !== 'ready') && styles.buttonDisabled]}>
-                      <Text style={styles.submitPrimaryLabel}>{saving ? 'Guardando...' : 'Guardar nueva contrasena'}</Text>
+                      <Text style={styles.submitPrimaryLabel}>{saving ? 'Guardando...' : 'Guardar nueva contraseña'}</Text>
                     </Pressable>
                   )}
                 </>

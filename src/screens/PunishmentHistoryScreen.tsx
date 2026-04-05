@@ -145,6 +145,7 @@ function CompletedHistoryCard({
 export function PunishmentHistoryScreen() {
   const pathname = usePathname();
   const params = useLocalSearchParams<{ tab?: PrimaryTabKey }>();
+  const initializeApp = useAppStore((state) => state.initializeApp);
   const { personalPunishments, basePunishments, deleteCustomPunishment, punishmentsLoaded, refreshPunishmentCatalog } =
     usePunishmentCatalog();
   const completedPunishmentHistory = useAppStore((state) => state.completedPunishmentHistory);
@@ -152,6 +153,7 @@ export function PunishmentHistoryScreen() {
   const pendingPunishments = useAppStore((state) => state.pendingPunishments);
   const punishmentHistoryLoaded = useAppStore((state) => state.punishmentHistoryLoaded);
   const refreshPunishmentHistory = useAppStore((state) => state.refreshPunishmentHistory);
+  const sessionMode = useAppStore((state) => state.sessionState.mode);
   const tabBarHeight = useBottomTabBarHeight();
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
@@ -293,10 +295,14 @@ export function PunishmentHistoryScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      if (sessionMode === 'authenticated') {
+        void initializeApp().catch(() => undefined);
+      }
+
       requestAnimationFrame(() => {
         scrollRef.current?.scrollTo({ x: 0, y: 0, animated: false });
       });
-    }, []),
+    }, [initializeApp, sessionMode]),
   );
 
   useEffect(() => {
@@ -426,7 +432,7 @@ export function PunishmentHistoryScreen() {
         <View style={styles.inlineEmpty}>
           <EmptyState
             title="Sin castigos cumplidos"
-            message="Cuando confirmes un castigo como cumplido, se guardara aqui con su fecha."
+            message="Cuando confirmes un castigo como cumplido, se guardará aquí con su fecha."
           />
         </View>
       ) : (
@@ -442,7 +448,7 @@ export function PunishmentHistoryScreen() {
       return (
         <View style={styles.inlineEmpty}>
           <EmptyState
-            title="No hay castigos todavia"
+            title="No hay castigos todavía"
             message="Crea tu primer castigo para empezar a construir tu biblioteca."
             actionLabel="Crear castigo"
             onAction={() => router.push(appRoutes.createPunishment)}
@@ -471,8 +477,8 @@ export function PunishmentHistoryScreen() {
         actions={
           punishment.scope === 'personal' ? (
             <Pressable
-              accessibilityHint="Muestra mas acciones para este castigo"
-              accessibilityLabel={`Abrir menu de ${punishment.title}`}
+              accessibilityHint="Muestra más acciones para este castigo"
+              accessibilityLabel={`Abrir menú de ${punishment.title}`}
               accessibilityRole="button"
               disabled={saving}
               onPress={(event) => {
@@ -677,9 +683,9 @@ export function PunishmentHistoryScreen() {
             </View>
 
             <View style={styles.infoDetailGroup}>
-              <Text style={styles.infoDetailLabel}>Descripcion</Text>
+              <Text style={styles.infoDetailLabel}>Descripción</Text>
               <Text style={styles.infoDetailValue}>
-                {infoCompletedEntry?.punishmentDescription || 'Sin descripcion disponible.'}
+                {infoCompletedEntry?.punishmentDescription || 'Sin descripción disponible.'}
               </Text>
             </View>
 
@@ -801,7 +807,7 @@ export function PunishmentHistoryScreen() {
               </View>
 
               <View style={styles.filterSection}>
-                <Text style={styles.filterSectionTitle}>Categoria</Text>
+                <Text style={styles.filterSectionTitle}>Categoría</Text>
                 <View style={styles.filterOptionWrap}>
                   {PUNISHMENT_CATEGORY_OPTIONS.map((option) => {
                     const isActive = draftCategoryFilters.includes(option.value);
@@ -891,7 +897,7 @@ export function PunishmentHistoryScreen() {
       {pendingDeletePunishment ? (
         <GoalActionConfirmationModal
           confirmLabel={saving ? 'Borrando...' : 'Borrar'}
-          description="El servidor bloqueara el borrado si este castigo ya fue asignado para conservar el historial."
+          description="El servidor bloqueará el borrado si este castigo ya fue asignado para conservar el historial."
           eyebrow="Eliminar castigo"
           onCancel={() => {
             if (!saving) {

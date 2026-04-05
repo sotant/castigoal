@@ -22,17 +22,17 @@ const steps: OnboardingStep[] = [
   {
     icon: 'target',
     title: 'Cumple tus objetivos... o paga el precio',
-    description: 'Convierte tu disciplina en un reto con consecuencias reales.',
+    description: 'Convierte tu disciplina en un reto con castigos reales.',
   },
   {
     icon: 'calendar-check-outline',
-    title: 'Cada dia cuenta',
-    description: 'Haz check-in diario y manten visible si vas cumpliendo tu meta.',
+    title: 'Cada día cuenta',
+    description: 'Haz check-in diario y mantén visible si vas cumpliendo tu meta.',
   },
   {
     icon: 'gavel',
     title: 'Si fallas, ejecuta tu castigo',
-    description: 'Si no llegas al objetivo, asume las consecuencias. Tu decides el final.',
+    description: 'Si no llegas al objetivo, asume el castigo. Tú decides el final.',
   },
 ];
 

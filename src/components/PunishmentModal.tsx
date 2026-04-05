@@ -14,7 +14,7 @@ export function PunishmentModal({ visible, punishment, onClose }: Props) {
     <Modal animationType="slide" transparent visible={visible}>
       <View style={styles.overlay}>
         <View style={styles.sheet}>
-          <Text style={styles.eyebrow}>Consecuencia generada</Text>
+          <Text style={styles.eyebrow}>Castigo asignado</Text>
           <Text style={styles.title}>{punishment?.title ?? 'Sin castigo disponible'}</Text>
           <Text style={styles.description}>
             {punishment?.description ?? 'Configura un castigo para reforzar el sistema.'}

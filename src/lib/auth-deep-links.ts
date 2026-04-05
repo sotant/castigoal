@@ -34,18 +34,18 @@ function getRecoveryErrorMessage(params: URLSearchParams) {
   const rawError = `${errorCode ?? ''} ${errorDescription ?? params.get('error') ?? ''}`.trim().toLowerCase();
 
   if (!rawError) {
-    return 'El enlace de recuperacion no es valido o ha caducado. Solicita uno nuevo.';
+    return 'El enlace de recuperación no es válido o ha caducado. Solicita uno nuevo.';
   }
 
   if (rawError.includes('expired') || rawError.includes('otp_expired')) {
-    return 'El enlace de recuperacion ha caducado. Solicita un correo nuevo para continuar.';
+    return 'El enlace de recuperación ha caducado. Solicita un correo nuevo para continuar.';
   }
 
   if (rawError.includes('access denied') || rawError.includes('access_denied')) {
-    return 'No se pudo validar el enlace de recuperacion. Solicita uno nuevo.';
+    return 'No se pudo validar el enlace de recuperación. Solicita uno nuevo.';
   }
 
-  return 'El enlace de recuperacion no es valido o ha caducado. Solicita uno nuevo.';
+  return 'El enlace de recuperación no es válido o ha caducado. Solicita uno nuevo.';
 }
 
 export function buildPasswordRecoveryRedirectUrl() {

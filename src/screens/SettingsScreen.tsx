@@ -15,6 +15,8 @@ import { UserSettings } from '@/src/models/types';
 import { appRoutes } from '@/src/navigation/app-routes';
 import { resetAppTutorial } from '@/src/services/app-tutorial';
 import { requestNotificationPermissions } from '@/src/services/notifications';
+import { clearReminderScheduleUseCase } from '@/src/use-cases/settings-actions';
+import { clearLocalPersistence } from '@/src/services/progress-service';
 import { resetWelcomeOnboarding } from '@/src/services/welcome-onboarding';
 import { useAppStore } from '@/src/store/app-store';
 
@@ -30,8 +32,9 @@ const ACCOUNT_BUTTON_HEIGHT = 40;
 
 export function SettingsScreen() {
   const { deleteAccount, signOut, session } = useAuth();
-  const { retrySync, sessionState, settings, updateSettings } = useAppStore(
+  const { initializeApp, retrySync, sessionState, settings, updateSettings } = useAppStore(
     useShallow((state) => ({
+      initializeApp: state.initializeApp,
       retrySync: state.retrySync,
       sessionState: state.sessionState,
       settings: state.userSettings,
@@ -44,6 +47,7 @@ export function SettingsScreen() {
   const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
   const [notificationToggleBusyKey, setNotificationToggleBusyKey] = useState<NotificationToggleKey | null>(null);
   const [isPrivacySectionOpen, setIsPrivacySectionOpen] = useState(false);
+  const [isClearingLocalPersistence, setIsClearingLocalPersistence] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const tabBarHeight = useBottomTabBarHeight();
   const insets = useSafeAreaInsets();
@@ -105,8 +109,8 @@ export function SettingsScreen() {
           return;
         }
 
-        const granted = await requestNotificationPermissions();
-        await updateSettings({ [key]: granted } as Partial<UserSettings>);
+        await requestNotificationPermissions();
+        await updateSettings({ [key]: true } as Partial<UserSettings>);
       } catch (error) {
         Alert.alert('No se pudieron actualizar los recordatorios', getErrorMessage(error));
       } finally {
@@ -152,7 +156,7 @@ export function SettingsScreen() {
   const handleResetOnboarding = () => {
     Alert.alert(
       'Reset onboarding',
-      'Se borrara la bienvenida guardada en este dispositivo y se abrira de nuevo.',
+      'Se borrará la bienvenida guardada en este dispositivo y se abrirá de nuevo.',
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -170,7 +174,7 @@ export function SettingsScreen() {
   const handleResetTutorial = () => {
     Alert.alert(
       'Reset tutorial',
-      'Se borrara el tutorial guiado guardado en este dispositivo y volvera a mostrarse despues de la bienvenida.',
+      'Se borrará el tutorial guiado guardado en este dispositivo y volverá a mostrarse después de la bienvenida.',
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -178,6 +182,35 @@ export function SettingsScreen() {
           onPress: () => {
             void (async () => {
               await resetAppTutorial();
+            })();
+          },
+        },
+      ],
+    );
+  };
+
+  const handleClearLocalPersistence = () => {
+    Alert.alert(
+      'Vaciar persistencia local',
+      'Se borrar\u00e1n los datos guardados en este dispositivo, incluyendo progreso local, onboarding, tutorial y referencias de recordatorios. La sesi\u00f3n actual no se cerrar\u00e1.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Vaciar',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              try {
+                setIsClearingLocalPersistence(true);
+                await clearReminderScheduleUseCase();
+                await clearLocalPersistence();
+                await initializeApp();
+                Alert.alert('Persistencia local vaciada', 'Los datos locales de la app se han limpiado correctamente.');
+              } catch (error) {
+                Alert.alert('No se pudo vaciar la persistencia local', getErrorMessage(error));
+              } finally {
+                setIsClearingLocalPersistence(false);
+              }
             })();
           },
         },
@@ -261,7 +294,7 @@ export function SettingsScreen() {
               <Pressable
                 onPress={() => router.push({ pathname: appRoutes.auth, params: { returnTo: appRoutes.settings, mode: 'signin' } })}
                 style={styles.compactSecondaryButton}>
-                <Text style={styles.secondaryLabel}>Iniciar sesion</Text>
+                <Text style={styles.secondaryLabel}>Iniciar sesión</Text>
               </Pressable>
             </View>
           ) : (
@@ -286,14 +319,14 @@ export function SettingsScreen() {
                     setAccountAction('signout');
                     await signOut();
                   } catch (error) {
-                    Alert.alert('No se pudo cerrar sesion', error instanceof Error ? error.message : 'Error desconocido');
+                    Alert.alert('No se pudo cerrar sesión', error instanceof Error ? error.message : 'Error desconocido');
                   } finally {
                     setAccountAction(null);
                   }
                 }}
                 style={[styles.compactPrimaryButton, accountAction === 'signout' && styles.disabled]}>
                 <Text style={styles.compactPrimaryLabel}>
-                  {accountAction === 'signout' ? 'Cerrando sesion...' : 'Cerrar sesion'}
+                  {accountAction === 'signout' ? 'Cerrando sesión...' : 'Cerrar sesión'}
                 </Text>
               </Pressable>
             </View>
@@ -368,11 +401,19 @@ export function SettingsScreen() {
             <View style={styles.card}>
               <Text style={styles.sectionTitle}>Desarrollo</Text>
               <Text style={styles.helperText}>Utilidades para repetir la bienvenida y el tutorial durante pruebas y validaciones.</Text>
-              <Pressable onPress={handleResetOnboarding} style={styles.compactSecondaryButton}>
+              <Pressable disabled={isClearingLocalPersistence} onPress={handleResetOnboarding} style={[styles.compactSecondaryButton, isClearingLocalPersistence && styles.disabled]}>
                 <Text style={styles.secondaryLabel}>Reset onboarding</Text>
               </Pressable>
-              <Pressable onPress={handleResetTutorial} style={styles.compactSecondaryButton}>
+              <Pressable disabled={isClearingLocalPersistence} onPress={handleResetTutorial} style={[styles.compactSecondaryButton, isClearingLocalPersistence && styles.disabled]}>
                 <Text style={styles.secondaryLabel}>Reset tutorial</Text>
+              </Pressable>
+              <Pressable
+                disabled={isClearingLocalPersistence}
+                onPress={handleClearLocalPersistence}
+                style={[styles.compactDangerButton, isClearingLocalPersistence && styles.disabled]}>
+                <Text style={styles.dangerLabel}>
+                  {isClearingLocalPersistence ? 'Vaciando persistencia...' : 'Vaciar persistencia local'}
+                </Text>
               </Pressable>
             </View>
           ) : null}
@@ -393,12 +434,12 @@ export function SettingsScreen() {
               <>
                 <Text style={styles.helperText}>
                   {isAuthenticated
-                    ? 'Revisa la politica de privacidad o elimina tu cuenta.'
-                    : 'Revisa la politica de privacidad.'}
+                    ? 'Revisa la política de privacidad o elimina tu cuenta.'
+                    : 'Revisa la política de privacidad.'}
                 </Text>
 
                 <Pressable onPress={() => router.push(appRoutes.privacy)} style={styles.compactSectionPrimaryButton}>
-                  <Text style={styles.primaryLabel}>Ver politica de privacidad</Text>
+                  <Text style={styles.primaryLabel}>Ver política de privacidad</Text>
                 </Pressable>
 
                 {isAuthenticated ? (

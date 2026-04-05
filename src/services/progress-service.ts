@@ -2,6 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import {
   defaultPunishments,
+  findCanonicalBasePunishment,
+  getBasePunishmentCanonicalKey,
   getPunishmentCategoryName,
   isPunishmentCategoryName,
   normalizePunishmentCategoryId,
@@ -215,6 +217,10 @@ async function readJson<T>(key: string): Promise<T | null> {
 
 async function writeJson(key: string, value: unknown) {
   await AsyncStorage.setItem(key, JSON.stringify(value));
+}
+
+function isCastigoalStorageKey(key: string) {
+  return key.startsWith('castigoal.');
 }
 
 function buildGoalResolutionSeenKey(actorId: string) {
@@ -443,6 +449,14 @@ async function loadContainer(mode: SessionMode, actorId: string) {
     }
   }
 
+  if (reconcileBasePunishmentCatalog(mutableContainer)) {
+    changed = true;
+  }
+
+  if (reconcileBrokenPunishmentReferences(mutableContainer)) {
+    changed = true;
+  }
+
   if (changed) {
     await writeJson(key, mutableContainer);
   }
@@ -467,6 +481,13 @@ function createSyncRecord<T>(data: T, state: EntitySyncState, sourceGuestId?: st
   };
 }
 
+function preserveRecord<T>(record: SyncRecord<T>, nextData: T): SyncRecord<T> {
+  return {
+    data: nextData,
+    meta: record.meta,
+  };
+}
+
 function touchRecord<T>(record: SyncRecord<T>, nextData: T, sourceGuestId?: string): SyncRecord<T> {
   return {
     data: nextData,
@@ -477,6 +498,175 @@ function touchRecord<T>(record: SyncRecord<T>, nextData: T, sourceGuestId?: stri
       state: 'pending_upsert',
     },
   };
+}
+
+function reconcileBrokenPunishmentReferences(container: LocalContainer) {
+  const punishmentIds = new Set(Object.keys(container.records.punishments));
+  let changed = false;
+
+  for (const [assignedId, record] of Object.entries(container.records.assignedPunishments)) {
+    if (punishmentIds.has(record.data.punishmentId)) {
+      continue;
+    }
+
+    delete container.records.assignedPunishments[assignedId];
+    changed = true;
+  }
+
+  const remainingAssignedIds = new Set(Object.keys(container.records.assignedPunishments));
+
+  for (const [outcomeId, record] of Object.entries(container.records.goalOutcomes)) {
+    if (!record.data.assignedPunishmentId || remainingAssignedIds.has(record.data.assignedPunishmentId)) {
+      continue;
+    }
+
+    container.records.goalOutcomes[outcomeId] = touchRecord(record, {
+      ...record.data,
+      assignedPunishmentId: undefined,
+    });
+    changed = true;
+  }
+
+  for (const [historyId, record] of Object.entries(container.records.punishmentHistory)) {
+    const assignedPunishmentId = record.data.assignedPunishmentId;
+    const punishmentId = record.data.punishmentId;
+    const shouldClearAssignedId = assignedPunishmentId ? !remainingAssignedIds.has(assignedPunishmentId) : false;
+    const shouldClearPunishmentId = punishmentId ? !punishmentIds.has(punishmentId) : false;
+
+    if (!shouldClearAssignedId && !shouldClearPunishmentId) {
+      continue;
+    }
+
+    container.records.punishmentHistory[historyId] = touchRecord(record, {
+      ...record.data,
+      assignedPunishmentId: shouldClearAssignedId ? undefined : assignedPunishmentId,
+      punishmentId: shouldClearPunishmentId ? undefined : punishmentId,
+    });
+    changed = true;
+  }
+
+  return changed;
+}
+
+function rewriteBasePunishmentReferences(container: LocalContainer, previousPunishmentId: string, nextPunishment: Punishment) {
+  let changed = false;
+  const guestSourceId = container.actorType === 'guest' ? container.guestId : undefined;
+
+  for (const [assignedId, record] of Object.entries(container.records.assignedPunishments)) {
+    if (record.data.punishmentId !== previousPunishmentId) {
+      continue;
+    }
+
+    container.records.assignedPunishments[assignedId] = touchRecord(
+      record,
+      {
+        ...record.data,
+        punishmentId: nextPunishment.id,
+      },
+      guestSourceId,
+    );
+    changed = true;
+  }
+
+  for (const [historyId, record] of Object.entries(container.records.punishmentHistory)) {
+    if (record.data.punishmentId !== previousPunishmentId) {
+      continue;
+    }
+
+    container.records.punishmentHistory[historyId] = touchRecord(
+      record,
+      {
+        ...record.data,
+        punishmentDescription: nextPunishment.description,
+        punishmentId: nextPunishment.id,
+        punishmentTitle: nextPunishment.title,
+      },
+      guestSourceId,
+    );
+    changed = true;
+  }
+
+  return changed;
+}
+
+function reconcileBasePunishmentCatalog(container: LocalContainer) {
+  let changed = false;
+  const remoteBasePunishmentsByKey = new Map<string, Punishment>();
+
+  for (const [punishmentId, record] of Object.entries(container.records.punishments)) {
+    const punishment = record.data;
+
+    if (punishment.scope !== 'base') {
+      continue;
+    }
+
+    const canonicalPunishment = findCanonicalBasePunishment(
+      punishment.title,
+      punishment.categoryName,
+      punishment.difficulty,
+    );
+
+    if (canonicalPunishment) {
+      const nextPunishment: Punishment = {
+        ...punishment,
+        categoryId: canonicalPunishment.categoryId,
+        categoryName: canonicalPunishment.categoryName,
+        description: canonicalPunishment.description,
+        difficulty: canonicalPunishment.difficulty,
+        title: canonicalPunishment.title,
+      };
+
+      if (
+        punishment.title !== nextPunishment.title ||
+        punishment.description !== nextPunishment.description ||
+        punishment.categoryId !== nextPunishment.categoryId ||
+        punishment.categoryName !== nextPunishment.categoryName
+      ) {
+        container.records.punishments[punishmentId] = preserveRecord(record, nextPunishment);
+        changed = true;
+      }
+    }
+
+    const currentPunishment = container.records.punishments[punishmentId]?.data;
+
+    if (!currentPunishment || punishmentId.startsWith('punish-')) {
+      continue;
+    }
+
+    remoteBasePunishmentsByKey.set(
+      getBasePunishmentCanonicalKey(
+        currentPunishment.title,
+        currentPunishment.categoryName,
+        currentPunishment.difficulty,
+      ),
+      currentPunishment,
+    );
+  }
+
+  for (const [punishmentId, record] of Object.entries(container.records.punishments)) {
+    const punishment = record.data;
+
+    if (punishment.scope !== 'base' || !punishmentId.startsWith('punish-')) {
+      continue;
+    }
+
+    const remoteBasePunishment = remoteBasePunishmentsByKey.get(
+      getBasePunishmentCanonicalKey(punishment.title, punishment.categoryName, punishment.difficulty),
+    );
+
+    if (!remoteBasePunishment || remoteBasePunishment.id === punishmentId) {
+      continue;
+    }
+
+    if (rewriteBasePunishmentReferences(container, punishmentId, remoteBasePunishment)) {
+      changed = true;
+    }
+
+    delete container.records.punishments[punishmentId];
+    changed = true;
+  }
+
+  return changed;
 }
 
 function markSynced<T>(record: SyncRecord<T>): SyncRecord<T> {
@@ -778,16 +968,16 @@ function buildGoalDetailSummary(
         : goal.resolutionStatus === 'failed'
           ? outcome?.assignedPunishmentId
             ? 'Objetivo finalizado y fallado. Tiene un castigo pendiente.'
-            : 'Objetivo finalizado y fallado. No habia castigos elegibles.'
+            : 'Objetivo finalizado y fallado. No había castigos elegibles.'
           : 'Objetivo finalizado y pendiente de resolucion.'
       : daysUntilStart > 0
         ? daysUntilStart === 1
-          ? 'Empieza manana.'
-          : `Empieza en ${daysUntilStart} dias.`
+          ? 'Empieza mañana.'
+          : `Empieza en ${daysUntilStart} días.`
         : remainingDays > 0
           ? remainingDays === 1
-            ? 'Queda 1 dia para cerrar el plazo.'
-            : `Quedan ${remainingDays} dias para cerrar el plazo.`
+            ? 'Queda 1 día para cerrar el plazo.'
+            : `Quedan ${remainingDays} días para cerrar el plazo.`
           : 'El plazo configurado ya ha terminado.',
   };
 }
@@ -1168,6 +1358,48 @@ type RemoteSnapshot = {
   settings: SyncRecord<UserSettings> | null;
 };
 
+function pruneRecordsMissingFromRemote<T>(
+  localRecords: Record<string, SyncRecord<T>>,
+  remoteRecords: Record<string, SyncRecord<T>>,
+  shouldRemove?: (record: SyncRecord<T>) => boolean,
+) {
+  const remoteIds = new Set(Object.keys(remoteRecords));
+  let changed = false;
+
+  for (const [id, record] of Object.entries(localRecords)) {
+    if (record.meta.state === 'pending_upsert' || remoteIds.has(id)) {
+      continue;
+    }
+
+    if (shouldRemove && !shouldRemove(record)) {
+      continue;
+    }
+
+    delete localRecords[id];
+    changed = true;
+  }
+
+  return changed;
+}
+
+function pruneMissingRemoteSnapshotRecords(container: LocalContainer, remote: RemoteSnapshot) {
+  let changed = false;
+
+  changed = pruneRecordsMissingFromRemote(container.records.goals, remote.goals) || changed;
+  changed = pruneRecordsMissingFromRemote(container.records.checkins, remote.checkins) || changed;
+  changed = pruneRecordsMissingFromRemote(container.records.assignedPunishments, remote.assignedPunishments) || changed;
+  changed = pruneRecordsMissingFromRemote(container.records.goalOutcomes, remote.goalOutcomes) || changed;
+  changed = pruneRecordsMissingFromRemote(container.records.punishmentHistory, remote.punishmentHistory) || changed;
+  changed =
+    pruneRecordsMissingFromRemote(
+      container.records.punishments,
+      remote.punishments,
+      (record) => record.data.scope === 'personal',
+    ) || changed;
+
+  return changed;
+}
+
 function mapGoalRow(
   row: Tables<'goals'>,
   categoryNameById: Record<string, Punishment['categoryName']>,
@@ -1310,7 +1542,7 @@ async function resolveCategoryId(categoryId: string, categoryName: Punishment['c
   const resolvedByName = categoryMap[categoryName];
 
   if (!resolvedByName) {
-    throw new Error(`No se pudo resolver la categoria ${categoryName}.`);
+    throw new Error(`No se pudo resolver la categoría ${categoryName}.`);
   }
 
   if (categoryId !== resolvedByName) {
@@ -1361,7 +1593,7 @@ async function resolveGoalCategoryIds(categoryNames: Goal['punishmentConfig']['c
     const categoryId = categoryMap[categoryName];
 
     if (!categoryId) {
-      throw new Error(`No se pudo resolver la categoria ${categoryName}.`);
+      throw new Error(`No se pudo resolver la categoría ${categoryName}.`);
     }
 
     return categoryId;
@@ -1379,11 +1611,20 @@ async function resolveAssignedPunishmentWritePunishmentId(container: LocalContai
     return linkedPunishment.id;
   }
 
+  const canonicalBasePunishment = findCanonicalBasePunishment(
+    linkedPunishment.title,
+    linkedPunishment.categoryName,
+    linkedPunishment.difficulty,
+  );
+  const remoteTitle = canonicalBasePunishment?.title ?? linkedPunishment.title;
+  const remoteDifficulty = canonicalBasePunishment?.difficulty ?? linkedPunishment.difficulty;
+
   const { data, error } = await supabase
     .from('punishments')
     .select('id')
     .is('owner_id', null)
-    .eq('title', linkedPunishment.title)
+    .eq('title', remoteTitle)
+    .eq('difficulty', remoteDifficulty)
     .maybeSingle();
 
   if (error) {
@@ -1563,7 +1804,13 @@ async function deleteRemoteRecords(container: LocalContainer) {
     deletions.push(supabase.from('punishments').delete().eq('owner_id', userId).in('id', deletedPunishments));
   }
 
-  await Promise.all(deletions);
+  const results = await Promise.all(deletions);
+  const failedDeletion = results.find((result) => result?.error);
+
+  if (failedDeletion?.error) {
+    throw failedDeletion.error;
+  }
+
   container.deleted = createEmptyDeletedBucket();
 }
 
@@ -1631,6 +1878,40 @@ async function pushPendingRecords(container: LocalContainer) {
     if (error) throw error;
     for (const record of checkins) {
       container.records.checkins[record.data.id] = markSynced(record);
+    }
+  }
+
+  const punishments = Object.values(container.records.punishments).filter(
+    (record) => record.meta.state === 'pending_upsert' && record.data.scope === 'personal',
+  );
+  if (punishments.length) {
+    const resolvedCategoryIds = await Promise.all(
+      punishments.map((record) => resolveCategoryId(record.data.categoryId, record.data.categoryName)),
+    );
+    const payload = punishments.map((record, index) => ({
+      category: resolvedCategoryIds[index],
+      description: record.data.description,
+      difficulty: record.data.difficulty,
+      id: record.data.id,
+      is_custom: true,
+      origin_device_id: deviceId,
+      owner_id: userId,
+      source_guest_id: record.meta.sourceGuestId ?? null,
+      title: record.data.title,
+    }));
+    const payloadWithoutMetadata = punishments.map((record, index) => ({
+      category: resolvedCategoryIds[index],
+      description: record.data.description,
+      difficulty: record.data.difficulty,
+      id: record.data.id,
+      is_custom: true,
+      owner_id: userId,
+      title: record.data.title,
+    }));
+    const { error } = await upsertWithSyncMetadataFallback('punishments', payload, payloadWithoutMetadata, 'id');
+    if (error) throw error;
+    for (const record of punishments) {
+      container.records.punishments[record.data.id] = markSynced(record);
     }
   }
 
@@ -1725,40 +2006,6 @@ async function pushPendingRecords(container: LocalContainer) {
     }
   }
 
-  const punishments = Object.values(container.records.punishments).filter(
-    (record) => record.meta.state === 'pending_upsert' && record.data.scope === 'personal',
-  );
-  if (punishments.length) {
-    const resolvedCategoryIds = await Promise.all(
-      punishments.map((record) => resolveCategoryId(record.data.categoryId, record.data.categoryName)),
-    );
-    const payload = punishments.map((record, index) => ({
-      category: resolvedCategoryIds[index],
-      description: record.data.description,
-      difficulty: record.data.difficulty,
-      id: record.data.id,
-      is_custom: true,
-      origin_device_id: deviceId,
-      owner_id: userId,
-      source_guest_id: record.meta.sourceGuestId ?? null,
-      title: record.data.title,
-    }));
-    const payloadWithoutMetadata = punishments.map((record, index) => ({
-      category: resolvedCategoryIds[index],
-      description: record.data.description,
-      difficulty: record.data.difficulty,
-      id: record.data.id,
-      is_custom: true,
-      owner_id: userId,
-      title: record.data.title,
-    }));
-    const { error } = await upsertWithSyncMetadataFallback('punishments', payload, payloadWithoutMetadata, 'id');
-    if (error) throw error;
-    for (const record of punishments) {
-      container.records.punishments[record.data.id] = markSynced(record);
-    }
-  }
-
   const history = Object.values(container.records.punishmentHistory).filter((record) => record.meta.state === 'pending_upsert');
   if (history.length) {
     const payload = history.map((record) => ({
@@ -1830,6 +2077,8 @@ async function syncAuthenticatedContainer(container: LocalContainer) {
     return container;
   }
 
+  reconcileBrokenPunishmentReferences(container);
+
   setSyncStatus(container, 'syncing');
   await saveContainer(container);
 
@@ -1837,7 +2086,10 @@ async function syncAuthenticatedContainer(container: LocalContainer) {
     await deleteRemoteRecords(container);
     await pushPendingRecords(container);
     const remote = await fetchRemoteSnapshot(container.actorId);
+    pruneMissingRemoteSnapshotRecords(container, remote);
     mergeRemoteSnapshot(container, remote);
+    reconcileBasePunishmentCatalog(container);
+    reconcileBrokenPunishmentReferences(container);
     container.sync.errorMessage = undefined;
     container.sync.lastSuccessAt = nowIso();
     container.sync.migrationPending = false;
@@ -2473,6 +2725,17 @@ export async function updateCustomPunishmentRecord(punishmentId: string, input: 
 
 export async function deleteCustomPunishmentRecord(punishmentId: string) {
   return withActiveContainer(async (container) => {
+    const isReferencedByAssignedPunishment = Object.values(container.records.assignedPunishments).some(
+      (record) => record.data.punishmentId === punishmentId,
+    );
+    const isReferencedByHistory = Object.values(container.records.punishmentHistory).some(
+      (record) => record.data.punishmentId === punishmentId,
+    );
+
+    if (isReferencedByAssignedPunishment || isReferencedByHistory) {
+      throw new Error('No se puede borrar un castigo personalizado que ya est\u00e1 asignado o completado.');
+    }
+
     delete container.records.punishments[punishmentId];
     setDeleted(container, 'punishments', punishmentId);
   });
@@ -2529,4 +2792,15 @@ export async function resetUserData() {
     next.records.userSettings = createSyncRecord(defaultSettings, container.actorType === 'authenticated' ? 'pending_upsert' : 'synced');
     Object.assign(container, next);
   });
+}
+
+export async function clearLocalPersistence() {
+  const keys = await AsyncStorage.getAllKeys();
+  const castigoalKeys = keys.filter(isCastigoalStorageKey);
+
+  if (castigoalKeys.length === 0) {
+    return;
+  }
+
+  await AsyncStorage.multiRemove(castigoalKeys);
 }

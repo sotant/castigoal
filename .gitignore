@@ -71,3 +71,12 @@ logs/
 *.apk
 *.aab
 *.ipa
+
+# Local browser/audit artifacts
+.chrome-audit/
+.chrome-audit-*/
+.edge-cdp/
+.edge-headless-shot/
+audit-artifacts/
+audit-artifacts-*/
+audit-home-edge.png

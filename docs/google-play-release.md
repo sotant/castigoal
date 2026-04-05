@@ -34,14 +34,14 @@ Antes del primer envio:
 Prepara estos materiales:
 
 - Nombre visible final de la app.
-- Descripcion corta y descripcion completa.
-- Categoria.
+- Descripción corta y descripción completa.
+- Categoría.
 - Email de soporte.
 - Icono de alta resolucion.
-- Capturas de pantalla de movil.
+- Capturas de pantalla de móvil.
 - Banner grafico si Google Play lo solicita para tu ficha.
 
-## 4. Politica de privacidad
+## 4. Política de privacidad
 
 Play Store te pedira una URL publica. El repo ya incluye:
 
