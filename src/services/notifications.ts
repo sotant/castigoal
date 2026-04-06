@@ -35,8 +35,11 @@ function isExpoGo() {
   return Constants.executionEnvironment === 'storeClient';
 }
 
-function buildReminderKey(settings: UserSettings) {
-  return JSON.stringify(settings);
+function buildReminderKey(settings: UserSettings, hasPendingPunishments: boolean) {
+  return JSON.stringify({
+    hasPendingPunishments,
+    settings,
+  });
 }
 
 function buildGoalResolutionKey(goals: Goal[], settings: UserSettings) {
@@ -53,8 +56,8 @@ function buildGoalResolutionKey(goals: Goal[], settings: UserSettings) {
   });
 }
 
-function hasAnyScheduledReminderEnabled(settings: UserSettings) {
-  return settings.remindersEnabled || settings.pendingPunishmentReminderEnabled;
+function hasAnyScheduledReminderEnabled(settings: UserSettings, hasPendingPunishments: boolean) {
+  return settings.remindersEnabled || (settings.pendingPunishmentReminderEnabled && hasPendingPunishments);
 }
 
 function buildNotificationData(kind: string) {
@@ -259,9 +262,13 @@ export async function clearGoalResolutionSchedules() {
   });
 }
 
-export async function syncReminderSchedule(settings: UserSettings, permissionsGranted?: boolean) {
+export async function syncReminderSchedule(
+  settings: UserSettings,
+  hasPendingPunishments: boolean,
+  permissionsGranted?: boolean,
+) {
   await runExclusiveNotificationMutation(async () => {
-    const reminderKey = buildReminderKey(settings);
+    const reminderKey = buildReminderKey(settings, hasPendingPunishments);
 
     if (appliedReminderKey === reminderKey) {
       return;
@@ -282,7 +289,7 @@ export async function syncReminderSchedule(settings: UserSettings, permissionsGr
     await cancelScheduledNotifications(uniqueIdentifiers(existingIds, managedIds));
     await writeGeneralNotificationIds([]);
 
-    if (!hasAnyScheduledReminderEnabled(settings)) {
+    if (!hasAnyScheduledReminderEnabled(settings, hasPendingPunishments)) {
       appliedReminderKey = reminderKey;
       return;
     }
@@ -313,7 +320,7 @@ export async function syncReminderSchedule(settings: UserSettings, permissionsGr
       );
     }
 
-    if (settings.pendingPunishmentReminderEnabled) {
+    if (settings.pendingPunishmentReminderEnabled && hasPendingPunishments) {
       ids.push(
         await Notifications.scheduleNotificationAsync({
           content: {

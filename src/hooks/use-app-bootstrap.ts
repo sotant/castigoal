@@ -9,11 +9,12 @@ import { clearReminderScheduleUseCase, syncPersistedReminderSettingsUseCase } fr
 export function useAppBootstrap() {
   const { session } = useAuth();
   const userId = session?.user?.id;
-  const { goals, hydrated, initializeApp, settings } = useAppStore(
+  const { goals, hydrated, initializeApp, pendingPunishmentsCount, settings } = useAppStore(
     useShallow((state) => ({
       goals: state.goals,
       hydrated: state.hydrated,
       initializeApp: state.initializeApp,
+      pendingPunishmentsCount: state.homeSummary.pendingPunishmentsCount,
       settings: state.userSettings,
     })),
   );
@@ -39,8 +40,8 @@ export function useAppBootstrap() {
       return;
     }
 
-    void syncPersistedReminderSettingsUseCase(settings, goals);
-  }, [goals, hydrated, settings]);
+    void syncPersistedReminderSettingsUseCase(settings, goals, pendingPunishmentsCount > 0);
+  }, [goals, hydrated, pendingPunishmentsCount, settings]);
 
   useEffect(() => {
     return () => {
