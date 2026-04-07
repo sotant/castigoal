@@ -130,6 +130,26 @@ export function GoalDetailScreen({ goal }: Props) {
     return new Date(year, month - 1, 1);
   }, [monthOffset]);
   const monthStart = useMemo(() => getMonthStart(monthDate), [monthDate]);
+  const eligiblePunishments = useMemo(() => {
+    if (!goal) {
+      return [];
+    }
+
+    const sourcePunishments =
+      goal.punishmentConfig.scope === 'base'
+        ? basePunishments
+        : goal.punishmentConfig.scope === 'personal'
+          ? personalPunishments
+          : [...basePunishments, ...personalPunishments];
+
+    return sourcePunishments.filter((punishment) => {
+      if (goal.punishmentConfig.categoryMode === 'all') {
+        return true;
+      }
+
+      return goal.punishmentConfig.categoryNames.includes(punishment.categoryName);
+    });
+  }, [basePunishments, goal, personalPunishments]);
   const loadedCalendarDays = useAppStore(selectStatsCalendar(goal?.id ?? '', monthStart));
 
   useEffect(() => {
@@ -205,22 +225,6 @@ export function GoalDetailScreen({ goal }: Props) {
   const monthLabel = formatCalendarMonthLabel(monthDate);
   const progressTone = isResolvedFailed ? palette.danger : isResolvedPassed ? palette.success : palette.primary;
   const durationDays = diffInDays(goal.startDate, viewModel.deadline) + 1;
-  const eligiblePunishments = useMemo(() => {
-    const sourcePunishments =
-      goal.punishmentConfig.scope === 'base'
-        ? basePunishments
-        : goal.punishmentConfig.scope === 'personal'
-          ? personalPunishments
-          : [...basePunishments, ...personalPunishments];
-
-    return sourcePunishments.filter((punishment) => {
-      if (goal.punishmentConfig.categoryMode === 'all') {
-        return true;
-      }
-
-      return goal.punishmentConfig.categoryNames.includes(punishment.categoryName);
-    });
-  }, [basePunishments, goal.punishmentConfig, personalPunishments]);
   const progressHint = isResolvedPassed
     ? 'Objetivo aprobado. El ciclo ya quedo resuelto.'
     : isResolvedFailed

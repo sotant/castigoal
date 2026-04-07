@@ -13,7 +13,7 @@
     },
     "android": {
       "package": "com.castigoal.app",
-      "versionCode": 5,
+      "versionCode": 6,
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",
