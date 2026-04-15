@@ -1,127 +1,124 @@
 # Castigoal
 
-App movil de disciplina personal construida con React Native, Expo y TypeScript. El MVP permite crear objetivos, registrar check-ins diarios, evaluar cumplimiento sobre una ventana de dias objetivo y asignar castigos aleatorios cuando el usuario cae por debajo del minimo definido.
+Castigoal es una aplicacion de disciplina personal desarrollada con Expo y React Native. Su proposito es ayudar al usuario a definir objetivos, registrar su avance diario, medir el cumplimiento dentro de una ventana de tiempo y aplicar castigos cuando no se alcanza el minimo configurado.
 
-## Stack
+El proyecto esta planteado con un enfoque `local-first`, por lo que la app puede funcionar en modo invitado desde el dispositivo y sincronizarse despues con Supabase cuando el usuario crea una cuenta o inicia sesion.
 
-- Expo Router sobre React Navigation
-- React Native + TypeScript estricto
-- Zustand para estado global
-- AsyncStorage para cache auxiliar local
-- Supabase Auth + Postgres para autenticacion y backend remoto
-- Expo Notifications para recordatorios diarios
-- Expo Secure Store para persistencia segura de sesion
+## Descripcion general del proyecto
 
-## Arquitectura
+La aplicacion gira alrededor de cinco bloques funcionales:
+
+- creacion y seguimiento de objetivos personales;
+- registro de check-ins diarios como completado o fallado;
+- evaluacion automatica del progreso segun dias objetivo y porcentaje minimo de exito;
+- asignacion y gestion de castigos pendientes;
+- sincronizacion de datos, onboarding, autenticacion y ajustes del usuario.
+
+Castigoal no es solo una app CRUD. Tambien incorpora reglas de negocio para calcular progreso, rachas, periodos de evaluacion, resultados de objetivos y recordatorios locales.
+
+## Stack tecnologico utilizado
+
+### Frontend y aplicacion movil
+
+- `Expo 54`
+- `React 19`
+- `React Native 0.81`
+- `TypeScript 5`
+- `Expo Router` para rutas y navegacion
+- `React Navigation` para la navegacion por tabs y stacks
+
+### Estado, almacenamiento y experiencia local
+
+- `Zustand` para estado global y orquestacion
+- `AsyncStorage` para persistencia local
+- `Expo Secure Store` para almacenamiento seguro
+- `Expo Notifications` para recordatorios locales
+
+### Backend y servicios
+
+- `Supabase Auth` para autenticacion
+- `Supabase Postgres` como backend de datos
+- `Supabase Edge Functions` para operaciones como borrado de cuenta
+- `SQL migrations` dentro de `supabase/migrations`
+
+### Calidad y tooling
+
+- `Jest` y `jest-expo` para tests
+- `ESLint` con `eslint-config-expo`
+- `EAS Build / EAS Submit` para builds y distribucion Android
+
+## Estructura del proyecto
+
+La organizacion principal del repositorio es la siguiente:
 
 ```text
-app
-  (tabs)
-  checkin
-  goals
-  punishments
-src
-  components
-  constants
-  features
-  hooks
-  lib
-  models
-  navigation
-  providers
-  screens
-  services
-  store
-  utils
-supabase
-  functions
-  migrations
+app/
+  (tabs)/
+  goals/
+  punishments/
+  _layout.tsx
+  auth.tsx
+  onboarding.tsx
+  privacy.tsx
+  reset-password.tsx
+
+src/
+  components/
+  config/
+  constants/
+  contracts/
+  features/
+  hooks/
+  lib/
+  models/
+  navigation/
+  providers/
+  repositories/
+  screens/
+  services/
+  store/
+  types/
+  use-cases/
+  utils/
+
+supabase/
+  functions/
+  migrations/
+
+__tests__/
+android/
+assets/
+docs/
+legal-site/
+scripts/
 ```
 
-### Capas
+### Que contiene cada bloque
 
 - `app/`: rutas y composicion de navegacion con Expo Router.
-- `src/screens/`: pantallas sin logica de persistencia.
-- `src/components/`: piezas UI reutilizables.
-- `src/store/`: estado global y acciones del dominio.
-- `src/lib/`: cliente y tipos de Supabase.
-- `src/providers/`: contexto de autenticacion.
-- `src/utils/`: reglas de negocio y helpers puros.
-- `src/services/`: adaptadores de almacenamiento y notificaciones.
-- `supabase/functions/`: funciones seguras del lado servidor.
+- `src/screens/`: pantallas principales de la aplicacion.
+- `src/components/`: componentes reutilizables de interfaz.
+- `src/store/`: estado global con Zustand.
+- `src/use-cases/`: acciones de aplicacion orientadas al dominio.
+- `src/services/`: persistencia local, notificaciones, tutorial y orquestacion operativa.
+- `src/repositories/`: acceso a servicios remotos y backend.
+- `src/utils/`: reglas de negocio puras y helpers reutilizables.
+- `src/models/` y `src/contracts/`: tipos del dominio y modelos derivados para la UI.
+- `supabase/`: backend, migraciones y funciones de servidor.
+- `__tests__/`: pruebas unitarias y de logica funcional.
+- `legal-site/`: paginas estaticas relacionadas con privacidad y borrado de cuenta.
 
-## Modelos principales
+## Funcionalidades principales
 
-- `User`
-- `Goal`
-- `Checkin`
-- `Punishment`
-- `AssignedPunishment`
-- `UserSettings`
-
-Se definen en [src/models/types.ts](./src/models/types.ts).
-
-## Flujo del producto
-
-1. Onboarding rapido.
-2. Crear objetivo con dias objetivo y minimo requerido.
-3. Hacer check-in diario.
-4. Evaluar cumplimiento sobre la ventana actual.
-5. Si el porcentaje cae por debajo del minimo, asignar castigo aleatorio.
-6. Completar castigo y revisar estadisticas e historial.
-
-## Funciones clave de negocio
-
-Se implementan en [src/utils/goal-evaluation.ts](./src/utils/goal-evaluation.ts):
-
-- `calculateCompletionRate`
-- `getGoalCheckins`
-- `evaluateGoalPeriod`
-- `generateRandomPunishment`
-- `assignPunishment`
-- `completePunishment`
-- `getCurrentStreak`
-- `getBestStreak`
-
-## Ejecutar el proyecto
-
-```bash
-npm install
-npx expo start
-```
-
-Atajos:
-
-- `npm run android`
-- `npm run ios`
-- `npm run web`
-- `npm run build:android:preview`
-- `npm run build:android`
-
-## Notas del MVP
-
-- La evaluacion usa una ventana movil de `targetDays`, respetando la `startDate` del objetivo.
-- La autenticacion por email/password ya esta preparada con Supabase.
-- La base remota de Supabase ya incluye `profiles`, `user_settings`, `goals`, `checkins`, `punishments`, `assigned_punishments` y `goal_period_outcomes` con RLS.
-- El estado de dominio se hidrata desde Supabase y Zustand actua como cache y capa de UI.
-- Las notificaciones se programan al hidratar el store y al cambiar ajustes.
-- La app incluye una ruta publica `/privacy` y un flujo de eliminacion completa de cuenta.
-
-## Publicacion Android
-
-- `app.json` incluye `android.package` y `versionCode`.
-- `eas.json` incluye perfiles `preview` y `production`.
-- Existe una Edge Function `delete-account` para cumplir el borrado de cuenta exigido por Google Play.
-- La politica de privacidad base vive en `docs/privacy-policy.md` y la app expone una ruta `app/privacy.tsx`.
-
-Guia operativa:
-
-- `docs/google-play-release.md`
-
-## Siguientes pasos recomendados
-
-1. Publicar la politica de privacidad en una URL publica real.
-2. Configurar `EXPO_PUBLIC_SUPABASE_URL` y `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` en EAS.
-3. Desplegar la Edge Function `delete-account` en Supabase.
-4. Anadir deep linking para recuperacion de password y verificacion de email si quieres una experiencia movil completa.
-5. Incorporar tests unitarios para `goal-evaluation` y tests de pantalla.
+- Gestion de objetivos personales con creacion, edicion y seguimiento.
+- Registro diario del estado de cada objetivo como completado o fallado.
+- Calculo automatico de progreso, dias cumplidos, dias requeridos y rachas.
+- Evaluacion del cumplimiento dentro de una ventana temporal configurada.
+- Asignacion de castigos cuando el objetivo no alcanza el minimo esperado.
+- Historial y seguimiento de castigos pendientes o completados.
+- Modo invitado con persistencia local desde el primer uso.
+- Registro e inicio de sesion para sincronizar datos con Supabase.
+- Recordatorios locales configurables desde ajustes.
+- Onboarding inicial y tutorial guiado dentro de la app.
+- Envio de sugerencias y reporte de errores desde la propia interfaz.
+- Politica de privacidad y flujo de eliminacion de cuenta.
