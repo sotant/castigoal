@@ -122,3 +122,10 @@ scripts/
 - Onboarding inicial y tutorial guiado dentro de la app.
 - Envio de sugerencias y reporte de errores desde la propia interfaz.
 - Politica de privacidad y flujo de eliminacion de cuenta.
+
+## Instalación
+
+La aplicación está publicada únicamente para Android en el Play Store. Descárgala buscando "Castigoal" en la tienda o accede a través de este enlace: https://play.google.com/store/apps/details?id=com.castigoal.app
+
+También puedes descargarla escaneando el siguiente código QR.
+![Código QR](assets/castigoal-qr.png)
